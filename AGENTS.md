@@ -88,7 +88,10 @@ pnpm --dir frontend_desktop exec tsc --noEmit
 # 6. Build Desktop Frontend Production Bundle
 pnpm --dir frontend_desktop run build
 
-# 7. One-Click Application Launcher (Backend + Electron Desktop)
+# 7. Native Executable Launcher (Zero Terminal Popup)
+.\MedVault.exe
+
+# 8. Terminal Launcher with Live Logs (Developer Mode)
 .\run_app.bat
 ```
 

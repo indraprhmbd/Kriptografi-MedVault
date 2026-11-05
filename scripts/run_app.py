@@ -14,6 +14,16 @@ import urllib.error
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# Redirect stdout/stderr when running without a console (e.g. pythonw.exe / MedVault.exe)
+if sys.stdout is None or not hasattr(sys.stdout, "write"):
+    orchestrator_log = PROJECT_ROOT / "storage" / "orchestrator.log"
+    orchestrator_log.parent.mkdir(parents=True, exist_ok=True)
+    sys.stdout = open(orchestrator_log, "a", encoding="utf-8")
+if sys.stderr is None or not hasattr(sys.stderr, "write"):
+    orchestrator_log = PROJECT_ROOT / "storage" / "orchestrator.log"
+    orchestrator_log.parent.mkdir(parents=True, exist_ok=True)
+    sys.stderr = open(orchestrator_log, "a", encoding="utf-8")
+
 from backend.config import settings
 from backend.database import init_database
 
@@ -58,12 +68,15 @@ def main() -> None:
     log_file.parent.mkdir(parents=True, exist_ok=True)
     backend_log_handle = open(log_file, "a", encoding="utf-8")
 
+    creation_flags = 0x08000000 if sys.platform == "win32" else 0
+
     backend_proc = subprocess.Popen(
         backend_cmd,
         cwd=str(PROJECT_ROOT),
         stdout=backend_log_handle,
         stderr=subprocess.STDOUT,
         text=True,
+        creationflags=creation_flags,
     )
 
     # Wait for backend health check to respond OK
@@ -120,14 +133,15 @@ def main() -> None:
     # 4. Launch Electron Desktop Frontend
     print("\n[3/3] Membuka jendela desktop Electron...")
 
-    # Use npx electron or pnpm electron
-    electron_cmd = ["npx.cmd", "electron", "."]
+    electron_local = frontend_dir / "node_modules" / ".bin" / "electron.cmd"
+    electron_cmd = [str(electron_local), "."] if electron_local.is_file() else ["npx.cmd", "electron", "."]
 
     try:
         electron_proc = subprocess.Popen(
             electron_cmd,
             cwd=str(frontend_dir),
             shell=True,
+            creationflags=creation_flags,
         )
         print("[OK] Aplikasi desktop berjalan. Menunggu penutupan jendela...")
         electron_proc.wait()

@@ -96,12 +96,14 @@ MedVault/
 - Windows 10/11 (with PowerShell)
 - Webcam (built-in or USB external)
 
-### Automatic Launch (Windows)
-Run the launcher script from the project root:
+### One-Click Launch (Windows Executable)
+Double-click `MedVault.exe` in the root folder.
+This runs MedVault as a native Windows desktop GUI application (subsystem: Windows) with zero Command Prompt windows or terminal log popups. The backend server and Electron desktop interface start silently in the background with synchronized lifecycle management.
+
+For terminal-based developer execution with live logs, you can run:
 ```cmd
 run_app.bat
 ```
-This script validates Python virtual environment dependencies, installs desktop modules if missing, starts the FastAPI backend server on `http://127.0.0.1:8000`, and launches the Electron desktop interface.
 
 ### Manual Launch
 
