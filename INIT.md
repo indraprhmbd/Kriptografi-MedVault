@@ -56,6 +56,6 @@ All 4 implementation phases have been completed, hardened, and verified with 100
 ### Automated Quality Assurance Metrics:
 * **Total Automated Tests:** 60 passed out of 60 tests (100% pass rate).
 * **Cryptographic Invariants:** Strict round-trip identity `decrypt(encrypt(x)) == x` proven across all ciphers.
-* **Hardware & OS Filtering:** Removable USB scanning filters out fixed internal drives (`C:`, `D:`) while preserving multi-dongle selection.
+* **Hardware & OS Filtering:** Removable USB scanning dynamically filters out fixed internal drives (`DRIVE_FIXED`) via Windows `GetDriveTypeW` while preserving multi-dongle selection.
 * **UI/UX Polishing:** Non-IT medical interface by default, solid custom SVG vector icons, zero raw HTML arrows, zero microscopic fonts.
 * **CVE Security Audit:** Mitigated CVEs up to Nov 2026 across `cryptography`, `pillow`, `python-multipart`, `starlette`, `fastapi`, and `axios`.

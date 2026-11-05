@@ -98,7 +98,7 @@ pnpm --dir frontend_desktop run build
 
 * **Loopback Socket Access:** In sandboxed terminal environments on Windows, `asyncio.ProactorEventLoop` socket connections (`connect(('127.0.0.1', port))`) are blocked by standard sandbox network policies. Running `TestClient` API tests requires loopback permission (`BypassSandbox: true`), whereas all 47 pure unit tests run offline inside standard sandbox mode.
 * **Node.js Transient EPERM:** On Windows, Vite configuration bundling can occasionally hit transient file lock (`EPERM`) in `.vite-temp`. Rerun the command or run outside sandbox if transient locks persist.
-* **Physical USB Drive Detection:** On Windows, `dongle_auth.py` invokes Windows API `GetDriveTypeW` (`DRIVE_REMOVABLE = 2`) to exclude internal partitions (`C:`, `D:`) while preserving physical USB flash drives and the test fallback directory `storage/mock_usb`.
+* **Physical USB Drive Detection:** On Windows, `dongle_auth.py` invokes Windows API `GetDriveTypeW` (`DRIVE_REMOVABLE = 2`) to dynamically distinguish physical removable USB flash drives from internal fixed hard drive partitions regardless of drive letter, while preserving the test fallback directory `storage/mock_usb`.
 
 ---
 

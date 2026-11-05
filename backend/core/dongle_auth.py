@@ -130,7 +130,7 @@ class DongleAuthenticator:
 
         for part in partitions:
             try:
-                # Exclude internal fixed hard drives (C:, D:) and CD-ROMs
+                # Exclude internal fixed hard drives (DRIVE_FIXED) and CD-ROMs
                 if not is_removable_drive(part.mountpoint):
                     continue
 
@@ -149,7 +149,7 @@ class DongleAuthenticator:
         """List mounted storage drives and mock directories with dongle status.
 
         Only lists removable physical USB drives and mock directories,
-        filtering out internal fixed hard drives (C:, D:, etc.) to enforce
+        filtering out internal fixed hard drives (DRIVE_FIXED) to enforce
         strict physical hardware possession.
         """
         drives: list[dict[str, Any]] = []
@@ -330,7 +330,7 @@ class DongleAuthenticator:
 
         for part in partitions:
             try:
-                # Exclude internal fixed hard drives (C:, D:) and CD-ROMs
+                # Exclude internal fixed hard drives (DRIVE_FIXED) and CD-ROMs
                 if not is_removable_drive(part.mountpoint):
                     continue
 

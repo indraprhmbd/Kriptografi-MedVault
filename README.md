@@ -35,7 +35,7 @@ MedVault Crypto is a secure Electronic Health Record (EHR) desktop application d
 ### Security Modules Overview:
 1. **Multi-Factor Authentication (MFA):**
    - Doctor credentials validated via SHA-256 with 16-byte random salt.
-   - Physical USB hardware key detection (`auth.key`) filtering out internal fixed drives (`C:`, `D:`) while supporting multi-dongle selection.
+   - Physical USB hardware key detection (`auth.key`) dynamically filtering out internal fixed drives via Windows `GetDriveTypeW` (`DRIVE_REMOVABLE = 2`) while supporting multi-dongle selection.
    - Facial biometric verification using OpenCV Haar cascades and histogram cosine similarity comparison.
 2. **Database and Diagnostic Encryption:**
    - Patient Personally Identifiable Information (NIK, Full Name, Address) encrypted at column level using AES-128-GCM with random nonces.
