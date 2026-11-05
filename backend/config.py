@@ -121,6 +121,13 @@ class Settings(BaseSettings):
         path = Path(self.MEDVAULT_DONGLE_MOCK_DIR)
         return path if path.is_absolute() else PROJECT_ROOT / path
 
+    @property
+    def app_version(self) -> str:
+        version_file = PROJECT_ROOT / "VERSION"
+        if version_file.is_file():
+            return version_file.read_text(encoding="utf-8").strip()
+        return "1.0.0"
+
 
 # Instantiate singleton settings
 settings = Settings()

@@ -59,7 +59,7 @@ logger.addHandler(console_handler)
 app = FastAPI(
     title="MedVault Crypto API",
     description="Sistem Keamanan Rekam Medis - Kriptografi, Steganografi, dan Audit Blockchain",
-    version="1.0.0",
+    version=settings.app_version,
 )
 
 # =============================================================================
