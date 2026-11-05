@@ -1,0 +1,15 @@
+# MedVault Crypto Dependencies (Hardened against CVEs up to Nov 2026)
+fastapi>=0.115.0
+starlette>=1.3.1
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.31
+pydantic>=2.10.0
+pydantic-settings>=2.6.0
+python-dotenv>=1.0.1
+cryptography>=49.0.0
+opencv-contrib-python>=4.10.0.84
+psutil>=6.1.0
+pillow>=13.0.0
+numpy>=2.0.0
+pytest>=8.3.0
+httpx>=0.28.0
