@@ -5,9 +5,10 @@ Go dan disajikan dari URL `/assets/...`, jadi tidak perlu build tool atau CDN.
 
 ## Halaman login
 
-Halaman login tidak memakai berkas gambar. Maskot dan seluruh ikon digambar
-sebagai SVG inline di `web/index.html`, sehingga tampilan tetap utuh saat
-aplikasi dipakai tanpa internet dan tidak ada gambar rusak.
+Maskot halaman login memakai `maskot.svg` di folder ini dan disajikan dari URL
+`/assets/maskot.svg`. Seluruh ikon digambar sebagai SVG inline di
+`web/index.html`, jadi tidak ada aset dari CDN dan tidak ada ikon yang rusak saat
+aplikasi dipakai tanpa internet.
 
 ## Catatan
 
