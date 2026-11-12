@@ -157,6 +157,74 @@ window.medvault = function medvault() {
       return JSON.stringify(this.telemetry, null, 2);
     },
 
+    // Presentation-only mood for the mascot. Authentication still flows through
+    // the existing loginStep, dongle, and webcam state.
+    get authMood() {
+      if (this.toast.type === "error" && this.toast.message) return "error";
+      if (this.busy) return "idle";
+      if (
+        (this.loginStep === 2 && this.dongle) ||
+        (this.loginStep === 3 && this.loginForm.webcam_dhash_hex) ||
+        (this.authMode === "register" && this.registerForm.webcam_dhash_hex)
+      ) {
+        return "success";
+      }
+      return "idle";
+    },
+
+    // Friendly copy for the authentication gate. Raw server errors remain in the
+    // Glass-Box telemetry payload so the technical detail stays available.
+    get authFeedback() {
+      if (this.toast.type !== "error" || !this.toast.message) return "";
+      const message = String(this.toast.message);
+      if (/already enrolled|already exists|already registered|sudah terdaftar/i.test(message)) {
+        return "Nama pengguna atau ID dongle sudah terdaftar. Gunakan data lain, ya.";
+      }
+      if (/at least 12|minimal 12/i.test(message)) {
+        return "Kata sandi minimal 12 karakter, ya.";
+      }
+      if (/password|kata sandi|wrong/i.test(message)) {
+        return "Kata sandi belum cocok. Coba periksa lagi, ya.";
+      }
+      if (/are required|is required|must be provided|wajib/i.test(message)) {
+        return "Lengkapi semua data dulu, ya.";
+      }
+      if (/signature|tanda tangan/i.test(message)) {
+        return "Tanda tangan USB Dongle belum cocok. Pastikan dongle ini milik akun Anda.";
+      }
+      if (/challenge|sesi verifikasi/i.test(message)) {
+        return "Sesi verifikasi sudah berakhir. Ulangi dari langkah pertama, ya.";
+      }
+      if (/pengguna.*dongle|username.*dongle|dongle.*username/i.test(message)) {
+        return "Nama pengguna di USB Dongle tidak cocok dengan akun ini. Periksa lagi, ya.";
+      }
+      if (/tidak valid|invalid/i.test(message) && /dongle|medkey|private_key_seed|seed/i.test(message)) {
+        return "Berkas USB Dongle tidak bisa dibaca. Pastikan berkas .medkey berasal dari fasilitas Anda.";
+      }
+      if (/browser|chrome|edge/i.test(message)) {
+        return "Browser ini belum mendukung fitur keamanan tersebut. Gunakan Chrome atau Edge terbaru.";
+      }
+      if (/permission|notallowed|denied|izin/i.test(message)) {
+        return "Akses kamera belum diizinkan. Izinkan kamera di browser, lalu coba lagi.";
+      }
+      if (/webauthn|windows hello|passkey/i.test(message)) {
+        return "Verifikasi Windows Hello belum selesai. Coba lagi, ya.";
+      }
+      if (/dongle|medkey/i.test(message)) {
+        return "USB Dongle belum terdeteksi. Pastikan sudah tertancap, lalu coba lagi.";
+      }
+      if (/kamera|wajah|dhash|biometrik|face/i.test(message)) {
+        return "Wajah belum berhasil dipindai. Coba ambil ulang dengan cahaya yang cukup.";
+      }
+      if (/username|akun|user/i.test(message)) {
+        return "Nama pengguna belum cocok. Periksa lagi, ya.";
+      }
+      if (/registrasi|register|daftar/i.test(message)) {
+        return "Pendaftaran belum selesai. Periksa kembali data Anda, ya.";
+      }
+      return "Ada langkah yang belum selesai. Coba lagi, ya.";
+    },
+
     async init() {
       this.route = document.body.dataset.route || "gate";
       this.tab = this.route;
@@ -310,7 +378,7 @@ window.medvault = function medvault() {
         const key = JSON.parse(text);
         const seed = String(key.private_key_seed_hex || "").trim();
         if (!/^[0-9a-fA-F]{64}$/.test(seed)) {
-          throw new Error("private_key_seed_hex harus 64 karakter hex");
+          throw new Error("berkas dongle tidak valid, pastikan berasal dari fasilitas Anda");
         }
 
         this.dongle = {
@@ -331,7 +399,7 @@ window.medvault = function medvault() {
 
         const publicHex = await this.derivePublicKeyHex(seed);
         this.registerForm.dongle_pubkey_hex = publicHex;
-        this.notify("Berkas dongle dimuat dan public key diturunkan di browser");
+        this.notify("Berkas dongle siap digunakan");
       });
       event.target.value = "";
     },
@@ -348,7 +416,7 @@ window.medvault = function medvault() {
         );
       } catch (_) {
         throw new Error(
-          "browser ini tidak mendukung WebCrypto Ed25519, gunakan Chrome atau Edge terbaru"
+          "browser ini belum mendukung keamanan USB Dongle, gunakan Chrome atau Edge terbaru"
         );
       }
     },
@@ -361,7 +429,7 @@ window.medvault = function medvault() {
 
     async signPayload(payload) {
       if (!this.dongle) {
-        throw new Error("berkas .medkey belum dimuat");
+        throw new Error("USB Dongle belum terdeteksi, muat berkas .medkey dulu");
       }
       const key = await this.importSeed(this.dongle.seedHex);
       const signature = await crypto.subtle.sign(
@@ -375,7 +443,7 @@ window.medvault = function medvault() {
     async captureFace() {
       await this.run("Ambil kamera", async () => {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          throw new Error("browser tidak menyediakan akses kamera");
+          throw new Error("browser ini belum menyediakan akses kamera, gunakan Chrome atau Edge terbaru");
         }
 
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -401,7 +469,7 @@ window.medvault = function medvault() {
           this.loginForm.webcam_dhash_hex = hashHex;
           this.registerForm.webcam_dhash_hex = hashHex;
           this.faceStatus = `dHash ${hashHex}`;
-          this.notify("dHash wajah dihitung dari frame kamera");
+          this.notify("Wajah berhasil dipindai");
         } finally {
           stream.getTracks().forEach((track) => track.stop());
         }
@@ -443,7 +511,7 @@ window.medvault = function medvault() {
     async registerDoctor() {
       await this.run("Registrasi", async () => {
         if (!this.registerForm.webcam_dhash_hex) {
-          throw new Error("ambil dHash wajah terlebih dahulu");
+          throw new Error("ambil verifikasi wajah dulu, ya");
         }
         if (!this.registerForm.dongle_pubkey_hex && this.dongle) {
           this.registerForm.dongle_pubkey_hex = await this.derivePublicKeyHex(
@@ -464,7 +532,7 @@ window.medvault = function medvault() {
     nextLoginStep() {
       if (this.loginStep === 1) {
         if (!this.loginForm.username.trim() || !this.loginForm.password) {
-          this.notify("Username dan kata sandi wajib diisi", "error");
+          this.notify("Isi nama pengguna dan kata sandi dulu, ya", "error");
           return;
         }
         this.loginStep = 2;
@@ -472,11 +540,11 @@ window.medvault = function medvault() {
       }
       if (this.loginStep === 2) {
         if (!this.dongle) {
-          this.notify("Muat berkas .medkey terlebih dahulu", "error");
+          this.notify("USB Dongle belum terdeteksi. Pastikan sudah tertancap, lalu coba lagi", "error");
           return;
         }
         if (this.dongle.username && this.dongle.username !== this.loginForm.username.trim()) {
-          this.notify("Username pada dongle tidak sesuai dengan akun", "error");
+          this.notify("Nama pengguna di USB Dongle tidak cocok dengan akun ini", "error");
           return;
         }
         this.loginStep = 3;
@@ -486,9 +554,9 @@ window.medvault = function medvault() {
     async login() {
       await this.run("Masuk", async () => {
         const username = this.loginForm.username.trim();
-        if (!username) throw new Error("username wajib diisi");
+        if (!username) throw new Error("isi nama pengguna dulu, ya");
         if (!this.loginForm.webcam_dhash_hex) {
-          throw new Error("dHash wajah belum diambil");
+          throw new Error("wajah belum dipindai, ambil verifikasi wajah dulu");
         }
 
         const challengeEnv = await this.api(
@@ -510,7 +578,7 @@ window.medvault = function medvault() {
 
         this.session = (env.data && env.data.user) || { username };
         this.loginStep = 1;
-        this.notify(env.message || "Sesi aktif");
+        this.notify(env.message || "Sesi aktif. Selamat bekerja.");
         this.navigate("/dashboard");
       });
     },
@@ -558,7 +626,7 @@ window.medvault = function medvault() {
     async webauthnLogin() {
       await this.run("WebAuthn", async () => {
         const username = this.loginForm.username.trim();
-        if (!username) throw new Error("username wajib diisi");
+        if (!username) throw new Error("isi nama pengguna dulu, ya");
 
         const challengeEnv = await this.api(
           `/api/v1/auth/challenge?username=${encodeURIComponent(username)}`
