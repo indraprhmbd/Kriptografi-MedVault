@@ -315,63 +315,20 @@
     <!-- Mascot and headline column -->
     <aside class="mv-auth-hero order-1 flex min-w-0 flex-col items-center justify-center overflow-hidden px-6 py-9 lg:order-2 lg:p-14" aria-label="Tentang MedVault">
       <div class="relative z-10 flex flex-col items-center text-center">
-        <div class="mv-mascot" :class="authMood === 'success' ? 'mv-mascot-success' : authMood === 'error' ? 'mv-mascot-error' : ''">
-          <svg viewBox="0 0 160 160" role="img"
-               :aria-label="authMood === 'success' ? 'Maskot MedVault mengangguk senang' : authMood === 'error' ? 'Maskot MedVault bingung' : 'Maskot MedVault tersenyum'">
-            <defs>
-              <linearGradient id="mvMascotBody" x1="36" y1="20" x2="124" y2="146" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="#a7f3d0"></stop>
-                <stop offset="0.55" stop-color="#5eead4"></stop>
-                <stop offset="1" stop-color="#2dd4bf"></stop>
-              </linearGradient>
-              <linearGradient id="mvMascotShine" x1="52" y1="38" x2="96" y2="104" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"></stop>
-                <stop offset="1" stop-color="#ffffff" stop-opacity="0"></stop>
-              </linearGradient>
-            </defs>
-
-            <ellipse cx="80" cy="146" rx="43" ry="7" fill="#022c26" opacity="0.28"></ellipse>
-
-            <path d="M80 15l44 17v42c0 31-18 55-44 68-26-13-44-37-44-68V32l44-17z"
-                  fill="url(#mvMascotBody)" stroke="#0f766e" stroke-width="3" stroke-linejoin="round"></path>
-            <path d="M80 25l34 13v34c0 25-14 45-34 56-20-11-34-31-34-56V38l34-13z"
-                  fill="url(#mvMascotShine)" opacity="0.42"></path>
-
-            <g x-show="authMood === 'idle'">
-              <circle cx="63" cy="72" r="5" fill="#134e4a"></circle>
-              <circle cx="97" cy="72" r="5" fill="#134e4a"></circle>
-              <circle cx="61.5" cy="70.5" r="1.6" fill="#ffffff"></circle>
-              <circle cx="95.5" cy="70.5" r="1.6" fill="#ffffff"></circle>
-              <path d="M64 89c4 7 10 10 16 10s12-3 16-10" fill="none" stroke="#134e4a" stroke-width="3.5" stroke-linecap="round"></path>
-              <circle cx="51" cy="87" r="5" fill="#fb7185" opacity="0.4"></circle>
-              <circle cx="109" cy="87" r="5" fill="#fb7185" opacity="0.4"></circle>
-            </g>
-
-            <g x-show="authMood === 'success'" x-cloak>
-              <path d="M56 73c3-5 7-5 10 0" fill="none" stroke="#134e4a" stroke-width="3.5" stroke-linecap="round"></path>
-              <path d="M94 73c3-5 7-5 10 0" fill="none" stroke="#134e4a" stroke-width="3.5" stroke-linecap="round"></path>
-              <path d="M60 86c5 10 12 14 20 14s15-4 20-14" fill="none" stroke="#134e4a" stroke-width="3.5" stroke-linecap="round"></path>
-              <circle cx="49" cy="87" r="5" fill="#fb7185" opacity="0.5"></circle>
-              <circle cx="111" cy="87" r="5" fill="#fb7185" opacity="0.5"></circle>
-              <path d="M128 33l2.5 5.5L136 41l-5.5 2.5L128 49l-2.5-5.5L120 41l5.5-2.5L128 33z" fill="#fef3c7"></path>
-            </g>
-
-            <g x-show="authMood === 'error'" x-cloak>
-              <path d="M55 62l13 5" fill="none" stroke="#134e4a" stroke-width="3.5" stroke-linecap="round"></path>
-              <path d="M105 62l-13 5" fill="none" stroke="#134e4a" stroke-width="3.5" stroke-linecap="round"></path>
-              <circle cx="63" cy="76" r="4.5" fill="#134e4a"></circle>
-              <circle cx="97" cy="76" r="4.5" fill="#134e4a"></circle>
-              <path d="M64 98c4-5 8-5 12 0s8 5 12 0 6-5 8-4" fill="none" stroke="#134e4a" stroke-width="3.5" stroke-linecap="round"></path>
-              <circle cx="128" cy="36" r="14" fill="#f0fdfa" stroke="#0f766e" stroke-width="2.5"></circle>
-              <path d="M124 31c1-5 9-5 9 1 0 3-4 3.5-4 7" fill="none" stroke="#0f766e" stroke-width="2.5" stroke-linecap="round"></path>
-              <circle cx="129" cy="44" r="1.6" fill="#0f766e"></circle>
-            </g>
-
-            <g>
-              <rect x="111" y="108" width="25" height="25" rx="8" fill="#f0fdfa" stroke="#0f766e" stroke-width="2.5"></rect>
-              <path d="M123.5 114v13M117 120.5h13" stroke="#0f766e" stroke-width="2.5" stroke-linecap="round"></path>
-            </g>
-          </svg>
+        <div class="mv-mascot" role="img"
+             :aria-label="authMood === 'success' ? 'Maskot dokter MedVault mengangguk senang' : authMood === 'error' ? 'Maskot dokter MedVault bingung' : 'Maskot dokter MedVault'"
+             :class="authMood === 'success' ? 'mv-mascot-success' : authMood === 'error' ? 'mv-mascot-error' : ''">
+          <img src="/assets/maskot.svg" width="512" height="640" decoding="async" alt="" aria-hidden="true">
+          <span class="mv-mood-badge" x-show="authMood === 'success'" x-cloak aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <use href="#mv-icon-check"></use>
+            </svg>
+          </span>
+          <span class="mv-mood-badge mv-mood-badge-error" x-show="authMood === 'error'" x-cloak aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <use href="#mv-icon-alert"></use>
+            </svg>
+          </span>
         </div>
 
         <h2 class="mv-hero-title mt-6 max-w-[30rem] text-2xl font-bold tracking-tight sm:text-3xl lg:mt-8 lg:text-4xl">
