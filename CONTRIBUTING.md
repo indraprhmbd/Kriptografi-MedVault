@@ -6,7 +6,24 @@ Thank you for your interest in contributing to MedVault Go! This project impleme
 
 Please be respectful, constructive, and professional in all interactions.
 
-## Development Workflow
+## Branch Protection and Pull Request Policy
+
+The `main` branch is protected by repository rulesets. **Direct pushes to `main` are strictly blocked.**
+
+1. All contributors must create a topic branch (`feature/...`, `fix/...`, or `ui/...`).
+2. Open a Pull Request targeting `main`.
+3. The automated CI pipeline (`Build, Lint, and Test`) must pass before the PR can be merged.
+4. All review conversation threads must be resolved before merging.
+5. Once merged into `main`, GitHub Actions automatically deploys the updated build to the live server at `https://medvault.indraprhmbd.my.id`.
+
+## Local Frontend Development (Hot-Reload)
+
+Frontend teammates can run the server locally without recompiling Go on every HTML/JS edit:
+```bash
+MEDVAULT_DEV_WEB_DIR=./web go run cmd/app/main.go
+```
+Any changes made inside `web/index.html` or `web/js/app.js` will immediately reflect upon refreshing the browser.
+
 
 1. **Fork and Branch:** Create a feature or bugfix branch from `main`:
    ```bash
