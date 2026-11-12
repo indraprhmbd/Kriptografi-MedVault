@@ -97,8 +97,18 @@ medvault/
 |       |-- stego_handler.go
 |       `-- audit_handler.go
 |-- web/
-|   |-- embed.go                     # go:embed directive for static assets
-|   |-- index.html                   # Single-page shell with Tailwind + Alpine.js
+|   |-- embed.go                     # go:embed directive and shared layout renderer
+|   |-- layout.html                  # Shared shell: header, nav, telemetry drawer, toast
+|   |-- index.html                   # Login and doctor enrolment fragment
+|   |-- pages/                       # One HTML fragment per URL-backed module
+|   |   |-- dashboard.html
+|   |   |-- patients.html
+|   |   |-- records.html
+|   |   |-- vault.html
+|   |   |-- steganography.html
+|   |   |-- audit.html
+|   |   |-- telemetry.html
+|   |   `-- security.html
 |   `-- js/
 |       |-- app.js                   # Alpine.js state stores and API client
 |       |-- usb_dongle.js            # File System Access API (.medkey reader & unplug poller)

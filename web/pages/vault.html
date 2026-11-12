@@ -1,0 +1,48 @@
+<section class="space-y-6">
+  <div>
+    <h2 class="text-2xl font-bold">Brankas File Laboratorium</h2>
+    <p class="text-sm">Penyimpanan berkas lab terenkripsi ChaCha20-Poly1305 dengan verifikasi tag pada setiap potongan.</p>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-2">
+    <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-4">
+      <h2 class="text-base font-semibold text-white">Unggah Berkas Laboratorium</h2>
+      <p class="text-xs text-slate-400">Berkas dialirkan per 64 KiB ke ChaCha20-Poly1305 dengan nonce counter. Plaintext SHA-256 dihitung pada pass yang sama.</p>
+      <label class="text-xs text-slate-400">ID rekam medis
+        <input x-model.number="vaultRecordId" type="number" min="1" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+      </label>
+      <input type="file" @change="vaultFile = $event.target.files[0]"
+             class="block w-full text-xs text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-vault-700 file:px-3 file:py-2 file:text-xs file:text-white">
+      <div class="flex flex-wrap gap-2">
+        <button type="button" class="rounded-md bg-vault-400 px-3 py-2 text-sm font-medium text-vault-950 hover:bg-vault-300 disabled:opacity-50"
+                :disabled="busy || !session || !vaultFile" @click="uploadLab()">Segel berkas</button>
+        <a x-show="vaultInfo" :href="vaultDownloadUrl()" class="rounded-md border border-vault-700 px-3 py-2 text-sm text-slate-200 hover:border-vault-400">Unduh plaintext</a>
+        <button type="button" class="rounded-md border border-vault-700 px-3 py-2 text-sm text-slate-200 hover:border-vault-400"
+                :disabled="busy || !vaultRecordId" @click="inspectVault()">Metadata brankas</button>
+      </div>
+      <div x-show="vaultInfo" class="rounded-lg border border-vault-800 bg-vault-950/70 p-3 text-xs space-y-1">
+        <p><span class="text-slate-500">Berkas:</span> <span x-text="vaultInfo?.original_name"></span></p>
+        <p><span class="text-slate-500">Ciphertext:</span> <span class="font-mono" x-text="vaultInfo?.ciphertext_bytes + ' bytes'"></span></p>
+        <p><span class="text-slate-500">SHA-256 plaintext:</span> <span class="font-mono break-all text-vault-200" x-text="vaultInfo?.plaintext_sha256"></span></p>
+        <p><span class="text-slate-500">Header tersimpan:</span> <span class="font-mono break-all text-amber-200/80" x-text="vaultInfo?.header_preview_hex"></span></p>
+        <p><span class="text-slate-500">Fingerprint kunci:</span> <span class="font-mono" x-text="vaultInfo?.key_fingerprint"></span></p>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-3">
+      <h2 class="text-base font-semibold text-white">Catatan Brankas</h2>
+      <ul class="list-disc space-y-2 pl-5 text-xs text-slate-400">
+        <li>Setiap rekam medis memiliki kunci turunan HKDF sendiri, sehingga satu kebocoran kunci tidak membuka seluruh arsip.</li>
+        <li>Tag Poly1305 diverifikasi pada setiap potongan. Satu bit yang berubah menggagalkan unduhan.</li>
+        <li>Nama berkas asli disimpan terpisah dari ciphertext dan hanya dipakai untuk header Content-Disposition.</li>
+        <li>Aksi unggah menghasilkan blok UPLOAD_LAB yang menunjuk ke rekam medis terkait.</li>
+      </ul>
+      <div x-show="pending && pending.action === 'UPLOAD_LAB'" class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs space-y-2">
+        <p class="font-semibold text-amber-200">Blok UPLOAD_LAB menunggu tanda tangan</p>
+        <button type="button" class="rounded-md bg-amber-400 px-3 py-2 text-xs font-medium text-amber-950"
+                :disabled="busy || !dongle" @click="sealPending()">Tanda tangani dan segel</button>
+        <p class="text-[11px] text-amber-200/70" x-show="!dongle">Muat berkas .medkey lewat tombol dongle di header.</p>
+      </div>
+    </div>
+  </div>
+</section>

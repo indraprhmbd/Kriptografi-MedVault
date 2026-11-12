@@ -34,13 +34,18 @@
 
 ## 3. UI Architecture and State Management
 
-- Single-Page Application (SPA) driven by **Alpine.js** without build-time bundlers (no Webpack, Vite, or npm build steps required).
-- 5 Primary Application Tabs:
-  1. **Dashboard & Pasien:** Patient directory, registration modal, clinical record listings.
-  2. **Rekam Medis & Super-Enkripsi:** Record composition form with live classical + modern cipher inspector.
-  3. **Brankas Lab:** Multi-chunk file upload, ChaCha20-Poly1305 authentication verification, download decryption.
-  4. **Steganografi Medis:** PNG LSB payload embedder and extractor with PSNR metric and HMAC integrity status.
-  5. **Audit Blockchain PoA:** Visual block chain explorer, block verification state, and SQLite tamper simulation controls.
+- Multi-Page Application (MPA) driven by **Alpine.js** without build-time bundlers (no Webpack, Vite, or npm build steps required). Each URL is served as its own HTML document by the Go handler.
+- Shared shell in `web/layout.html` (header, navigation, telemetry drawer, toast) composed server-side with one fragment from `web/pages/`.
+- Primary module pages:
+  1. `/dashboard`: Clinical workspace summary and quick module access.
+  2. `/patients`: Patient directory, registration form, and plaintext versus raw SQLite view.
+  3. `/records`: Record composition form, two-layer decryption inspector, and block signing.
+  4. `/vault`: Multi-chunk lab file upload, ChaCha20-Poly1305 authentication, download decryption.
+  5. `/steganography`: PNG LSB payload embedder and extractor with PSNR metric and HMAC integrity status.
+  6. `/audit`: PoA block explorer, chain verification state, and SQLite tamper simulation controls.
+  7. `/telemetry`: Glass-Box inspector for the last API response on the page.
+  8. `/security`: Authentication status, service health, and session controls.
+- `/login` and `/register` remain the authentication gate rendered from `web/index.html`.
 - Responsive layout styled using Tailwind CSS v4 utility classes.
 
 ---

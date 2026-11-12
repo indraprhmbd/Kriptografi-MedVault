@@ -1,0 +1,87 @@
+<section class="space-y-6">
+  <div>
+    <h2 class="text-2xl font-bold">Manajemen Pasien</h2>
+    <p class="text-sm">Registrasi dan daftar pasien terenkripsi.</p>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-3">
+
+    <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-3">
+      <h2 class="text-base font-semibold text-white">Registrasi Pasien</h2>
+      <div class="grid gap-3">
+        <label class="text-xs text-slate-400">Nomor rekam medis
+          <input x-model="patientForm.medical_record_number" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+        </label>
+        <label class="text-xs text-slate-400">NIK 16 digit
+          <input x-model="patientForm.nik" maxlength="16" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm font-mono">
+        </label>
+        <label class="text-xs text-slate-400">Nama lengkap
+          <input x-model="patientForm.full_name" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+        </label>
+        <label class="text-xs text-slate-400">Alamat
+          <input x-model="patientForm.address" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+        </label>
+        <label class="text-xs text-slate-400">Tanggal lahir
+          <input type="date" x-model="patientForm.birth_date" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+        </label>
+      </div>
+      <button type="button" class="w-full rounded-md bg-vault-400 px-3 py-2 text-sm font-medium text-vault-950 hover:bg-vault-300 disabled:opacity-50"
+              :disabled="busy || !session" @click="createPatient()">Simpan pasien terenkripsi</button>
+      <p class="text-[11px] text-slate-500">NIK, nama, dan alamat disegel AES-256-GCM dengan nama kolom sebagai AAD.</p>
+    </div>
+
+    <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-3 lg:col-span-2">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-base font-semibold text-white">Daftar Pasien</h2>
+        <div class="flex gap-2">
+          <button type="button" class="rounded-md border px-2 py-1 text-xs"
+                  :class="patientView === 'decrypted' ? 'border-vault-400 text-white' : 'border-vault-700 text-slate-400'"
+                  @click="patientView = 'decrypted'; loadPatients()">Plaintext</button>
+          <button type="button" class="rounded-md border px-2 py-1 text-xs"
+                  :class="patientView === 'raw' ? 'border-vault-400 text-white' : 'border-vault-700 text-slate-400'"
+                  @click="patientView = 'raw'; loadPatients()">Baris SQLite</button>
+        </div>
+      </div>
+      <div class="max-h-64 overflow-auto rounded-lg border border-vault-800">
+        <table class="min-w-full text-xs">
+          <thead class="bg-vault-950 text-slate-400">
+            <tr>
+              <th class="px-3 py-2 text-left">ID</th>
+              <th class="px-3 py-2 text-left">No. RM</th>
+              <th class="px-3 py-2 text-left" x-text="patientView === 'raw' ? 'Kolom tersimpan' : 'NIK'"></th>
+              <th class="px-3 py-2 text-left" x-text="patientView === 'raw' ? 'Ciphertext' : 'Nama'"></th>
+              <th class="px-3 py-2 text-left" x-text="patientView === 'raw' ? '' : 'Alamat'"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-vault-800">
+            <template x-for="p in patients" :key="p.id">
+              <tr class="hover:bg-vault-800/40">
+                <td class="px-3 py-2 font-mono text-slate-400" x-text="p.id"></td>
+                <td class="px-3 py-2 font-mono" x-text="p.medical_record_number"></td>
+                <template x-if="patientView === 'raw'">
+                  <td class="px-3 py-2 font-mono text-[10px] text-amber-200/80" x-text="p.columns.nik_enc"></td>
+                </template>
+                <template x-if="patientView === 'raw'">
+                  <td class="px-3 py-2 font-mono text-[10px] text-amber-200/80" x-text="p.columns.full_name_enc"></td>
+                </template>
+                <template x-if="patientView === 'raw'">
+                  <td class="px-3 py-2 font-mono text-[10px] text-amber-200/80" x-text="p.columns.address_enc"></td>
+                </template>
+                <template x-if="patientView !== 'raw'">
+                  <td class="px-3 py-2 font-mono" x-text="p.nik"></td>
+                </template>
+                <template x-if="patientView !== 'raw'">
+                  <td class="px-3 py-2" x-text="p.full_name"></td>
+                </template>
+                <template x-if="patientView !== 'raw'">
+                  <td class="px-3 py-2 text-slate-400" x-text="p.address"></td>
+                </template>
+              </tr>
+            </template>
+            <tr x-show="patients.length === 0"><td colspan="5" class="px-3 py-4 text-center text-slate-500">Belum ada data pasien</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>

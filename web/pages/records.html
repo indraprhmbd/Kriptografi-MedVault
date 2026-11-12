@@ -1,0 +1,61 @@
+<section class="space-y-6">
+  <div>
+    <h2 class="text-2xl font-bold">Rekam Medis</h2>
+    <p class="text-sm">Pencatatan, enkripsi berlapis, dan inspeksi rekam medis.</p>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-2">
+    <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-3">
+      <h2 class="text-base font-semibold text-white">Rekam Medis Baru</h2>
+      <p class="text-xs text-slate-400">Diagnosis dan resep melewati Extended Vigenere, Columnar Transposition, HKDF-SHA256, lalu XChaCha20-Poly1305 dengan AAD nomor rekam medis.</p>
+      <div class="grid gap-3">
+        <label class="text-xs text-slate-400">Pasien
+          <select x-model.number="recordForm.patient_id" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+            <option value="0">Pilih pasien</option>
+            <template x-for="p in patients" :key="p.id">
+              <option :value="p.id" x-text="p.medical_record_number + ' - ' + p.full_name"></option>
+            </template>
+          </select>
+        </label>
+        <label class="text-xs text-slate-400">Diagnosis
+          <textarea x-model="recordForm.diagnosis" rows="3" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm"></textarea>
+        </label>
+        <label class="text-xs text-slate-400">Resep
+          <textarea x-model="recordForm.prescription" rows="2" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm"></textarea>
+        </label>
+        <label class="text-xs text-slate-400">Status kunjungan
+          <select x-model="recordForm.visit_status" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+            <option value="OPEN">OPEN</option>
+            <option value="CLOSED">CLOSED</option>
+          </select>
+        </label>
+      </div>
+      <button type="button" class="w-full rounded-md bg-vault-400 px-3 py-2 text-sm font-medium text-vault-950 hover:bg-vault-300 disabled:opacity-50"
+              :disabled="busy || !session" @click="createRecord()">Enkripsi dan buat proposal blok</button>
+      <p class="text-[11px] text-slate-500">Server mengembalikan tx_payload. Tanda tangan dongle dikirim pada langkah kedua.</p>
+    </div>
+
+    <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-3">
+      <h2 class="text-base font-semibold text-white">Inspeksi Rekam Medis</h2>
+      <div class="flex gap-2">
+        <input x-model.number="inspectId" type="number" min="1" class="w-28 rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm" placeholder="ID">
+        <button type="button" class="rounded-md border border-vault-700 px-3 py-2 text-sm hover:border-vault-400"
+                :disabled="busy || !session" @click="inspectRecord()">Dekripsi dua lapis</button>
+      </div>
+      <div x-show="inspection" class="space-y-2 rounded-lg border border-vault-800 bg-vault-950/70 p-3 text-xs">
+        <p><span class="text-slate-500">Ciphertext:</span> <span class="font-mono break-all text-amber-200/80" x-text="inspection?.record?.diagnosis_ciphertext"></span></p>
+        <p><span class="text-slate-500">Diagnosis:</span> <span class="text-vault-200" x-text="inspection?.record?.diagnosis_plaintext"></span></p>
+        <p><span class="text-slate-500">Resep:</span> <span class="text-vault-200" x-text="inspection?.record?.prescription_plaintext"></span></p>
+        <p><span class="text-slate-500">Intermediate klasik:</span> <span class="font-mono break-all text-slate-300" x-text="inspection?.classical_intermediates?.diagnosis"></span></p>
+      </div>
+
+      <div x-show="pending" class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs space-y-2">
+        <p class="font-semibold text-amber-200">Proposal blok menunggu tanda tangan dongle</p>
+        <p class="font-mono break-all text-[10px] text-amber-100/80" x-text="pending?.payload"></p>
+        <button type="button" class="rounded-md bg-amber-400 px-3 py-2 text-xs font-medium text-amber-950 hover:bg-amber-300 disabled:opacity-50"
+                :disabled="busy || !dongle" @click="sealPending()">Tanda tangani dan segel blok</button>
+        <p class="text-[11px] text-amber-200/70" x-show="!dongle">Muat berkas .medkey lewat tombol dongle di header.</p>
+      </div>
+    </div>
+  </div>
+</section>

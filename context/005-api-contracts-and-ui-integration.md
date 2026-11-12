@@ -71,16 +71,20 @@ Every API endpoint in `medvault-app` MUST return JSON following this envelope so
 
 ---
 
-## 3. HTML + Tailwind + Alpine.js UI Layout (`web/index.html`)
+## 3. HTML + Tailwind + Alpine.js UI Layout (`web/layout.html` and `web/pages/`)
 
 Build a clean, clinical dark/slate dashboard with a persistent **Top Hardware Status Bar** and a **Right-Side Collapsible Glass-Box Telemetry Drawer**:
 1. **Top Hardware Status Bar (Always Visible):**
    * Badge 1: `USB Dongle (.medkey)` - `TERHUBUNG (Heartbeat 2s Aktif)` or `TERPUTUS (Terkunci)`.
    * Badge 2: `Biometrik` - `Windows Hello / dHash Verified (Skor: 90.6%)`.
    * Badge 3: `PoA Validator Gateway` - `ONLINE (127.0.0.1:8096)`.
-2. **Main Navigation (5 Tabs):**
-   * **Tab 1: Gate Otentikasi MFA** (Password + Mount USB Dongle + Webcam / Windows Hello).
-   * **Tab 2: Rekam Medis & Super Enkripsi** (Toggle tampilan Plaintext vs Raw SQLite Ciphertext + Live Classical/Modern Stepper).
-   * **Tab 3: Brankas File Lab (ChaCha20-Poly1305)** (Upload PDF, lihat perbandingan Hex Header `%PDF` vs `.enc`, Download & Decrypt).
-   * **Tab 4: Watermark Steganografi Rontgen (PNG LSB + HMAC)** (Embed & Extract dengan indikator PSNR dan status keaslian HMAC).
-   * **Tab 5: PoA Validator Gateway & Blockchain Ledger** (Visualisasi rantai blok, tanda tangan ganda Dokter + Validator, dan tombol uji manipulasi database).
+2. **Main Navigation (One URL per Module):**
+   * `/login` and `/register`: Gate Otentikasi MFA (Password + Mount USB Dongle + Webcam / Windows Hello).
+   * `/dashboard`: Ringkasan ruang kerja, jumlah pasien, blok audit, dan status validasi.
+   * `/patients`: Registrasi pasien dan toggle tampilan Plaintext vs Raw SQLite Ciphertext.
+   * `/records`: Rekam medis dengan super enkripsi dan inspeksi dua lapis.
+   * `/vault`: Brankas File Lab ChaCha20-Poly1305 dengan verifikasi tag per potongan.
+   * `/steganography`: Watermark Steganografi PNG LSB + HMAC dengan indikator PSNR.
+   * `/audit`: PoA Validator Gateway dan Blockchain Ledger dengan tombol uji manipulasi database.
+   * `/telemetry`: Glass-Box Telemetry dari respons API terakhir pada halaman tersebut.
+   * `/security`: Status autentikasi, kondisi layanan, dan aksi keluar sesi.

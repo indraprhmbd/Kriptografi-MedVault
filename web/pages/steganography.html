@@ -1,0 +1,51 @@
+<section class="space-y-6">
+  <div>
+    <h2 class="text-2xl font-bold">Steganografi Medis</h2>
+    <p class="text-sm">Sisipkan dan ekstrak watermark LSB terautentikasi HMAC-SHA256 pada citra PNG.</p>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-2">
+    <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-4">
+      <h2 class="text-base font-semibold text-white">Sisipkan Watermark LSB</h2>
+      <p class="text-xs text-slate-400">Payload JSON dikompres zlib, diautentikasi HMAC-SHA256, lalu ditulis ke bit LSB kanal merah, hijau, dan biru. Kanal alpha tidak disentuh.</p>
+      <label class="text-xs text-slate-400">ID rekam medis
+        <input x-model.number="stegoRecordId" type="number" min="1" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+      </label>
+      <input type="file" accept="image/png" @change="stegoFile = $event.target.files[0]"
+             class="block w-full text-xs text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-vault-700 file:px-3 file:py-2 file:text-xs file:text-white">
+      <button type="button" class="rounded-md bg-vault-400 px-3 py-2 text-sm font-medium text-vault-950 hover:bg-vault-300 disabled:opacity-50"
+              :disabled="busy || !session || !stegoFile" @click="embedStego()">Sisipkan watermark</button>
+
+      <div x-show="stegoResult" class="rounded-lg border border-vault-800 bg-vault-950/70 p-3 text-xs space-y-1">
+        <p><span class="text-slate-500">PSNR:</span> <span x-text="stegoResult?.psnr_db?.toFixed(2) + ' dB'"></span></p>
+        <p><span class="text-slate-500">MSE:</span> <span x-text="stegoResult?.mse"></span></p>
+        <p><span class="text-slate-500">Kapasitas:</span> <span x-text="stegoResult?.capacity_bits + ' bit, terpakai ' + stegoResult?.used_bits"></span></p>
+        <p><span class="text-slate-500">Tag HMAC:</span> <span class="font-mono break-all text-vault-200" x-text="stegoResult?.hmac_tag_hex"></span></p>
+      </div>
+      <img x-show="stegoResult" :src="stegoImageUrl()" alt="Pratinjau stego" class="max-h-64 w-auto rounded-lg border border-vault-800">
+      <div x-show="pending && pending.action === 'EMBED_STEGO'" class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs space-y-2">
+        <p class="font-semibold text-amber-200">Blok EMBED_STEGO menunggu tanda tangan</p>
+        <button type="button" class="rounded-md bg-amber-400 px-3 py-2 text-xs font-medium text-amber-950"
+                :disabled="busy || !dongle" @click="sealPending()">Tanda tangani dan segel</button>
+        <p class="text-[11px] text-amber-200/70" x-show="!dongle">Muat berkas .medkey lewat tombol dongle di header.</p>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-4">
+      <h2 class="text-base font-semibold text-white">Ekstraksi dan Verifikasi</h2>
+      <p class="text-xs text-slate-400">Ekstraksi menolak gambar yang tidak memiliki watermark MedVault atau yang bit payloadnya berubah.</p>
+      <input type="file" accept="image/png" @change="extractFile = $event.target.files[0]"
+             class="block w-full text-xs text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-vault-700 file:px-3 file:py-2 file:text-xs file:text-white">
+      <button type="button" class="rounded-md border border-vault-700 px-3 py-2 text-sm text-slate-200 hover:border-vault-400 disabled:opacity-50"
+              :disabled="busy || !session || !extractFile" @click="extractStego()">Ekstrak payload</button>
+      <div x-show="extracted" class="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs space-y-1">
+        <p><span class="text-slate-500">HMAC:</span> <span class="text-emerald-300" x-text="extracted?.hmac_verified ? 'terverifikasi' : 'gagal'"></span></p>
+        <p><span class="text-slate-500">No. RM:</span> <span x-text="extracted?.payload?.mrn"></span></p>
+        <p><span class="text-slate-500">Pasien:</span> <span x-text="extracted?.payload?.patient_name"></span></p>
+        <p><span class="text-slate-500">Dokter:</span> <span x-text="extracted?.payload?.doctor"></span></p>
+        <p><span class="text-slate-500">Ringkasan:</span> <span x-text="extracted?.payload?.diagnosis_summary"></span></p>
+        <p><span class="text-slate-500">Waktu:</span> <span class="font-mono" x-text="extracted?.payload?.timestamp"></span></p>
+      </div>
+    </div>
+  </div>
+</section>

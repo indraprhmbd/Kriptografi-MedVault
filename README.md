@@ -231,6 +231,23 @@ MedVault includes a comprehensive suite of automated tests:
 
 ---
 
+## Frontend Navigation (Clinical Workspace)
+
+The web interface uses URL-backed module routes. After authentication, the workspace exposes:
+
+- `/dashboard` - overview and module shortcuts
+- `/patients` - encrypted patient registration and patient list
+- `/records` - encrypted medical-record creation and inspection
+- `/vault` - laboratory file vault
+- `/steganography` - authenticated image steganography
+- `/audit` - Proof-of-Authority audit ledger and tamper demo
+- `/telemetry` - latest glass-box API telemetry
+- `/security` - session and service status
+
+The web handler serves the embedded application shell for these routes, including direct navigation and refresh.
+
+---
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

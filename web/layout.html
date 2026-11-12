@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}}</title>
+  <script src="/vendor/tailwind-browser.min.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-vault-950: #f5f8fb;
+      --color-vault-900: #ffffff;
+      --color-vault-800: #e2eaf0;
+      --color-vault-700: #cbd8e2;
+      --color-vault-400: #0f9f91;
+      --color-vault-300: #087f75;
+      --color-vault-200: #075e57;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+  </style>
+  <style>
+    [x-cloak] { display:none !important; }
+    :root { color-scheme: light; }
+    body { background:#f4f7fb !important; color:#243447 !important; }
+    header { background:rgba(255,255,255,.94) !important; border-color:#e4ebf1 !important; box-shadow:0 4px 24px rgba(25,45,65,.045); }
+    header h1, main h2, main h3 { color:#172b43 !important; }
+    main p, label { color:#64748b; }
+    [class*="bg-vault-950"] { background-color:#f7fafc !important; }
+    [class*="bg-vault-900"] { background-color:#fff !important; }
+    [class*="bg-vault-800"] { background-color:#f1f6f9 !important; }
+    [class*="border-vault-"] { border-color:#dce6ed !important; }
+    [class*="text-slate-100"], [class*="text-slate-200"], [class*="text-white"] { color:#24384d !important; }
+    [class*="text-slate-300"], [class*="text-slate-400"] { color:#64748b !important; }
+    input:not([type=file]), textarea, select { background:#fff !important; color:#24384d !important; border-color:#d6e1e9 !important; border-radius:10px !important; outline:none; }
+    input:focus, textarea:focus, select:focus { border-color:#0f9f91 !important; box-shadow:0 0 0 3px rgba(15,159,145,.12); }
+    button { transition:all .18s ease; }
+    button[class*="bg-vault-400"] { background:#0f9f91 !important; color:#fff !important; border-radius:10px !important; box-shadow:0 5px 14px rgba(15,159,145,.16); }
+    button[class*="bg-vault-400"]:hover { background:#087f75 !important; transform:translateY(-1px); }
+    main section > div, main section article { border-radius:16px !important; box-shadow:0 8px 28px rgba(28,55,80,.045); }
+    table thead { background:#f0f5f8 !important; }
+    table th { color:#52677c !important; font-weight:700; letter-spacing:.035em; text-transform:uppercase; font-size:10px; }
+    table td { color:#34495e; }
+    footer { border-color:#e3ebf1 !important; }
+    .mv-step { display:flex; align-items:center; gap:10px; color:#94a3b8; font-size:12px; font-weight:600; }
+    .mv-step.active { color:#087f75; }
+    .mv-step.done { color:#16a34a; }
+    .mv-step-dot { width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#edf2f6;border:1px solid #dce6ed; }
+    .mv-step.active .mv-step-dot { background:#e3f7f3;border-color:#0f9f91;color:#087f75; }
+    .mv-step.done .mv-step-dot { background:#e8f8ee;border-color:#86d6a4;color:#15803d; }
+    .mv-panel { border:1px solid #e2eaf0;border-radius:14px;background:#f8fbfd;padding:16px; }
+    @media(max-width:640px){ header .mx-auto{align-items:flex-start} }
+  </style>
+  <style>[x-cloak] { display: none !important; }</style>
+</head>
+<body class="h-full bg-vault-950 text-slate-200 antialiased" data-route="{{.Route}}" x-data="medvault()" x-init="init()">
+
+<div class="min-h-full flex flex-col">
+
+  <header class="sticky top-0 z-30 border-b border-vault-800 bg-vault-950/95 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-4 py-3 flex flex-wrap items-center gap-3">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-lg border border-vault-400/60 bg-vault-900 grid place-items-center">
+          <span class="font-mono text-vault-300 text-sm font-bold">MV</span>
+        </div>
+        <div>
+          <h1 class="text-lg font-semibold tracking-tight text-white">MedVault</h1>
+          <p class="text-xs text-slate-400">Secure Medical Records · Cryptography & Audit</p>
+        </div>
+      </div>
+
+      <div class="ml-auto flex flex-wrap items-center gap-2 text-xs">
+        <span class="rounded-full border px-3 py-1"
+              :class="session ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-slate-700 bg-slate-900 text-slate-400'"
+              x-text="session ? 'Sesi aktif: ' + session.username : 'Belum ada sesi'"></span>
+        <label class="cursor-pointer rounded-full border px-3 py-1"
+               :class="dongle ? 'border-vault-400/50 bg-vault-400/10 text-vault-200' : 'border-slate-700 bg-slate-900 text-slate-400'">
+          <input type="file" accept=".medkey,application/json" style="display:none" @change="loadDongle($event)">
+          <span x-text="dongle ? 'Dongle: ' + dongle.keyId : 'Muat dongle'"></span>
+        </label>
+        <button type="button" class="rounded-md border border-vault-700 px-3 py-1 text-slate-300 hover:border-vault-400 hover:text-white"
+                @click="telemetryOpen = !telemetryOpen">
+          Glass-Box Inspector
+        </button>
+        <button type="button" x-show="session" class="rounded-md border border-slate-700 px-3 py-1 text-slate-300 hover:border-rose-400 hover:text-rose-200"
+                @click="logout()">Keluar</button>
+      </div>
+    </div>
+
+    <nav class="mx-auto max-w-7xl px-4 pb-2 flex gap-2 overflow-x-auto text-sm">
+      <template x-for="item in tabs" :key="item.id">
+        <button type="button"
+                class="whitespace-nowrap rounded-t-md border-b-2 px-3 py-2 transition"
+                :class="[tab === item.id ? 'border-vault-400 text-white bg-vault-900' : 'border-transparent text-slate-400 hover:text-slate-200', (!session && item.id !== 'gate') ? 'opacity-40 cursor-not-allowed' : '']"
+                :disabled="!session && item.id !== 'gate'"
+                @click="navigate(item.path)"
+                x-text="item.label"></button>
+      </template>
+    </nav>
+  </header>
+
+  <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-6 space-y-6">
+
+    <div x-show="!session && route !== 'gate'" x-cloak class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+      Sesi belum aktif. Buka halaman Autentikasi untuk masuk.
+    </div>
+
+    {{.Content}}
+
+  </main>
+
+  <footer class="border-t border-vault-800 px-4 py-4 text-center text-[11px] text-slate-500">
+    MedVault Go - demo kriptografi klasik dan modern, steganografi terautentikasi, dan ledger Proof-of-Authority.
+  </footer>
+</div>
+
+<!-- Glass-Box telemetry drawer -->
+<div x-show="telemetryOpen" x-cloak class="fixed inset-0 z-40 flex justify-end">
+  <div class="absolute inset-0 bg-black/50" @click="telemetryOpen = false"></div>
+  <aside class="relative h-full w-full max-w-xl overflow-auto border-l border-vault-700 bg-vault-950 p-4 space-y-3">
+    <div class="flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-white">Glass-Box Telemetry</h2>
+      <button type="button" class="text-xs text-slate-400 hover:text-white" @click="telemetryOpen = false">Tutup</button>
+    </div>
+    <p class="text-[11px] text-slate-500">Setiap respons API menyertakan objek _telemetry berisi nilai antara, nonce, tag, dan fingerprint kunci.</p>
+    <pre class="whitespace-pre-wrap break-all rounded-lg border border-vault-800 bg-black/50 p-3 text-[11px] leading-relaxed text-vault-200" x-text="telemetryPretty"></pre>
+  </aside>
+</div>
+
+<!-- Toast -->
+<div x-show="toast.message" x-cloak
+     class="fixed bottom-4 left-1/2 z-50 w-[min(90vw,36rem)] -translate-x-1/2 rounded-lg border px-4 py-3 text-sm shadow-xl"
+     :class="toast.type === 'error' ? 'border-rose-500/50 bg-rose-950 text-rose-100' : 'border-emerald-500/50 bg-emerald-950 text-emerald-100'">
+  <div class="flex items-start justify-between gap-3">
+    <p x-text="toast.message"></p>
+    <button type="button" class="text-xs opacity-70 hover:opacity-100" @click="toast.message = ''">Tutup</button>
+  </div>
+</div>
+
+<script src="/js/app.js" defer></script>
+<script src="/vendor/alpine.min.js" defer></script>
+</body>
+</html>

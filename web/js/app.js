@@ -74,13 +74,18 @@ function readWebAuthnOptions(payload) {
 window.medvault = function medvault() {
   return {
     tabs: [
-      { id: "gate", label: "Gate Otentikasi MFA" },
-      { id: "records", label: "Rekam Medis" },
-      { id: "vault", label: "Brankas File Lab" },
-      { id: "stego", label: "Watermark Steganografi" },
-      { id: "audit", label: "PoA Validator dan Ledger" },
+      { id: "dashboard", label: "Dashboard", path: "/dashboard" },
+      { id: "patients", label: "Pasien", path: "/patients" },
+      { id: "records", label: "Rekam Medis", path: "/records" },
+      { id: "vault", label: "Brankas File", path: "/vault" },
+      { id: "stego", label: "Steganografi", path: "/steganography" },
+      { id: "audit", label: "Audit Ledger", path: "/audit" },
+      { id: "telemetry", label: "Telemetry", path: "/telemetry" },
+      { id: "security", label: "Keamanan", path: "/security" },
     ],
     tab: "gate",
+    route: "gate",
+    loginStep: 1,
 
     busy: false,
     toast: { type: "ok", message: "" },
@@ -150,8 +155,49 @@ window.medvault = function medvault() {
     },
 
     async init() {
+      this.route = document.body.dataset.route || "gate";
+      this.tab = this.route;
+      this.restoreRememberedRecord();
       await this.checkHealth();
       await this.restoreSession();
+
+      if (this.session && this.route === "gate") {
+        window.location.replace("/dashboard");
+        return;
+      }
+      if (!this.session && this.route !== "gate") {
+        window.location.replace("/login");
+        return;
+      }
+      await this.loadRouteData();
+    },
+
+    // Each module is a real page, so navigation triggers a full document load.
+    navigate(path) {
+      if (!this.session && !["/", "/login", "/register"].includes(path)) {
+        this.notify("Silakan masuk terlebih dahulu", "error");
+        return;
+      }
+      const current = window.location.pathname.replace(/\/+$/, "") || "/";
+      if (current === path) {
+        this.loadRouteData();
+        return;
+      }
+      window.location.assign(path);
+    },
+
+    async loadRouteData() {
+      if (!this.session) return;
+      try {
+        if (["dashboard", "patients", "records"].includes(this.route)) {
+          await this.loadPatients();
+        }
+        if (["dashboard", "audit"].includes(this.route)) {
+          await this.loadAudit();
+        }
+      } catch (error) {
+        this.notify(`Muat data: ${error.message || error}`, "error");
+      }
     },
 
     async checkHealth() {
@@ -172,8 +218,6 @@ window.medvault = function medvault() {
         this.session = data.user || null;
         if (this.session) {
           this.loginForm.username = this.session.username;
-          await this.loadPatients();
-          await this.loadAudit();
         }
       } catch (_) {
         this.session = null;
@@ -270,6 +314,7 @@ window.medvault = function medvault() {
         this.registerForm.dongle_pubkey_hex = publicHex;
         this.notify("Berkas dongle dimuat dan public key diturunkan di browser");
       });
+      event.target.value = "";
     },
 
     async importSeed(seedHex) {
@@ -396,6 +441,28 @@ window.medvault = function medvault() {
       });
     },
 
+    nextLoginStep() {
+      if (this.loginStep === 1) {
+        if (!this.loginForm.username.trim() || !this.loginForm.password) {
+          this.notify("Username dan kata sandi wajib diisi", "error");
+          return;
+        }
+        this.loginStep = 2;
+        return;
+      }
+      if (this.loginStep === 2) {
+        if (!this.dongle) {
+          this.notify("Muat berkas .medkey terlebih dahulu", "error");
+          return;
+        }
+        if (this.dongle.username && this.dongle.username !== this.loginForm.username.trim()) {
+          this.notify("Username pada dongle tidak sesuai dengan akun", "error");
+          return;
+        }
+        this.loginStep = 3;
+      }
+    },
+
     async login() {
       await this.run("Masuk", async () => {
         const username = this.loginForm.username.trim();
@@ -422,9 +489,9 @@ window.medvault = function medvault() {
         });
 
         this.session = (env.data && env.data.user) || { username };
-        await this.loadPatients();
-        await this.loadAudit();
+        this.loginStep = 1;
         this.notify(env.message || "Sesi aktif");
+        this.navigate("/dashboard");
       });
     },
 
@@ -435,7 +502,13 @@ window.medvault = function medvault() {
         this.patients = [];
         this.blocks = [];
         this.validation = null;
+        this.dongle = null;
+        this.dongleNote = "";
+        this.loginStep = 1;
+        this.loginForm.password = "";
+        this.loginForm.webcam_dhash_hex = "";
         this.notify("Sesi diakhiri");
+        this.navigate("/login");
       });
     },
 
@@ -494,9 +567,8 @@ window.medvault = function medvault() {
         });
 
         this.session = (env.data && env.data.user) || { username };
-        await this.loadPatients();
-        await this.loadAudit();
         this.notify("Masuk dengan Windows Hello dan dongle");
+        this.navigate("/dashboard");
       });
     },
 
@@ -508,6 +580,35 @@ window.medvault = function medvault() {
       const env = await this.api(`/api/v1/patients?view=${this.patientView}`);
       const data = env.data || {};
       this.patients = data.patients || [];
+    },
+
+    // The last record id is kept locally so the vault, steganography, and audit
+    // pages can prefill their forms after a full page navigation.
+    rememberRecord(id) {
+      this.inspectId = id;
+      this.tamperRecordId = id;
+      this.vaultRecordId = id;
+      this.stegoRecordId = id;
+      try {
+        window.localStorage.setItem("medvault.recordId", String(id));
+      } catch (_) {
+        // Storage can be disabled; the in-memory value still applies.
+      }
+    },
+
+    restoreRememberedRecord() {
+      let stored = 0;
+      try {
+        stored = Number(window.localStorage.getItem("medvault.recordId") || 0);
+      } catch (_) {
+        stored = 0;
+      }
+      if (stored > 0) {
+        this.inspectId = stored;
+        this.tamperRecordId = stored;
+        this.vaultRecordId = stored;
+        this.stegoRecordId = stored;
+      }
     },
 
     async createPatient() {
@@ -543,10 +644,7 @@ window.medvault = function medvault() {
         });
         const data = env.data || {};
         if (data.record) {
-          this.inspectId = data.record.id;
-          this.tamperRecordId = data.record.id;
-          this.vaultRecordId = data.record.id;
-          this.stegoRecordId = data.record.id;
+          this.rememberRecord(data.record.id);
         }
         if (data.proposal) {
           this.pending = {

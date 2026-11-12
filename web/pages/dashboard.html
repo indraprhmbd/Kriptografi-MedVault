@@ -1,0 +1,27 @@
+<section class="space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-widest text-emerald-700">Clinical workspace</p>
+      <h2 class="mt-1 text-3xl font-bold">Dashboard</h2>
+      <p class="mt-1 text-sm">Ringkasan ruang kerja MedVault dan akses cepat seluruh modul.</p>
+    </div>
+    <span class="rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800" x-text="health ? 'API terhubung' : 'Memeriksa API...'"></span>
+  </div>
+
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="rounded-2xl border bg-white p-5"><p class="text-xs text-slate-500">Pasien terdaftar</p><p class="mt-2 text-3xl font-bold" x-text="patients.length"></p><p class="mt-1 text-xs text-slate-400">Data dari API pasien</p></div>
+    <div class="rounded-2xl border bg-white p-5"><p class="text-xs text-slate-500">Blok audit</p><p class="mt-2 text-3xl font-bold" x-text="blocks.length"></p><p class="mt-1 text-xs text-slate-400">Ledger yang dimuat</p></div>
+    <div class="rounded-2xl border bg-white p-5"><p class="text-xs text-slate-500">Validasi ledger</p><p class="mt-2 text-xl font-bold" x-text="validation ? (validation.valid ? 'Valid' : 'Perlu pemeriksaan') : 'Belum diperiksa'"></p><p class="mt-1 text-xs text-slate-400">Status pemeriksaan terakhir</p></div>
+    <div class="rounded-2xl border bg-white p-5"><p class="text-xs text-slate-500">Sesi aktif</p><p class="mt-2 text-xl font-bold" x-text="session ? session.username : 'Tidak aktif'"></p><p class="mt-1 text-xs text-slate-400">Identitas pengguna</p></div>
+  </div>
+
+  <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <template x-for="item in tabs.filter(t => !['dashboard'].includes(t.id))" :key="item.id">
+      <button @click="navigate(item.path)" class="rounded-2xl border bg-white p-5 text-left shadow-sm hover:border-emerald-400">
+        <span class="text-sm font-semibold text-emerald-800" x-text="item.label"></span>
+        <p class="mt-2 text-xs text-slate-500">Buka modul dan kelola proses terkait.</p>
+        <span class="mt-4 inline-block text-xs font-semibold text-emerald-700">Buka modul →</span>
+      </button>
+    </template>
+  </div>
+</section>
