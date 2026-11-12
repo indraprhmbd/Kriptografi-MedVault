@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-//go:embed index.html layout.html pages js vendor
+//go:embed index.html layout.html pages js vendor assets
 var assets embed.FS
 
 // pageSpec maps a public URL to the content fragment rendered inside the shared
@@ -106,13 +106,16 @@ func Handler(devDir string) (http.Handler, error) {
 	}), nil
 }
 
-// isStaticAsset limits raw file serving to the vendored script directories.
-// Layout and page fragments stay private to the renderer.
+// isStaticAsset limits raw file serving to the vendored script directories and
+// the branding asset drop folder. Layout and page fragments stay private to the
+// renderer.
 func isStaticAsset(clean string) bool {
 	if path.Ext(clean) == "" {
 		return false
 	}
-	return strings.HasPrefix(clean, "/js/") || strings.HasPrefix(clean, "/vendor/")
+	return strings.HasPrefix(clean, "/js/") ||
+		strings.HasPrefix(clean, "/vendor/") ||
+		strings.HasPrefix(clean, "/assets/")
 }
 
 // renderPage composes the shared layout with one page fragment.

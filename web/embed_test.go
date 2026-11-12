@@ -73,7 +73,7 @@ func TestHandlerKeepsFragmentsPrivateAndServesAssets(t *testing.T) {
 		}
 	}
 
-	assets := []string{"/js/app.js", "/vendor/alpine.min.js", "/vendor/tailwind-browser.min.js"}
+	assets := []string{"/js/app.js", "/vendor/alpine.min.js", "/vendor/tailwind-browser.min.js", "/assets/README.md"}
 	for _, route := range assets {
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, route, nil))
