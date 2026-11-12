@@ -259,7 +259,7 @@ cat <<EOF
 Add this block to the workstation ~/.ssh/config:
 
 Host medvault-vps
-    HostName 43.173.11.104
+    HostName <VPS_HOST>
     User ${SERVICE_USER}
     IdentityFile ~/.ssh/id_ed25519
     IdentitiesOnly yes

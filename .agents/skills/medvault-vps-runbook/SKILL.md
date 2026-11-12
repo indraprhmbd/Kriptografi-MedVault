@@ -1,8 +1,8 @@
 ---
 name: medvault-vps-runbook
 description: >-
-  Deployment and operations runbook for MedVault Go on the user's VPS
-  (43.173.11.104). Use whenever the user asks to deploy, redeploy, roll back,
+  Deployment and operations runbook for MedVault Go on the user's VPS.
+  Use whenever the user asks to deploy, redeploy, roll back,
   inspect, restart, or troubleshoot medvault-app, medvault-validator, the
   medvault-pod Podman pod, the Cloudflare tunnel hostname, or the storage
   directories on that host.
@@ -29,24 +29,24 @@ Two accounts are involved:
 
 | Parameter | Value |
 | :--- | :--- |
-| Public IP | `43.173.11.104` |
+| Target Host | Env `$MEDVAULT_VPS_HOST` or SSH config alias `medvault-vps` |
 | Service account home | `/home/medvault` |
 | Identity file | `~/.ssh/id_ed25519` with `IdentitiesOnly yes` |
 | Service account shell | `/bin/bash`, password locked |
 | Linger | enabled for `medvault` |
 | Sudo | scoped NOPASSWD, see section 5 |
 
-Workstation `~/.ssh/config` entries:
+Workstation `~/.ssh/config` entries (replace `<VPS_HOST>` with your VPS IP or domain):
 
 ```text
 Host vps-lama
-    HostName 43.173.11.104
+    HostName <VPS_HOST>
     User liteclaw
     IdentityFile ~/.ssh/id_ed25519
     IdentitiesOnly yes
 
 Host medvault-vps
-    HostName 43.173.11.104
+    HostName <VPS_HOST>
     User medvault
     IdentityFile ~/.ssh/id_ed25519
     IdentitiesOnly yes

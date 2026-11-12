@@ -19,7 +19,7 @@ Verified directly against the host on 12 November 2026.
 
 | Parameter | Value |
 | :--- | :--- |
-| Public IP | `43.173.11.104` |
+| Target Host | Env `$MEDVAULT_VPS_HOST` or SSH config alias `medvault-vps` |
 | SSH port | `22` |
 | Identity file | `~/.ssh/id_ed25519` |
 | `IdentitiesOnly` | `yes` |
@@ -27,17 +27,17 @@ Verified directly against the host on 12 November 2026.
 | Service account shell | `/bin/bash` |
 | Linger | enabled for `medvault` |
 
-Client configuration blocks in use:
+Client configuration blocks in use (replace `<VPS_HOST>` with target VPS address):
 
 ```text
 Host vps-lama
-    HostName 43.173.11.104
+    HostName <VPS_HOST>
     User liteclaw
     IdentityFile ~/.ssh/id_ed25519
     IdentitiesOnly yes
 
 Host medvault-vps
-    HostName 43.173.11.104
+    HostName <VPS_HOST>
     User medvault
     IdentityFile ~/.ssh/id_ed25519
     IdentitiesOnly yes

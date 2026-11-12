@@ -46,7 +46,7 @@ Both third party browser assets are vendored into `web/vendor/` at setup time by
 
 | Item | Verified value | How verified |
 | :--- | :--- | :--- |
-| SSH alias | `vps-lama` -> `liteclaw@43.173.11.104` | `ssh -o BatchMode=yes vps-lama 'uname -a'` |
+| SSH alias | `vps-lama` -> `liteclaw@<VPS_HOST>` | `ssh -o BatchMode=yes vps-lama 'uname -a'` |
 | Identity file | `~/.ssh/id_ed25519` with `IdentitiesOnly yes` | read of the local OpenSSH client config |
 | Sudo | `NOPASSWD: ALL` for `liteclaw` | skill reference file |
 | OS and kernel | Ubuntu 24.04.5 LTS, `6.8.0-147-generic` | live | 
