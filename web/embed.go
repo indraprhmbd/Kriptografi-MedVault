@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-//go:embed index.html layout.html pages js vendor assets
+//go:embed index.html register.html layout.html pages js vendor assets
 var assets embed.FS
 
 // pageSpec maps a public URL to the content fragment rendered inside the shared
@@ -28,7 +28,7 @@ type pageSpec struct {
 var pages = map[string]pageSpec{
 	"/":              {file: "index.html", title: "Masuk - MedVault Go", route: "gate"},
 	"/login":         {file: "index.html", title: "Masuk - MedVault Go", route: "gate"},
-	"/register":      {file: "index.html", title: "Enrolment Dokter - MedVault Go", route: "gate"},
+	"/register":      {file: "register.html", title: "Daftar Dokter - MedVault Go", route: "gate"},
 	"/dashboard":     {file: "pages/dashboard.html", title: "Dashboard - MedVault Go", route: "dashboard"},
 	"/patients":      {file: "pages/patients.html", title: "Pasien - MedVault Go", route: "patients"},
 	"/records":       {file: "pages/records.html", title: "Rekam Medis - MedVault Go", route: "records"},

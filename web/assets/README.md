@@ -3,12 +3,15 @@
 Letakkan aset visual di folder ini. Semua berkas di sini ikut di-embed ke binary
 Go dan disajikan dari URL `/assets/...`, jadi tidak perlu build tool atau CDN.
 
-## Halaman login
+## Halaman autentikasi
 
-Maskot halaman login memakai `maskot.svg` di folder ini dan disajikan dari URL
-`/assets/maskot.svg`. Seluruh ikon digambar sebagai SVG inline di
-`web/index.html`, jadi tidak ada aset dari CDN dan tidak ada ikon yang rusak saat
-aplikasi dipakai tanpa internet.
+Halaman masuk (`web/index.html`) dan halaman daftar dokter (`web/register.html`)
+memakai `maskot.svg` di folder ini sebagai logo kecil di header dan sebagai
+maskot di panel samping. Berkas disajikan dari URL `/assets/maskot.svg` dan
+gambar cadangan teks tetap muncul bila aset gagal dimuat. Seluruh ikon digambar
+sebagai SVG inline di masing-masing halaman, jadi tidak ada aset dari CDN dan
+tidak ada ikon yang rusak saat aplikasi dipakai tanpa internet. Header dashboard
+di `web/layout.html` juga memakai `maskot.svg` sebagai logo.
 
 ## Catatan
 

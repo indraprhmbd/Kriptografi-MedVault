@@ -70,10 +70,10 @@
     <div class="mv-auth-main order-2 flex min-w-0 flex-col px-5 py-6 sm:px-8 lg:order-1 lg:px-12">
       <div class="mx-auto flex w-full max-w-[440px] items-center justify-between gap-3">
         <a href="/login" class="flex min-w-0 items-center gap-3" aria-label="MedVault, kembali ke halaman masuk">
-          <span class="mv-logo-mark grid h-11 w-11 shrink-0 place-items-center rounded-2xl">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
-              <use href="#mv-icon-shield"></use>
-            </svg>
+          <span class="mv-logo-mark grid h-11 w-11 shrink-0 place-items-center rounded-2xl" aria-hidden="true">
+            <span class="mv-logo-fallback">MV</span>
+            <img src="/assets/maskot.svg" width="32" height="40" decoding="async" alt=""
+                 aria-hidden="true" class="mv-logo-img" data-mv-asset>
           </span>
           <span class="min-w-0">
             <span class="mv-brand-title block truncate text-lg font-bold leading-tight tracking-tight">MedVault</span>
@@ -301,7 +301,7 @@
           <div class="mv-divider mt-7 border-t pt-5 text-center">
             <p class="mv-muted text-sm">
               Belum punya akun?
-              <button type="button" class="mv-link font-semibold" @click="switchAuth('register')">Daftar dokter</button>
+              <a href="/register" class="mv-link font-semibold">Daftar dokter</a>
             </p>
           </div>
         </div>
@@ -315,10 +315,11 @@
     <!-- Mascot and headline column -->
     <aside class="mv-auth-hero order-1 flex min-w-0 flex-col items-center justify-center overflow-hidden px-6 py-9 lg:order-2 lg:p-14" aria-label="Tentang MedVault">
       <div class="relative z-10 flex flex-col items-center text-center">
-        <div class="mv-mascot" role="img"
-             :aria-label="authMood === 'success' ? 'Maskot dokter MedVault mengangguk senang' : authMood === 'error' ? 'Maskot dokter MedVault bingung' : 'Maskot dokter MedVault'"
+        <div class="mv-mascot"
              :class="authMood === 'success' ? 'mv-mascot-success' : authMood === 'error' ? 'mv-mascot-error' : ''">
-          <img src="/assets/maskot.svg" width="512" height="640" decoding="async" alt="" aria-hidden="true">
+          <span class="mv-mascot-fallback" aria-hidden="true">MV</span>
+          <img src="/assets/maskot.svg" width="512" height="640" decoding="async"
+               alt="Maskot MedVault" class="mv-mascot-img" data-mv-asset>
           <span class="mv-mood-badge" x-show="authMood === 'success'" x-cloak aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
               <use href="#mv-icon-check"></use>
@@ -338,141 +339,3 @@
     </aside>
   </div>
 </section>
-
-<!-- Doctor registration dialog, reusing the existing registration flow. -->
-<div x-show="authMode === 'register'" x-cloak class="fixed inset-0 z-40 overflow-y-auto"
-     role="dialog" aria-modal="true" aria-labelledby="register-title"
-     @keydown.escape.window="switchAuth('login')">
-  <div class="fixed inset-0 bg-slate-950/55 backdrop-blur-sm" @click="switchAuth('login')" aria-hidden="true"></div>
-
-  <div class="relative flex min-h-full items-center justify-center p-4 sm:p-6">
-    <div class="mv-auth-card mv-register-card w-full max-w-[560px] p-6 sm:p-8" @click.stop x-transition>
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <p class="mv-eyebrow text-sm font-semibold">Langkah pertama Anda</p>
-          <h2 id="register-title" class="mv-title mt-2 text-2xl font-bold tracking-tight">Daftar sebagai dokter</h2>
-          <p class="mv-muted mt-2 text-sm leading-relaxed">Lengkapi data, USB Dongle, dan verifikasi wajah untuk membuat akun.</p>
-        </div>
-        <button type="button" class="mv-auth-close shrink-0 rounded-xl p-2" @click="switchAuth('login')" aria-label="Tutup pendaftaran">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
-            <use href="#mv-icon-close"></use>
-          </svg>
-        </button>
-      </div>
-
-      <div x-show="authFeedback" x-cloak class="mv-auth-alert mt-5 flex items-start gap-3 rounded-2xl px-4 py-3" role="alert" aria-live="polite">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 h-5 w-5 shrink-0 text-rose-600" aria-hidden="true">
-          <use href="#mv-icon-alert"></use>
-        </svg>
-        <p class="mv-error-text text-sm font-medium leading-relaxed" x-text="authFeedback"></p>
-      </div>
-
-      <form class="mt-6 space-y-5" @submit.prevent="registerDoctor()">
-        <div class="grid gap-5 sm:grid-cols-2">
-          <div>
-            <label for="register-username" class="mv-label mb-2 block text-sm font-semibold">Nama pengguna</label>
-            <input id="register-username" type="text" x-model="registerForm.username" autocomplete="username"
-                   class="mv-auth-input" placeholder="contoh: dr_andi" required>
-          </div>
-          <div>
-            <label for="register-full-name" class="mv-label mb-2 block text-sm font-semibold">Nama lengkap</label>
-            <input id="register-full-name" type="text" x-model="registerForm.full_name" autocomplete="name"
-                   class="mv-auth-input" placeholder="dr. Andi Pratama" required>
-          </div>
-        </div>
-
-        <div>
-          <label for="register-password" class="mv-label mb-2 block text-sm font-semibold">Kata sandi</label>
-          <div class="relative">
-            <input id="register-password" :type="showRegisterPassword ? 'text' : 'password'" x-model="registerForm.password"
-                   autocomplete="new-password" class="mv-auth-input mv-auth-input-action"
-                   placeholder="Buat kata sandi yang kuat" minlength="12" required>
-            <button type="button" class="mv-auth-toggle" @click="showRegisterPassword = !showRegisterPassword"
-                    :aria-label="showRegisterPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'"
-                    :aria-pressed="showRegisterPassword">
-              <svg x-show="!showRegisterPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
-                <use href="#mv-icon-eye"></use>
-              </svg>
-              <svg x-show="showRegisterPassword" x-cloak viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
-                <use href="#mv-icon-eye-off"></use>
-              </svg>
-            </button>
-          </div>
-          <p class="mv-muted mt-1.5 text-xs">Minimal 12 karakter. Gunakan kombinasi yang mudah Anda ingat.</p>
-        </div>
-
-        <div>
-          <label for="register-dongle-id" class="mv-label mb-2 block text-sm font-semibold">ID USB Dongle</label>
-          <input id="register-dongle-id" type="text" x-model="registerForm.dongle_key_id"
-                 class="mv-auth-input" placeholder="DONGLE-2026-0001" required>
-          <p class="mv-muted mt-1.5 text-xs">Terisi otomatis saat berkas .medkey dipilih.</p>
-        </div>
-
-        <div class="mv-status-card" :class="dongle ? 'mv-status-success' : ''">
-          <div class="flex items-start gap-3">
-            <span class="mv-status-icon" :class="dongle ? 'is-success' : ''">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
-                <use href="#mv-icon-usb"></use>
-              </svg>
-            </span>
-            <div class="min-w-0 flex-1">
-              <p class="mv-strong text-sm font-bold" x-text="dongle ? 'USB Dongle terdeteksi' : 'USB Dongle belum terdeteksi'"></p>
-              <p class="mv-muted mt-1 text-xs leading-relaxed"
-                 x-text="dongle ? (dongle.keyId ? 'Dongle ' + dongle.keyId + ' siap digunakan.' : 'Dongle siap digunakan.') : 'Tancapkan USB, lalu pilih berkas .medkey di bawah.'"></p>
-            </div>
-          </div>
-          <button type="button" class="mv-auth-inline mt-3" @click="$refs.registerDongleInput.click()" :disabled="busy">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
-              <use href="#mv-icon-refresh"></use>
-            </svg>
-            Coba lagi
-          </button>
-        </div>
-
-        <label class="mv-auth-secondary cursor-pointer">
-          <input x-ref="registerDongleInput" type="file" class="sr-only" accept=".medkey,application/json" @change="loadDongle($event)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
-            <use href="#mv-icon-upload"></use>
-          </svg>
-          <span x-text="dongle ? 'Ganti berkas .medkey' : 'Pilih berkas .medkey'"></span>
-        </label>
-
-        <div class="mv-status-card" :class="registerForm.webcam_dhash_hex ? 'mv-status-success' : ''">
-          <div class="flex items-start gap-3">
-            <span class="mv-status-icon" :class="registerForm.webcam_dhash_hex ? 'is-success' : ''">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
-                <use href="#mv-icon-camera"></use>
-              </svg>
-            </span>
-            <div class="min-w-0 flex-1">
-              <p class="mv-strong text-sm font-bold" x-text="registerForm.webcam_dhash_hex ? 'Wajah berhasil dipindai' : 'Wajah belum dipindai'"></p>
-              <p class="mv-muted mt-1 text-xs leading-relaxed"
-                 x-text="registerForm.webcam_dhash_hex ? 'Wajah siap untuk pendaftaran.' : 'Ambil verifikasi wajah dengan cahaya yang cukup.'"></p>
-            </div>
-          </div>
-          <button type="button" class="mv-auth-inline mt-3" @click="captureFace()" :disabled="busy">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
-              <use href="#mv-icon-camera"></use>
-            </svg>
-            <span x-text="registerForm.webcam_dhash_hex ? 'Coba lagi' : 'Ambil verifikasi wajah'"></span>
-          </button>
-        </div>
-
-        <div class="grid gap-3 pt-1 sm:grid-cols-2">
-          <button type="button" class="mv-auth-secondary" @click="switchAuth('login')" :disabled="busy">Batal</button>
-          <button type="submit" class="mv-auth-primary" :disabled="busy">
-            <svg x-show="busy" x-cloak viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 animate-spin" aria-hidden="true">
-              <use href="#mv-icon-spinner"></use>
-            </svg>
-            <span x-text="busy ? 'Mendaftarkan...' : 'Daftarkan dokter'"></span>
-          </button>
-        </div>
-
-        <p class="mv-muted text-center text-sm">
-          Sudah punya akun?
-          <button type="button" class="mv-link font-semibold" @click="switchAuth('login')">Masuk di sini</button>
-        </p>
-      </form>
-    </div>
-  </div>
-</div>
