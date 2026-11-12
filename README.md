@@ -5,6 +5,7 @@
 **High-Assurance Medical Record Cryptosystem, Authenticated LSB Steganography & PoA Blockchain Audit Gateway**
 
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=for-the-badge&logo=go)](https://golang.org)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-medvault.indraprhmbd.my.id-2ea44f?style=for-the-badge&logo=cloudflare)](https://medvault.indraprhmbd.my.id)
 [![Security Standard](https://img.shields.io/badge/Security-Authenticated_Super--Encryption-red?style=for-the-badge)](https://en.wikipedia.org/wiki/Authenticated_encryption)
 [![Zero CGO](https://img.shields.io/badge/CGO-Disabled-success?style=for-the-badge)](https://golang.org)
 [![Architecture](https://img.shields.io/badge/Architecture-Podman_Pod-892CA0?style=for-the-badge&logo=podman)](https://podman.io)
@@ -184,6 +185,20 @@ go run cmd/app/main.go
 ```
 
 Access the dashboard at `http://localhost:8095`.
+
+---
+
+## CI/CD and Collaborative Deployment
+
+MedVault features an automated GitHub Actions pipeline (`.github/workflows/deploy.yml`):
+- **On Pull Requests & Feature Branches:** Runs formatting checks (`gofmt`), static analysis (`go vet`), unit tests, and cross-compilation validation.
+- **On Push to `main`:** Automatically cross-compiles static Linux binaries (`CGO_ENABLED=0`) and deploys them to the production VPS via SSH.
+
+### Required GitHub Repository Secrets (for VPS deployment):
+Navigate to **Settings -> Secrets and variables -> Actions** in your GitHub repository and configure:
+- `SSH_HOST`: Target VPS IP address or domain.
+- `SSH_USER`: Service account username (`medvault`).
+- `SSH_PRIVATE_KEY`: Content of the Ed25519 private key (`~/.ssh/id_ed25519`) authorized on the VPS.
 
 ---
 

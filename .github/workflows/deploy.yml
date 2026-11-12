@@ -1,0 +1,128 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Build, Lint, and Test
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: 0
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          check-latest: true
+
+      - name: Verify Code Formatting
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "The following files are not formatted properly:"
+            gofmt -l .
+            exit 1
+          fi
+
+      - name: Static Analysis (go vet)
+        run: go vet ./...
+
+      - name: Run Unit and Integration Tests
+        run: go test -v -race=false ./...
+
+      - name: Cross-Compile Binaries for Release
+        run: |
+          mkdir -p dist
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/medvault-app ./cmd/app
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/medvault-validator ./cmd/validator
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/medvault-medkeygen ./cmd/medkeygen
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/medvault-validator-keygen ./cmd/validator-keygen
+
+      - name: Upload Build Artifacts
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: medvault-binaries
+          path: dist/
+          retention-days: 1
+
+  deploy:
+    name: Deploy to Production VPS
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: medvault-binaries
+          path: dist/
+
+      - name: Setup SSH Key
+        if: env.SSH_PRIVATE_KEY != ''
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Transfer Binaries and Deployment Scripts
+        if: env.SSH_PRIVATE_KEY != ''
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          TARGET="${SSH_USER:-medvault}@${SSH_HOST}"
+          SSH_CMD="ssh -i ~/.ssh/deploy_key $TARGET"
+          SCP_CMD="scp -i ~/.ssh/deploy_key"
+
+          $SSH_CMD "mkdir -p /home/${SSH_USER:-medvault}/bin /home/${SSH_USER:-medvault}/deploy"
+          $SCP_CMD dist/medvault-app "$TARGET:/home/${SSH_USER:-medvault}/bin/"
+          $SCP_CMD dist/medvault-validator "$TARGET:/home/${SSH_USER:-medvault}/bin/"
+          $SCP_CMD dist/medvault-medkeygen "$TARGET:/home/${SSH_USER:-medvault}/bin/"
+          $SCP_CMD dist/medvault-validator-keygen "$TARGET:/home/${SSH_USER:-medvault}/bin/"
+
+          $SCP_CMD deploy/Containerfile.app "$TARGET:/home/${SSH_USER:-medvault}/deploy/"
+          $SCP_CMD deploy/Containerfile.validator "$TARGET:/home/${SSH_USER:-medvault}/deploy/"
+          $SCP_CMD deploy/remote-deploy.sh "$TARGET:/home/${SSH_USER:-medvault}/deploy/"
+          $SCP_CMD deploy/init-env.sh "$TARGET:/home/${SSH_USER:-medvault}/deploy/"
+
+          $SSH_CMD "chmod 0755 /home/${SSH_USER:-medvault}/bin/medvault-* /home/${SSH_USER:-medvault}/deploy/*.sh"
+
+      - name: Execute Remote Deployment
+        if: env.SSH_PRIVATE_KEY != ''
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          TARGET="${SSH_USER:-medvault}@${SSH_HOST}"
+          ssh -i ~/.ssh/deploy_key "$TARGET" "bash /home/${SSH_USER:-medvault}/deploy/remote-deploy.sh"
+
+      - name: Verify Live Deployment Health
+        if: env.SSH_PRIVATE_KEY != ''
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          TARGET="${SSH_USER:-medvault}@${SSH_HOST}"
+          ssh -i ~/.ssh/deploy_key "$TARGET" "curl -fsS http://127.0.0.1:8095/healthz"
+          ssh -i ~/.ssh/deploy_key "$TARGET" "curl -fsS http://127.0.0.1:8096/healthz"
