@@ -27,10 +27,10 @@ Before implementing any feature or fixing any bug, read `INIT.md` first, then lo
 | `context/002-auth-mfa-dongle-and-biometrics.md` | Phase 1: Argon2id password auth, Browser File System Access API USB `.medkey` (Ed25519), WebAuthn Windows Hello, and Webcam 64-bit dHash | Implementing authentication and browser hardware gates |
 | `context/003-cryptography-and-file-vault.md` | Phase 2: AES-256-GCM DB column encryption, Classical (Extended Vigenere + Columnar Transposition) + Modern (HKDF + XChaCha20-Poly1305) super encryption, and ChaCha20-Poly1305 lab file vault | Implementing `internal/crypto/` and file vault |
 | `context/004-steganography-and-blockchain-audit.md` | Phase 3: PNG LSB steganography with HMAC-SHA256 integrity tag, and PoA Validator Gateway service (`medvault-validator`) | Implementing `internal/stego/` and `cmd/validator/` |
-| `context/005-api-contracts-and-ui-integration.md` | Phase 4: REST API contracts, mandatory `_telemetry` Glass-Box Inspector payload, and HTML + Tailwind + Alpine.js UI | Building HTTP handlers and the 5-tab web interface |
+| `context/005-api-contracts-and-ui-integration.md` | Phase 4: REST API contracts, mandatory `_telemetry` Glass-Box Inspector payload, and HTML + Tailwind + Alpine.js UI | Building HTTP handlers and the module page interface |
 | `context/006-testing-and-demo-scenarios.md` | Go unit tests (`go test ./...`), Podman Pod deployment scripts, tamper tests, and lecturer presentation flow | Validating implementation and preparing deployment |
 | `context/007-backend-guiderails.md` | Pure domain packages, HKDF key derivation paths, super-encryption pipeline, lab vault streaming, LSB steganography bit budget, PoA ledger consensus, and TDD | Writing and refactoring backend domain and handler logic |
-| `context/008-frontend-guiderails.md` | Zero-CDN vendored asset embedding, strict CSP, WebCrypto Ed25519 PKCS#8 DER envelope, 64-bit dHash webcam, WebAuthn passkeys, 5-tab UI | Writing and refactoring frontend and client-side cryptography |
+| `context/008-frontend-guiderails.md` | Zero-CDN vendored asset embedding, strict CSP, WebCrypto Ed25519 PKCS#8 DER envelope, 64-bit dHash webcam, WebAuthn passkeys, multi-page module UI | Writing and refactoring frontend and client-side cryptography |
 
 ---
 
