@@ -86,9 +86,18 @@ window.medvault = function medvault() {
     tab: "gate",
     route: "gate",
     loginStep: 1,
-    authMode: "login",
+    registerStep: 1,
     showPassword: false,
     showRegisterPassword: false,
+    registerPasswordConfirm: "",
+    registerTouched: {
+      username: false,
+      full_name: false,
+      password: false,
+      password_confirm: false,
+      dongle: false,
+      face: false,
+    },
 
     busy: false,
     toast: { type: "ok", message: "" },
@@ -100,6 +109,8 @@ window.medvault = function medvault() {
     dongle: null,
     dongleNote: "",
     faceStatus: "",
+    faceStream: null,
+    facePreviewActive: false,
 
     registerForm: {
       username: "",
@@ -164,12 +175,171 @@ window.medvault = function medvault() {
       if (this.busy) return "idle";
       if (
         (this.loginStep === 2 && this.dongle) ||
-        (this.loginStep === 3 && this.loginForm.webcam_dhash_hex) ||
-        (this.authMode === "register" && this.registerForm.webcam_dhash_hex)
+        (this.loginStep === 3 && this.loginForm.webcam_dhash_hex)
       ) {
         return "success";
       }
       return "idle";
+    },
+
+    get registerMood() {
+      if (this.toast.type === "error" && this.toast.message) return "error";
+      if (this.busy) return "idle";
+      if (this.registerStep === 4) return "success";
+      if (this.registerStep === 2 && this.registerDongleValid) return "success";
+      if (this.registerStep === 3 && this.registerBiometricValid) return "success";
+      return "idle";
+    },
+
+    get registerStepSubtitle() {
+      if (this.registerStep === 2) {
+        return "Hubungkan USB Dongle fisik yang diberikan fasilitas Anda.";
+      }
+      if (this.registerStep === 3) {
+        return "Ambil verifikasi wajah supaya akun terikat pada perangkat ini.";
+      }
+      if (this.registerStep === 4) {
+        return "Akun dokter Anda sudah siap digunakan.";
+      }
+      return "Mulai dari data akun yang akan Anda pakai setiap hari.";
+    },
+
+    get registerUsernameError() {
+      const value = this.registerForm.username.trim();
+      if (!value) return "Nama pengguna wajib diisi ya.";
+      if (value.length < 3) return "Nama pengguna minimal 3 karakter ya.";
+      if (/\s/.test(value)) return "Nama pengguna tidak boleh memakai spasi. Gunakan garis bawah atau titik.";
+      if (!/^[A-Za-z0-9._-]+$/.test(value)) {
+        return "Gunakan huruf, angka, titik, garis bawah, atau tanda hubung.";
+      }
+      return "";
+    },
+
+    get registerFullNameError() {
+      const value = this.registerForm.full_name.trim();
+      if (!value) return "Nama lengkap wajib diisi ya.";
+      if (value.length < 2) return "Nama lengkap minimal 2 karakter ya.";
+      return "";
+    },
+
+    get registerPasswordError() {
+      if (!this.registerForm.password) return "Kata sandi wajib diisi ya.";
+      if (this.registerForm.password.length < 12) return "Kata sandi minimal 12 karakter ya.";
+      return "";
+    },
+
+    get registerPasswordConfirmError() {
+      if (!this.registerPasswordConfirm) {
+        return "Ulangi kata sandi supaya tidak ada salah ketik.";
+      }
+      if (this.registerPasswordConfirm !== this.registerForm.password) {
+        return "Kata sandi belum sama. Periksa lagi ya.";
+      }
+      return "";
+    },
+
+    get registerPasswordScore() {
+      const value = this.registerForm.password;
+      if (!value) return 0;
+      let score = 0;
+      if (value.length >= 12) score += 1;
+      if (value.length >= 16) score += 1;
+      if (/[a-z]/.test(value) && /[A-Z]/.test(value)) score += 1;
+      if (/\d/.test(value) || /[^A-Za-z0-9]/.test(value)) score += 1;
+      return Math.min(4, Math.max(1, score));
+    },
+
+    get registerPasswordStrengthLabel() {
+      const labels = ["", "Lemah", "Cukup", "Kuat", "Sangat kuat"];
+      return labels[this.registerPasswordScore] || "";
+    },
+
+    get registerDongleUsernameMismatch() {
+      return Boolean(
+        this.dongle &&
+          this.dongle.username &&
+          this.registerForm.username.trim() &&
+          this.dongle.username !== this.registerForm.username.trim()
+      );
+    },
+
+    get registerDongleError() {
+      if (!this.dongle) {
+        return "USB Dongle belum terdeteksi. Pastikan sudah tertancap, lalu coba lagi.";
+      }
+      if (!this.registerForm.dongle_key_id.trim()) {
+        return "ID USB Dongle belum terbaca. Pilih ulang berkas .medkey, ya.";
+      }
+      if (!/^[0-9a-fA-F]{64}$/.test(this.registerForm.dongle_pubkey_hex.trim())) {
+        return "Kunci publik USB Dongle belum siap. Pilih ulang berkas .medkey, ya.";
+      }
+      if (this.registerDongleUsernameMismatch) {
+        return "Nama pengguna di USB Dongle berbeda dengan akun ini. Kembali ke langkah data akun atau gunakan dongle yang sesuai.";
+      }
+      return "";
+    },
+
+    get registerDongleValid() {
+      return !this.registerDongleError;
+    },
+
+    get registerBiometricError() {
+      if (!this.registerForm.webcam_dhash_hex) {
+        return "Wajah belum dipindai. Nyalakan kamera, lalu ambil verifikasi wajah.";
+      }
+      if (!/^[0-9a-fA-F]{16}$/.test(this.registerForm.webcam_dhash_hex)) {
+        return "Hasil pemindaian wajah belum lengkap. Coba ambil ulang, ya.";
+      }
+      return "";
+    },
+
+    get registerBiometricValid() {
+      return !this.registerBiometricError;
+    },
+
+    get registerAccountValid() {
+      return !(
+        this.registerUsernameError ||
+        this.registerFullNameError ||
+        this.registerPasswordError ||
+        this.registerPasswordConfirmError
+      );
+    },
+
+    get registerStepValid() {
+      if (this.registerStep === 1) return this.registerAccountValid;
+      if (this.registerStep === 2) return this.registerDongleValid;
+      if (this.registerStep === 3) return this.registerBiometricValid;
+      return true;
+    },
+
+    get showRegisterUsernameError() {
+      return (this.registerTouched.username || this.registerForm.username.length > 0) &&
+        Boolean(this.registerUsernameError);
+    },
+
+    get showRegisterFullNameError() {
+      return (this.registerTouched.full_name || this.registerForm.full_name.length > 0) &&
+        Boolean(this.registerFullNameError);
+    },
+
+    get showRegisterPasswordError() {
+      return (this.registerTouched.password || this.registerForm.password.length > 0) &&
+        Boolean(this.registerPasswordError);
+    },
+
+    get showRegisterPasswordConfirmError() {
+      return (this.registerTouched.password_confirm || this.registerPasswordConfirm.length > 0) &&
+        Boolean(this.registerPasswordConfirmError);
+    },
+
+    get showRegisterDongleError() {
+      return (this.registerTouched.dongle || Boolean(this.dongle)) && Boolean(this.registerDongleError);
+    },
+
+    get showRegisterBiometricError() {
+      return (this.registerTouched.face || Boolean(this.registerForm.webcam_dhash_hex)) &&
+        Boolean(this.registerBiometricError);
     },
 
     // Friendly copy for the authentication gate. Raw server errors remain in the
@@ -228,8 +398,11 @@ window.medvault = function medvault() {
     async init() {
       this.route = document.body.dataset.route || "gate";
       this.tab = this.route;
-      const path = window.location.pathname.replace(/\/+$/, "");
-      this.authMode = path === "/register" ? "register" : "login";
+      this.setupAssetFallbacks();
+      if (!this._faceUnloadBound) {
+        this._faceUnloadBound = true;
+        window.addEventListener("beforeunload", () => this.stopFacePreview());
+      }
       this.restoreRememberedRecord();
       await this.checkHealth();
       await this.restoreSession();
@@ -259,18 +432,23 @@ window.medvault = function medvault() {
       window.location.assign(path);
     },
 
-    // The login and enrolment views share one shell. Switching keeps the URL
-    // bookmarkable while avoiding a full page reload.
-    switchAuth(mode) {
-      if (mode !== "login" && mode !== "register") return;
-      if (this.authMode !== mode) {
-        this.authMode = mode;
-        this.loginStep = 1;
-      }
-      const target = mode === "register" ? "/register" : "/login";
-      if (window.location.pathname !== target) {
-        window.history.replaceState(null, "", target);
-      }
+    // Hide a failed mascot image and flag its wrapper so the text fallback can
+    // appear. Images may finish loading before Alpine initialises, so both
+    // cases are checked.
+    setupAssetFallbacks() {
+      const drop = (img) => {
+        if (img.parentElement) {
+          img.parentElement.classList.add("is-asset-missing");
+        }
+        img.remove();
+      };
+      document.querySelectorAll("img[data-mv-asset]").forEach((img) => {
+        if (img.complete && img.naturalWidth === 0) {
+          drop(img);
+          return;
+        }
+        img.addEventListener("error", () => drop(img), { once: true });
+      });
     },
 
     async loadRouteData() {
@@ -390,12 +568,15 @@ window.medvault = function medvault() {
           "Kunci privat tetap di memori tab ini. Tutup tab untuk menghapusnya.";
 
         if (this.dongle.username) {
-          this.registerForm.username = this.dongle.username;
+          if (!this.registerForm.username.trim()) {
+            this.registerForm.username = this.dongle.username;
+          }
           this.loginForm.username = this.dongle.username;
         }
         if (this.dongle.keyId) {
           this.registerForm.dongle_key_id = this.dongle.keyId;
         }
+        this.registerTouched.dongle = true;
 
         const publicHex = await this.derivePublicKeyHex(seed);
         this.registerForm.dongle_pubkey_hex = publicHex;
@@ -404,14 +585,16 @@ window.medvault = function medvault() {
       event.target.value = "";
     },
 
-    async importSeed(seedHex) {
+    // Signing keys stay non-extractable. Public key derivation is the only
+    // operation that needs an extractable import, so it asks for one explicitly.
+    async importSeed(seedHex, extractable = false) {
       const der = hexToBytes(PKCS8_ED25519_PREFIX + seedHex);
       try {
         return await crypto.subtle.importKey(
           "pkcs8",
           der,
           { name: "Ed25519" },
-          false,
+          extractable,
           ["sign"]
         );
       } catch (_) {
@@ -422,7 +605,7 @@ window.medvault = function medvault() {
     },
 
     async derivePublicKeyHex(seedHex) {
-      const key = await this.importSeed(seedHex);
+      const key = await this.importSeed(seedHex, true);
       const jwk = await crypto.subtle.exportKey("jwk", key);
       return base64urlToHex(jwk.x);
     },
@@ -440,8 +623,10 @@ window.medvault = function medvault() {
       return bytesToHex(signature);
     },
 
-    async captureFace() {
-      await this.run("Ambil kamera", async () => {
+    async startFacePreview() {
+      if (this.facePreviewActive) return;
+
+      await this.run("Nyalakan kamera", async () => {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           throw new Error("browser ini belum menyediakan akses kamera, gunakan Chrome atau Edge terbaru");
         }
@@ -451,11 +636,58 @@ window.medvault = function medvault() {
           audio: false,
         });
 
+        if (this.registerStep !== 3) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        const video = document.getElementById("register-face-video");
+        if (!video) {
+          stream.getTracks().forEach((track) => track.stop());
+          throw new Error("pratinjau kamera tidak tersedia, muat ulang halaman lalu coba lagi");
+        }
+
+        video.srcObject = stream;
+        video.muted = true;
+        video.playsInline = true;
+        await video.play();
+
+        this.faceStream = stream;
+        this.facePreviewActive = true;
+        this.registerTouched.face = true;
+      });
+    },
+
+    stopFacePreview() {
+      if (this.faceStream) {
+        this.faceStream.getTracks().forEach((track) => track.stop());
+      }
+      this.faceStream = null;
+      this.facePreviewActive = false;
+      const video = document.getElementById("register-face-video");
+      if (video) video.srcObject = null;
+    },
+
+    async captureFace() {
+      await this.run("Ambil kamera", async () => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("browser ini belum menyediakan akses kamera, gunakan Chrome atau Edge terbaru");
+        }
+
+        const reusable = this.facePreviewActive && this.faceStream;
+        const stream =
+          reusable ||
+          (await navigator.mediaDevices.getUserMedia({
+            video: { width: 640, height: 480, facingMode: "user" },
+            audio: false,
+          }));
+
         try {
-          const video = document.createElement("video");
+          const preview = document.getElementById("register-face-video");
+          const video = reusable && preview ? preview : document.createElement("video");
           video.muted = true;
           video.playsInline = true;
-          video.srcObject = stream;
+          if (!reusable) video.srcObject = stream;
           await video.play();
           await new Promise((resolve) => window.setTimeout(resolve, 350));
 
@@ -468,10 +700,13 @@ window.medvault = function medvault() {
           const hashHex = this.dhashFromCanvas(ctx);
           this.loginForm.webcam_dhash_hex = hashHex;
           this.registerForm.webcam_dhash_hex = hashHex;
+          this.registerTouched.face = true;
           this.faceStatus = `dHash ${hashHex}`;
           this.notify("Wajah berhasil dipindai");
         } finally {
-          stream.getTracks().forEach((track) => track.stop());
+          if (!reusable) {
+            stream.getTracks().forEach((track) => track.stop());
+          }
         }
       });
     },
@@ -508,10 +743,53 @@ window.medvault = function medvault() {
     // Authentication
     // ---------------------------------------------------------------
 
-    async registerDoctor() {
+    nextRegisterStep() {
+      if (this.registerStep === 1) {
+        this.registerTouched.username = true;
+        this.registerTouched.full_name = true;
+        this.registerTouched.password = true;
+        this.registerTouched.password_confirm = true;
+        if (!this.registerAccountValid) {
+          this.notify("Periksa data akun dulu, ya", "error");
+          return;
+        }
+        this.registerStep = 2;
+        return;
+      }
+
+      if (this.registerStep === 2) {
+        this.registerTouched.dongle = true;
+        if (!this.registerDongleValid) {
+          this.notify(this.registerDongleError, "error");
+          return;
+        }
+        this.registerStep = 3;
+        void this.startFacePreview();
+      }
+    },
+
+    prevRegisterStep() {
+      if (this.registerStep === 3) {
+        this.stopFacePreview();
+      }
+      if (this.registerStep > 1) {
+        this.registerStep -= 1;
+      }
+    },
+
+    async submitRegistration() {
       await this.run("Registrasi", async () => {
-        if (!this.registerForm.webcam_dhash_hex) {
-          throw new Error("ambil verifikasi wajah dulu, ya");
+        this.registerTouched.face = true;
+        if (!this.registerAccountValid) {
+          this.registerStep = 1;
+          throw new Error("periksa data akun dulu, ya");
+        }
+        if (!this.registerDongleValid) {
+          this.registerStep = 2;
+          throw new Error(this.registerDongleError);
+        }
+        if (!this.registerBiometricValid) {
+          throw new Error(this.registerBiometricError);
         }
         if (!this.registerForm.dongle_pubkey_hex && this.dongle) {
           this.registerForm.dongle_pubkey_hex = await this.derivePublicKeyHex(
@@ -519,13 +797,26 @@ window.medvault = function medvault() {
           );
         }
 
+        const payload = {
+          username: this.registerForm.username.trim(),
+          full_name: this.registerForm.full_name.trim(),
+          password: this.registerForm.password,
+          dongle_key_id: this.registerForm.dongle_key_id.trim(),
+          dongle_pubkey_hex: this.registerForm.dongle_pubkey_hex.trim().toLowerCase(),
+          webcam_dhash_hex: this.registerForm.webcam_dhash_hex.trim().toLowerCase(),
+        };
+
         const env = await this.api("/api/v1/auth/register", {
           method: "POST",
-          body: this.registerForm,
+          body: payload,
         });
-        this.loginForm.username = this.registerForm.username;
-        this.switchAuth("login");
-        this.notify(env.message || "Dokter terdaftar, silakan masuk");
+
+        this.loginForm.username = payload.username;
+        this.registerStep = 4;
+        this.stopFacePreview();
+        this.registerForm.password = "";
+        this.registerPasswordConfirm = "";
+        this.notify(env.message || "Akun dokter berhasil dibuat");
       });
     },
 

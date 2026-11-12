@@ -19,7 +19,7 @@ func TestHandlerServesEveryModulePage(t *testing.T) {
 	}{
 		{"/", "Masuk ke MedVault"},
 		{"/login", "Masuk ke MedVault"},
-		{"/register", "Masuk ke MedVault"},
+		{"/register", "Daftar sebagai dokter"},
 		{"/dashboard", "Clinical workspace"},
 		{"/patients", "Manajemen Pasien"},
 		{"/records", "Rekam Medis Baru"},
@@ -64,7 +64,7 @@ func TestHandlerKeepsFragmentsPrivateAndServesAssets(t *testing.T) {
 		t.Fatalf("Handler: %v", err)
 	}
 
-	private := []string{"/index.html", "/layout.html", "/pages/dashboard.html", "/js/"}
+	private := []string{"/index.html", "/register.html", "/layout.html", "/pages/dashboard.html", "/js/"}
 	for _, route := range private {
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, route, nil))
@@ -73,7 +73,7 @@ func TestHandlerKeepsFragmentsPrivateAndServesAssets(t *testing.T) {
 		}
 	}
 
-	assets := []string{"/js/app.js", "/vendor/alpine.min.js", "/vendor/tailwind-browser.min.js", "/assets/README.md"}
+	assets := []string{"/js/app.js", "/vendor/alpine.min.js", "/vendor/tailwind-browser.min.js", "/assets/README.md", "/assets/maskot.svg"}
 	for _, route := range assets {
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, route, nil))

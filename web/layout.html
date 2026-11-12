@@ -114,9 +114,44 @@
     }
 
     .mv-logo-mark {
-      background:var(--mv-accent);
+      position:relative;
+      overflow:hidden;
+      background:var(--mv-accent, #0f9f91);
       color:#ffffff;
       box-shadow:0 10px 22px -10px rgba(15,159,145,.65);
+    }
+    .mv-logo-img {
+      position:absolute;
+      top:50%;
+      left:50%;
+      transform:translate(-50%,-50%);
+      display:block;
+      width:auto;
+      height:calc(100% - 8px);
+      max-width:calc(100% - 8px);
+      object-fit:contain;
+    }
+    .mv-logo-fallback {
+      font-size:13px;
+      font-weight:800;
+      letter-spacing:.02em;
+      line-height:1;
+    }
+    .mv-logo-fallback,
+    .mv-mascot-fallback { display:none; }
+    .is-asset-missing .mv-logo-fallback { display:block; }
+    .is-asset-missing .mv-mascot-fallback {
+      display:grid;
+      place-items:center;
+      width:100%;
+      aspect-ratio:4 / 5;
+      border:1px dashed var(--mv-border);
+      border-radius:24px;
+      background:var(--mv-soft);
+      color:var(--mv-accent-strong);
+      font-size:28px;
+      font-weight:800;
+      letter-spacing:.08em;
     }
     .mv-brand-title { color:var(--mv-ink) !important; }
     .mv-brand-sub { color:var(--mv-muted) !important; }
@@ -145,7 +180,6 @@
           0 22px 50px -20px rgba(0,0,0,.55);
       }
     }
-    .mv-register-card { max-height:calc(100vh - 2rem); overflow-y:auto; }
     .mv-eyebrow { color:var(--mv-accent-strong) !important; }
     .mv-auth-card h2, .mv-auth-card h3 { color:var(--mv-ink) !important; }
     .mv-auth-card p, .mv-auth-card label { color:var(--mv-muted) !important; }
@@ -162,9 +196,6 @@
     .mv-auth-alert svg { color:var(--mv-danger-ink) !important; }
     .mv-error-close { color:var(--mv-danger-ink) !important; }
     .mv-error-close:hover { background:var(--mv-danger-soft) !important; }
-    .mv-auth-close { width:40px; height:40px; display:grid; place-items:center; color:var(--mv-muted) !important; }
-    .mv-auth-close:hover { background:var(--mv-soft) !important; color:var(--mv-ink) !important; }
-
     .mv-auth-hero {
       position:relative;
       min-height:240px;
@@ -194,6 +225,21 @@
     }
     @media (min-width:1024px) {
       .mv-auth-hero { min-height:100vh; }
+    }
+    /* Below the two-column breakpoint the registration hero becomes a compact
+       banner above the card, carrying only the mascot and the headline. */
+    @media (max-width:1023px) {
+      .mv-auth-hero-register {
+        min-height:0 !important;
+        padding-top:1rem !important;
+        padding-bottom:1rem !important;
+      }
+      .mv-auth-hero-register .mv-mascot { width:120px; }
+      .mv-auth-hero-register .mv-hero-title {
+        margin-top:.5rem !important;
+        font-size:1.125rem !important;
+        line-height:1.4 !important;
+      }
     }
 
     .mv-mascot {
@@ -296,11 +342,92 @@
     }
     .mv-status-icon.is-success { color:var(--mv-success-ink); }
 
+    .mv-step-label { max-width:72px; overflow-wrap:break-word; }
+    .mv-field-error {
+      margin-top:6px;
+      color:var(--mv-danger-ink);
+      font-size:12px;
+      font-weight:600;
+      line-height:1.5;
+    }
+
+    .mv-strength { display:flex; flex:1 1 0; gap:4px; max-width:132px; }
+    .mv-strength-bar {
+      flex:1 1 0;
+      height:4px;
+      border-radius:9999px;
+      background:var(--mv-border);
+      transition:background-color .18s ease;
+    }
+    .mv-strength[data-score="1"] .mv-strength-bar.is-on { background:#e11d48; }
+    .mv-strength[data-score="2"] .mv-strength-bar.is-on { background:#d97706; }
+    .mv-strength[data-score="3"] .mv-strength-bar.is-on { background:#0f9f91; }
+    .mv-strength[data-score="4"] .mv-strength-bar.is-on { background:#16a34a; }
+    .mv-strength-label {
+      color:var(--mv-muted) !important;
+      font-size:12px;
+      font-weight:600;
+      white-space:nowrap;
+    }
+
+    .mv-camera-preview {
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      width:100%;
+      aspect-ratio:4 / 3;
+      overflow:hidden;
+      border:1px solid var(--mv-border);
+      border-radius:18px;
+      background:var(--mv-soft);
+    }
+    .mv-camera-video {
+      display:block;
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      background:#000000;
+    }
+    .mv-camera-empty {
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+      padding:24px;
+      text-align:center;
+    }
+    .mv-camera-frame {
+      position:absolute;
+      inset:14%;
+      border:2px dashed rgba(15,159,145,.55);
+      border-radius:16px;
+      pointer-events:none;
+    }
+
+    .mv-success-panel {
+      border:1px solid var(--mv-success-border);
+      border-radius:18px;
+      background:var(--mv-success-bg);
+      padding:24px 20px;
+    }
+    .mv-success-icon {
+      display:inline-grid;
+      place-items:center;
+      width:56px;
+      height:56px;
+      border:1px solid var(--mv-success-border);
+      border-radius:9999px;
+      background:var(--mv-surface);
+      color:var(--mv-success-ink);
+    }
+
     .mv-auth-primary {
       display:flex; align-items:center; justify-content:center; gap:8px;
       width:100%; height:48px; border:0; border-radius:12px !important;
       background:var(--mv-primary-bg) !important; color:var(--mv-primary-ink) !important;
-      font-size:14px; font-weight:700;
+      font-size:14px; font-weight:700; line-height:1; text-decoration:none;
+      cursor:pointer;
       box-shadow:0 12px 24px rgba(15,159,145,.22);
     }
     .mv-auth-primary:hover:not(:disabled) { background:var(--mv-primary-bg-hover) !important; transform:translateY(-1px); }
@@ -339,6 +466,7 @@
     .mv-auth-card button:focus-visible,
     .mv-auth-card summary:focus-visible,
     .mv-auth-card a:focus-visible,
+    .mv-auth a:focus-visible,
     .mv-gate-badge:focus-visible,
     input.mv-auth-input:focus-visible {
       outline:3px solid var(--mv-accent);
@@ -348,6 +476,7 @@
     @media (prefers-reduced-motion: reduce) {
       .mv-mascot, .mv-mascot-success img, .mv-mascot-error img { animation:none !important; }
       .mv-pane-enter, .mv-pane-leave { transition:none !important; }
+      .mv-strength-bar { transition:none !important; }
       .mv-auth .animate-spin { animation:none !important; }
     }
 
@@ -362,8 +491,10 @@
   <header class="sticky top-0 z-30 border-b border-vault-800 bg-vault-950/95 backdrop-blur">
     <div class="mx-auto max-w-7xl px-4 py-3 flex flex-wrap items-center gap-3">
       <div class="flex items-center gap-3">
-        <div class="h-10 w-10 rounded-lg border border-vault-400/60 bg-vault-900 grid place-items-center">
-          <span class="font-mono text-vault-300 text-sm font-bold">MV</span>
+        <div class="mv-logo-mark h-10 w-10 shrink-0 rounded-lg border border-vault-400/60 grid place-items-center" aria-hidden="true">
+          <span class="mv-logo-fallback">MV</span>
+          <img src="/assets/maskot.svg" width="32" height="40" decoding="async" alt=""
+               class="mv-logo-img" data-mv-asset>
         </div>
         <div>
           <h1 class="text-lg font-semibold tracking-tight text-white">MedVault</h1>
