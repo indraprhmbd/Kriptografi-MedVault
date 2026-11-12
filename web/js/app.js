@@ -86,6 +86,9 @@ window.medvault = function medvault() {
     tab: "gate",
     route: "gate",
     loginStep: 1,
+    authMode: "login",
+    showPassword: false,
+    showRegisterPassword: false,
 
     busy: false,
     toast: { type: "ok", message: "" },
@@ -157,6 +160,8 @@ window.medvault = function medvault() {
     async init() {
       this.route = document.body.dataset.route || "gate";
       this.tab = this.route;
+      const path = window.location.pathname.replace(/\/+$/, "");
+      this.authMode = path === "/register" ? "register" : "login";
       this.restoreRememberedRecord();
       await this.checkHealth();
       await this.restoreSession();
@@ -184,6 +189,20 @@ window.medvault = function medvault() {
         return;
       }
       window.location.assign(path);
+    },
+
+    // The login and enrolment views share one shell. Switching keeps the URL
+    // bookmarkable while avoiding a full page reload.
+    switchAuth(mode) {
+      if (mode !== "login" && mode !== "register") return;
+      if (this.authMode !== mode) {
+        this.authMode = mode;
+        this.loginStep = 1;
+      }
+      const target = mode === "register" ? "/register" : "/login";
+      if (window.location.pathname !== target) {
+        window.history.replaceState(null, "", target);
+      }
     },
 
     async loadRouteData() {
@@ -437,7 +456,8 @@ window.medvault = function medvault() {
           body: this.registerForm,
         });
         this.loginForm.username = this.registerForm.username;
-        this.notify(env.message || "Dokter terdaftar");
+        this.switchAuth("login");
+        this.notify(env.message || "Dokter terdaftar, silakan masuk");
       });
     },
 

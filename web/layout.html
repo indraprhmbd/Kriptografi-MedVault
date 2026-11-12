@@ -47,6 +47,66 @@
     .mv-step.active .mv-step-dot { background:#e3f7f3;border-color:#0f9f91;color:#087f75; }
     .mv-step.done .mv-step-dot { background:#e8f8ee;border-color:#86d6a4;color:#15803d; }
     .mv-panel { border:1px solid #e2eaf0;border-radius:14px;background:#f8fbfd;padding:16px; }
+
+    /* Authentication shell: the gate route owns the full viewport. */
+    body[data-route="gate"] header,
+    body[data-route="gate"] footer { display:none !important; }
+    body[data-route="gate"] main { width:100% !important; max-width:none !important; padding:0 !important; }
+    body[data-route="gate"] main section > div { border-radius:0 !important; box-shadow:none !important; }
+
+    .mv-auth-hero {
+      position:relative;
+      color:#f0fdfa;
+      background:
+        radial-gradient(880px 620px at 88% -8%, rgba(45,212,191,.55), transparent 62%),
+        radial-gradient(760px 560px at -12% 88%, rgba(14,165,233,.38), transparent 62%),
+        linear-gradient(155deg,#04302c 0%,#064e46 46%,#0b6b60 100%);
+    }
+    .mv-auth-hero::before {
+      content:""; position:absolute; inset:0; pointer-events:none;
+      background-image:radial-gradient(rgba(255,255,255,.16) 1px, transparent 1px);
+      background-size:22px 22px;
+      -webkit-mask-image:linear-gradient(to bottom, rgba(0,0,0,.8), transparent 72%);
+      mask-image:linear-gradient(to bottom, rgba(0,0,0,.8), transparent 72%);
+    }
+    .mv-auth-hero h2, .mv-auth-hero p, .mv-auth-hero blockquote,
+    .mv-auth-hero figcaption, .mv-auth-hero span, .mv-auth-hero li { color:inherit; }
+
+    input.mv-auth-input {
+      width:100%; height:48px; padding:0 16px;
+      border:1px solid #d8e3eb !important; border-radius:12px !important;
+      background:#fff !important; color:#1f3448 !important;
+      font-size:14px;
+      transition:border-color .18s ease, box-shadow .18s ease;
+    }
+    input.mv-auth-input::placeholder { color:#9aa9b8; }
+    input.mv-auth-input:focus {
+      border-color:#0f9f91 !important;
+      box-shadow:0 0 0 4px rgba(15,159,145,.12) !important;
+      outline:none;
+    }
+    .mv-auth-input-icon { padding-left:42px !important; }
+    .mv-auth-input-action { padding-right:78px !important; }
+
+    .mv-auth-primary {
+      display:flex; align-items:center; justify-content:center; gap:8px;
+      width:100%; height:48px; border:0; border-radius:12px !important;
+      background:#0f9f91 !important; color:#fff !important;
+      font-size:14px; font-weight:600;
+      box-shadow:0 12px 24px rgba(15,159,145,.22);
+    }
+    .mv-auth-primary:hover { background:#0b867b !important; transform:translateY(-1px); }
+    .mv-auth-primary:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+
+    .mv-auth-secondary {
+      display:flex; align-items:center; justify-content:center; gap:8px;
+      width:100%; height:48px; border-radius:12px !important;
+      border:1px solid #dbe5ec !important; background:#fff !important;
+      color:#334155 !important; font-size:13px; font-weight:600;
+    }
+    .mv-auth-secondary:hover { border-color:#0f9f91 !important; color:#087f75 !important; }
+    .mv-auth-secondary:disabled { opacity:.5; cursor:not-allowed; }
+
     @media(max-width:640px){ header .mx-auto{align-items:flex-start} }
   </style>
   <style>[x-cloak] { display: none !important; }</style>

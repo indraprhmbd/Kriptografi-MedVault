@@ -1,91 +1,342 @@
-<section class="grid gap-6 lg:grid-cols-2">
+<section class="mv-auth w-full">
+  <div class="grid min-h-screen w-full lg:grid-cols-2">
 
-  <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-4">
-    <div class="flex items-start justify-between">
-      <div>
-        <h2 class="text-base font-semibold text-white">Enrolment Dokter</h2>
-        <p class="text-xs text-slate-400">Argon2id, dongle Ed25519, WebAuthn Windows Hello, dHash wajah</p>
+    <!-- Form column -->
+    <div class="relative flex min-h-screen min-w-0 flex-col bg-white px-5 py-6 sm:px-8 lg:px-12">
+      <div class="mx-auto flex w-full min-w-0 max-w-md items-center justify-between">
+        <a href="/login" class="flex items-center gap-3">
+          <span class="grid h-10 w-10 place-items-center rounded-xl bg-[#0f9f91] text-[#ffffff] shadow-lg">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
+              <path d="M12 3l7 3v5c0 4.4-3 8.3-7 10-4-1.7-7-5.6-7-10V6l7-3z"></path>
+              <path d="M12 8v6M9 11h6"></path>
+            </svg>
+          </span>
+          <span>
+            <span class="block text-lg font-bold leading-tight tracking-tight text-slate-900">MedVault</span>
+            <span class="block text-[11px] font-medium text-slate-500">Secure Medical Records</span>
+          </span>
+        </a>
+        <button type="button" class="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-teal-500 hover:text-teal-700"
+                @click="telemetryOpen = true">Glass-Box</button>
       </div>
-      <span class="rounded border border-vault-700 px-2 py-0.5 text-[10px] font-mono text-vault-300">POST /api/v1/auth/register</span>
+
+      <div class="mx-auto flex w-full min-w-0 max-w-md flex-1 flex-col justify-center py-10">
+        <div>
+          <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-teal-700"
+             x-text="authMode === 'register' ? 'Enrolment dokter' : 'Selamat datang kembali'"></p>
+          <h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-900"
+              x-text="authMode === 'register' ? 'Buat akun dokter' : 'Masuk ke MedVault'"></h1>
+          <p class="mt-2 text-sm leading-relaxed text-slate-500"
+             x-text="authMode === 'register' ? 'Daftarkan identitas, dongle, dan biometrik wajah dalam satu alur.' : 'Selesaikan tiga tahap verifikasi untuk membuka ruang kerja medis.'"></p>
+        </div>
+
+        <div class="mt-6 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1">
+          <button type="button" class="rounded-lg px-3 py-2 text-sm font-semibold transition"
+                  :class="authMode === 'login' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                  @click="switchAuth('login')">Masuk</button>
+          <button type="button" class="rounded-lg px-3 py-2 text-sm font-semibold transition"
+                  :class="authMode === 'register' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                  @click="switchAuth('register')">Daftar dokter</button>
+        </div>
+
+        <!-- Login flow -->
+        <div x-show="authMode === 'login'" class="mt-7 space-y-6">
+          <div class="flex items-center gap-2">
+            <div class="mv-step flex-1" :class="loginStep === 1 ? 'active' : loginStep > 1 ? 'done' : ''">
+              <span class="mv-step-dot">1</span><span>Akun</span>
+            </div>
+            <div class="h-px w-4 bg-slate-200"></div>
+            <div class="mv-step flex-1" :class="loginStep === 2 ? 'active' : loginStep > 2 ? 'done' : ''">
+              <span class="mv-step-dot">2</span><span>Dongle</span>
+            </div>
+            <div class="h-px w-4 bg-slate-200"></div>
+            <div class="mv-step flex-1" :class="loginStep === 3 ? 'active' : ''">
+              <span class="mv-step-dot">3</span><span>Biometrik</span>
+            </div>
+          </div>
+
+          <!-- Step 1: credentials -->
+          <div x-show="loginStep === 1" class="space-y-4">
+            <label class="block">
+              <span class="mb-1.5 block text-xs font-semibold text-slate-600">Username</span>
+              <span class="relative block">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true">
+                  <path d="M20 21a8 8 0 0 0-16 0"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <input x-model="loginForm.username" autocomplete="username" class="mv-auth-input mv-auth-input-icon"
+                       placeholder="contoh: dr_andi" @keydown.enter="nextLoginStep()">
+              </span>
+            </label>
+
+            <label class="block">
+              <span class="mb-1.5 block text-xs font-semibold text-slate-600">Kata sandi</span>
+              <span class="relative block">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true">
+                  <rect x="4" y="10" width="16" height="10" rx="2"></rect>
+                  <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+                </svg>
+                <input :type="showPassword ? 'text' : 'password'" x-model="loginForm.password"
+                       autocomplete="current-password" class="mv-auth-input mv-auth-input-icon mv-auth-input-action"
+                       placeholder="Masukkan kata sandi" @keydown.enter="nextLoginStep()">
+                <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                        @click="showPassword = !showPassword" x-text="showPassword ? 'Sembunyikan' : 'Lihat'"></button>
+              </span>
+            </label>
+
+            <button type="button" class="mv-auth-primary"
+                    :disabled="busy || !loginForm.username || !loginForm.password" @click="nextLoginStep()">
+              Lanjutkan
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
+                <path d="M5 12h14M13 6l6 6-6 6"></path>
+              </svg>
+            </button>
+
+            <p class="text-center text-xs text-slate-500">
+              Belum punya akun?
+              <button type="button" class="font-semibold text-teal-700 hover:text-teal-800" @click="switchAuth('register')">Daftarkan dokter</button>
+            </p>
+          </div>
+
+          <!-- Step 2: dongle -->
+          <div x-show="loginStep === 2" x-cloak class="space-y-4">
+            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p class="text-sm font-semibold text-slate-700">Tahap 2 - USB Security Dongle</p>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Pilih berkas .medkey. Seed privat diproses lokal di browser dan tidak pernah dikirim ke server.</p>
+            </div>
+
+            <div class="flex items-start gap-3 rounded-xl border px-4 py-3"
+                 :class="dongle ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'">
+              <span class="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg"
+                    :class="dongle ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-400'">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
+                  <path d="M12 21V9M8 9h8a2 2 0 0 0 2-2V5a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1v2a2 2 0 0 0 2 2z"></path>
+                  <path d="M9 21h6"></path>
+                </svg>
+              </span>
+              <div class="min-w-0">
+                <p class="text-sm font-semibold"
+                   :class="dongle ? 'text-emerald-800' : 'text-slate-600'"
+                   x-text="dongle ? 'Dongle siap digunakan' : 'Dongle belum dimuat'"></p>
+                <p class="mt-0.5 truncate text-xs"
+                   :class="dongle ? 'text-emerald-700' : 'text-slate-500'"
+                   x-text="dongle ? dongle.keyId + ' - kunci privat tetap di browser' : 'Pilih berkas .medkey dari flash drive Anda'"></p>
+              </div>
+            </div>
+
+            <label class="mv-auth-secondary cursor-pointer">
+              <input type="file" style="display:none" accept=".medkey,application/json" @change="loadDongle($event)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
+                <path d="M12 16V4M7 9l5-5 5 5"></path>
+                <path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"></path>
+              </svg>
+              Pilih berkas .medkey
+            </label>
+
+            <div class="flex gap-2">
+              <button type="button" class="mv-auth-secondary flex-1" @click="loginStep = 1">Kembali</button>
+              <button type="button" class="mv-auth-primary flex-1" :disabled="busy || !dongle" @click="nextLoginStep()">Verifikasi dongle</button>
+            </div>
+          </div>
+
+          <!-- Step 3: biometrics -->
+          <div x-show="loginStep === 3" x-cloak class="space-y-4">
+            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p class="text-sm font-semibold text-slate-700">Tahap 3 - Verifikasi biometrik</p>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Ambil fingerprint wajah melalui kamera untuk mencocokkan dHash yang terdaftar.</p>
+            </div>
+
+            <div class="rounded-xl border border-slate-200 bg-white px-5 py-6 text-center">
+              <div class="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-teal-50 text-teal-700">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-7 w-7" aria-hidden="true">
+                  <path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </div>
+              <p class="text-sm font-semibold text-slate-700" x-text="faceStatus || 'Kamera belum diaktifkan'"></p>
+              <p class="mt-1 text-xs text-slate-500">Pastikan izin kamera diberikan pada browser.</p>
+              <button type="button" class="mt-4 rounded-lg border border-teal-200 px-4 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-50"
+                      :disabled="busy" @click="captureFace()" x-text="busy ? 'Memproses...' : 'Ambil verifikasi wajah'"></button>
+            </div>
+
+            <div class="flex gap-2">
+              <button type="button" class="mv-auth-secondary flex-1" @click="loginStep = 2">Kembali</button>
+              <button type="button" class="mv-auth-primary flex-1"
+                      :disabled="busy || !loginForm.webcam_dhash_hex" @click="login()"
+                      x-text="busy ? 'Memverifikasi...' : 'Selesaikan login'"></button>
+            </div>
+
+            <button type="button" class="w-full text-center text-xs font-semibold text-slate-500 transition hover:text-teal-700"
+                    :disabled="busy || !loginForm.username" @click="webauthnLogin()">Gunakan Windows Hello + Dongle</button>
+          </div>
+        </div>
+
+        <!-- Registration flow -->
+        <div x-show="authMode === 'register'" x-cloak class="mt-7 min-w-0 space-y-4">
+          <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p class="text-sm font-semibold text-slate-700">Enrolment dokter baru</p>
+            <p class="mt-1 text-xs leading-relaxed text-slate-500">Siapkan USB dongle berisi berkas .medkey dan akses kamera. Kata sandi minimal 12 karakter.</p>
+          </div>
+
+          <div class="grid min-w-0 gap-3 sm:grid-cols-2">
+            <label class="block">
+              <span class="mb-1.5 block text-xs font-semibold text-slate-600">Username</span>
+              <input x-model="registerForm.username" autocomplete="username" class="mv-auth-input" placeholder="dr_andi">
+            </label>
+            <label class="block">
+              <span class="mb-1.5 block text-xs font-semibold text-slate-600">Nama lengkap</span>
+              <input x-model="registerForm.full_name" autocomplete="name" class="mv-auth-input" placeholder="dr. Andi Pratama">
+            </label>
+            <label class="block sm:col-span-2">
+              <span class="mb-1.5 block text-xs font-semibold text-slate-600">Kata sandi</span>
+              <span class="relative block">
+                <input :type="showRegisterPassword ? 'text' : 'password'" x-model="registerForm.password"
+                       autocomplete="new-password" class="mv-auth-input mv-auth-input-action"
+                       placeholder="Minimal 12 karakter">
+                <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                        @click="showRegisterPassword = !showRegisterPassword" x-text="showRegisterPassword ? 'Sembunyikan' : 'Lihat'"></button>
+              </span>
+            </label>
+            <label class="block sm:col-span-2">
+              <span class="mb-1.5 block text-xs font-semibold text-slate-600">ID dongle</span>
+              <input x-model="registerForm.dongle_key_id" class="mv-auth-input font-mono" placeholder="DONGLE-2026-0001">
+            </label>
+          </div>
+
+          <div class="flex items-start gap-3 rounded-xl border px-4 py-3"
+               :class="dongle ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'">
+            <span class="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg"
+                  :class="dongle ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-400'">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
+                <path d="M12 21V9M8 9h8a2 2 0 0 0 2-2V5a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1v2a2 2 0 0 0 2 2z"></path>
+                <path d="M9 21h6"></path>
+              </svg>
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold"
+                 :class="dongle ? 'text-emerald-800' : 'text-slate-600'"
+                 x-text="dongle ? 'Dongle siap digunakan' : 'Dongle belum dimuat'"></p>
+              <p class="mt-0.5 truncate font-mono text-[11px]"
+                 :class="dongle ? 'text-emerald-700' : 'text-slate-500'"
+                 x-text="registerForm.dongle_pubkey_hex ? registerForm.dongle_pubkey_hex.slice(0, 32) + '...' : 'Public key Ed25519 diturunkan otomatis dari berkas .medkey'"></p>
+            </div>
+          </div>
+
+          <label class="mv-auth-secondary cursor-pointer">
+            <input type="file" style="display:none" accept=".medkey,application/json" @change="loadDongle($event)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
+              <path d="M12 16V4M7 9l5-5 5 5"></path>
+              <path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"></path>
+            </svg>
+            Pilih berkas .medkey
+          </label>
+
+          <div class="flex items-start gap-3 rounded-xl border px-4 py-3"
+               :class="registerForm.webcam_dhash_hex ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'">
+            <span class="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg"
+                  :class="registerForm.webcam_dhash_hex ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-400'">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
+                <path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold"
+                 :class="registerForm.webcam_dhash_hex ? 'text-emerald-800' : 'text-slate-600'"
+                 x-text="registerForm.webcam_dhash_hex ? 'dHash wajah siap' : 'Biometrik wajah belum diambil'"></p>
+              <p class="mt-0.5 truncate font-mono text-[11px]"
+                 :class="registerForm.webcam_dhash_hex ? 'text-emerald-700' : 'text-slate-500'"
+                 x-text="registerForm.webcam_dhash_hex || faceStatus || 'Ambil dHash dari kamera untuk melengkapi enrolment'"></p>
+            </div>
+          </div>
+
+          <button type="button" class="mv-auth-secondary" :disabled="busy" @click="captureFace()"
+                  x-text="busy ? 'Memproses...' : 'Ambil dHash dari kamera'"></button>
+
+          <button type="button" class="mv-auth-primary" :disabled="busy" @click="registerDoctor()"
+                  x-text="busy ? 'Mendaftarkan...' : 'Daftarkan dokter'"></button>
+        </div>
+      </div>
+
+      <p class="mx-auto w-full max-w-md text-center text-[11px] leading-relaxed text-slate-400">
+        Dilindungi Argon2id, Ed25519, XChaCha20-Poly1305, dan biometrik dHash.
+      </p>
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-2">
-      <label class="text-xs text-slate-400">Username
-        <input x-model="registerForm.username" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm text-slate-100" placeholder="dr_andi">
-      </label>
-      <label class="text-xs text-slate-400">Nama lengkap
-        <input x-model="registerForm.full_name" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm text-slate-100" placeholder="dr. Andi Pratama">
-      </label>
-      <label class="text-xs text-slate-400">Kata sandi (minimal 12 karakter)
-        <input type="password" x-model="registerForm.password" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm text-slate-100">
-      </label>
-      <label class="text-xs text-slate-400">ID dongle
-        <input x-model="registerForm.dongle_key_id" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm text-slate-100" placeholder="DONGLE-2026-0001">
-      </label>
-      <label class="text-xs text-slate-400 sm:col-span-2">Public key Ed25519 (hex)
-        <input x-model="registerForm.dongle_pubkey_hex" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 font-mono text-xs text-slate-100" placeholder="diisi otomatis dari berkas .medkey">
-      </label>
-      <label class="text-xs text-slate-400 sm:col-span-2">dHash wajah 16 hex
-        <input x-model="registerForm.webcam_dhash_hex" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 font-mono text-xs text-slate-100" placeholder="0f0f0f0f0f0f0f0f">
-      </label>
-    </div>
+    <!-- Visual column -->
+    <aside class="mv-auth-hero hidden overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-10 xl:p-14">
+      <img src="/assets/login-hero.jpg" alt="" aria-hidden="true"
+           class="absolute inset-0 h-full w-full object-cover opacity-25" @error="$el.remove()">
+      <div class="absolute inset-0" style="background:linear-gradient(to top, rgba(4,48,44,.92), rgba(4,48,44,.35) 55%, rgba(4,48,44,.12));"></div>
 
-    <div class="flex flex-wrap items-center gap-2">
-      <button type="button" class="rounded-md bg-vault-400 px-3 py-2 text-sm font-medium text-vault-950 hover:bg-vault-300 disabled:opacity-50"
-              :disabled="busy" @click="registerDoctor()">Daftarkan dokter</button>
-      <button type="button" class="rounded-md border border-vault-700 px-3 py-2 text-sm text-slate-200 hover:border-vault-400"
-              :disabled="busy" @click="captureFace()">Ambil dHash dari kamera</button>
-      <span class="text-xs text-slate-500" x-text="faceStatus"></span>
-    </div>
-  </div>
+      <div class="relative z-10 flex items-center justify-between">
+        <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] opacity-80">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
+            <path d="M12 3l7 3v5c0 4.4-3 8.3-7 10-4-1.7-7-5.6-7-10V6l7-3z"></path>
+            <path d="M9 12l2 2 4-4"></path>
+          </svg>
+          Ruang kerja medis terenkripsi
+        </div>
+        <div class="pointer-events-none relative hidden h-24 w-24 items-center justify-center rounded-2xl border border-white/20 bg-white/10 backdrop-blur xl:flex">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="h-10 w-10 opacity-70" aria-hidden="true">
+            <path d="M12 3l7 3v5c0 4.4-3 8.3-7 10-4-1.7-7-5.6-7-10V6l7-3z"></path>
+            <path d="M12 8v6M9 11h6"></path>
+          </svg>
+          <img src="/assets/mascot.png" alt="Maskot MedVault"
+               class="absolute inset-0 h-full w-full rounded-2xl object-contain p-1" @error="$el.remove()">
+        </div>
+      </div>
 
-  <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-6 space-y-5">
-    <div class="flex items-start justify-between gap-3">
-      <div><span class="text-[11px] font-bold uppercase tracking-[.18em] text-emerald-700">Secure access</span>
-        <h2 class="mt-1 text-xl font-bold text-white">Masuk ke MedVault</h2>
-        <p class="mt-1 text-xs text-slate-400">Selesaikan tiga tahap verifikasi untuk membuka ruang kerja medis.</p></div>
-      <span class="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-semibold text-emerald-700">MFA AKTIF</span>
-    </div>
-    <div class="flex items-center justify-between gap-2">
-      <div class="mv-step" :class="loginStep===1?'active':loginStep>1?'done':''"><span class="mv-step-dot">1</span><span>Akun</span></div>
-      <div class="h-px flex-1 bg-slate-200"></div>
-      <div class="mv-step" :class="loginStep===2?'active':loginStep>2?'done':''"><span class="mv-step-dot">2</span><span>Dongle</span></div>
-      <div class="h-px flex-1 bg-slate-200"></div>
-      <div class="mv-step" :class="loginStep===3?'active':''"><span class="mv-step-dot">3</span><span>Biometrik</span></div>
-    </div>
-    <div x-show="loginStep===1" class="space-y-4">
-      <div class="mv-panel"><p class="text-sm font-semibold text-slate-700">Tahap 1 · Identitas akun</p><p class="mt-1 text-xs text-slate-500">Masukkan kredensial dokter yang telah terdaftar.</p></div>
-      <label class="block text-xs font-semibold text-slate-600">Username
-        <input x-model="loginForm.username" autocomplete="username" class="mt-2 w-full border px-3 py-3 text-sm" placeholder="contoh: dr_andi"></label>
-      <label class="block text-xs font-semibold text-slate-600">Kata sandi
-        <input type="password" x-model="loginForm.password" autocomplete="current-password" @keydown.enter="nextLoginStep()" class="mt-2 w-full border px-3 py-3 text-sm" placeholder="Masukkan kata sandi"></label>
-      <button type="button" class="w-full rounded-lg bg-vault-400 px-4 py-3 text-sm font-semibold" @click="nextLoginStep()">Lanjutkan <span aria-hidden="true">→</span></button>
-    </div>
-    <div x-show="loginStep===2" x-cloak class="space-y-4">
-      <div class="mv-panel"><p class="text-sm font-semibold text-slate-700">Tahap 2 · USB Security Dongle</p><p class="mt-1 text-xs text-slate-500">Pilih berkas .medkey. Seed privat diproses lokal di browser dan tidak dikirim ke server.</p></div>
-      <label class="block text-xs font-semibold text-slate-600">Berkas keamanan (.medkey)
-        <input type="file" accept=".medkey,application/json" @change="loadDongle($event)" class="mt-2 block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-4 file:py-2 file:font-semibold file:text-emerald-800"></label>
-      <div class="rounded-xl border p-3 text-xs" :class="dongle?'border-emerald-200 bg-emerald-50 text-emerald-800':'border-amber-200 bg-amber-50 text-amber-800'" x-text="dongle ? 'Dongle siap · '+dongle.keyId : 'Menunggu berkas dongle dimuat'"></div>
-      <div class="flex gap-2"><button type="button" class="flex-1 rounded-lg border border-slate-200 px-4 py-3 text-sm" @click="loginStep=1">Kembali</button><button type="button" class="flex-1 rounded-lg bg-vault-400 px-4 py-3 text-sm font-semibold" @click="nextLoginStep()">Verifikasi dongle →</button></div>
-    </div>
-    <div x-show="loginStep===3" x-cloak class="space-y-4">
-      <div class="mv-panel"><p class="text-sm font-semibold text-slate-700">Tahap 3 · Verifikasi biometrik</p><p class="mt-1 text-xs text-slate-500">Ambil fingerprint wajah melalui kamera untuk mencocokkan dHash yang terdaftar.</p></div>
-      <div class="rounded-xl border border-slate-200 bg-white p-4 text-center"><div class="mx-auto mb-2 grid h-14 w-14 place-items-center rounded-2xl bg-emerald-50 text-2xl">◎</div><p class="text-sm font-semibold text-slate-700" x-text="faceStatus || 'Kamera belum diaktifkan'"></p><p class="mt-1 text-xs text-slate-500">Pastikan izin kamera diberikan pada browser.</p><button type="button" class="mt-3 rounded-lg border border-emerald-200 px-4 py-2 text-xs font-semibold text-emerald-800" :disabled="busy" @click="captureFace()">Ambil verifikasi wajah</button></div>
-      <div class="flex gap-2"><button type="button" class="flex-1 rounded-lg border border-slate-200 px-4 py-3 text-sm" @click="loginStep=2">Kembali</button><button type="button" class="flex-1 rounded-lg bg-vault-400 px-4 py-3 text-sm font-semibold disabled:opacity-50" :disabled="busy || !loginForm.webcam_dhash_hex" @click="login()" x-text="busy?'Memverifikasi...':'Selesaikan login'">Selesaikan login</button></div>
-      <button type="button" class="w-full text-xs font-medium text-slate-500 hover:text-emerald-700" :disabled="busy || !loginForm.username" @click="webauthnLogin()">Gunakan Windows Hello + Dongle</button>
-    </div>
-    <p class="text-center text-[11px] text-slate-400">Dilindungi Argon2id · Ed25519 · dHash / WebAuthn</p>
-  </div>
+      <div class="relative z-10 mt-10 max-w-lg">
+        <span class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] backdrop-blur">
+          <span class="h-1.5 w-1.5 rounded-full bg-emerald-300"></span>
+          MFA tiga lapis
+        </span>
+        <h2 class="mt-5 text-4xl font-bold leading-tight">Catatan medis aman, transparan, dan dapat diaudit.</h2>
+        <p class="mt-4 max-w-md text-sm leading-relaxed opacity-75">
+          Kriptografi klasik dan modern, steganografi terautentikasi, serta ledger Proof-of-Authority dalam satu ruang kerja.
+        </p>
 
-  <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 lg:col-span-2 space-y-3">
-    <h2 class="text-base font-semibold text-white">Berkas Dongle .medkey</h2>
-    <p class="text-xs text-slate-400">Berkas dibaca di browser. Private seed tidak pernah dikirim ke server; hanya tanda tangan Ed25519 yang dikirim.</p>
-    <div class="flex flex-wrap items-center gap-3">
-      <input type="file" accept=".medkey,application/json" @change="loadDongle($event)"
-             class="block w-full max-w-md text-xs text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-vault-700 file:px-3 file:py-2 file:text-xs file:text-white">
-      <span class="text-xs" :class="dongle ? 'text-emerald-300' : 'text-slate-500'"
-            x-text="dongle ? 'Dongle siap: ' + dongle.username + ' / ' + dongle.keyId : 'Belum ada dongle dimuat'"></span>
-    </div>
-    <p class="text-[11px] text-slate-500" x-show="dongleNote" x-text="dongleNote"></p>
+        <div class="mt-8 grid grid-cols-3 gap-3 text-[11px] font-semibold">
+          <div class="rounded-xl border border-white/15 bg-white/10 px-3 py-3 backdrop-blur">
+            <p class="text-sm font-bold">Argon2id</p>
+            <p class="mt-0.5 opacity-65">Kata sandi</p>
+          </div>
+          <div class="rounded-xl border border-white/15 bg-white/10 px-3 py-3 backdrop-blur">
+            <p class="text-sm font-bold">Ed25519</p>
+            <p class="mt-0.5 opacity-65">Dongle</p>
+          </div>
+          <div class="rounded-xl border border-white/15 bg-white/10 px-3 py-3 backdrop-blur">
+            <p class="text-sm font-bold">dHash</p>
+            <p class="mt-0.5 opacity-65">Wajah</p>
+          </div>
+        </div>
+
+        <div class="mt-8 flex items-stretch gap-4">
+          <figure class="flex-1 rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur">
+            <p class="text-sm leading-relaxed opacity-90">
+              "Setiap langkah kriptografi terlihat jelas. Dosen bisa memeriksa nonce, auth tag, dan fingerprint kunci secara langsung."
+            </p>
+            <figcaption class="mt-3 text-[10px] font-semibold uppercase tracking-[0.14em] opacity-60">Glass-Box Inspector</figcaption>
+          </figure>
+          <div class="relative hidden w-36 shrink-0 overflow-hidden rounded-2xl border border-white/15 bg-white/10 xl:block">
+            <div class="absolute inset-0 grid place-items-center opacity-60">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" class="h-14 w-14" aria-hidden="true">
+                <path d="M20 21a8 8 0 0 0-16 0"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </div>
+            <img src="/assets/doctor.png" alt="Foto dokter"
+                 class="absolute inset-0 h-full w-full object-cover" @error="$el.remove()">
+            <span class="absolute inset-x-0 bottom-0 px-2 py-1.5 text-center text-[10px] font-semibold" style="background:rgba(4,48,44,.72);">Dokter terverifikasi</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="relative z-10 mt-10 flex items-center justify-between text-[11px] opacity-70">
+        <p>Argon2id - Ed25519 - dHash - WebAuthn</p>
+        <span class="rounded-full border border-white/20 px-2.5 py-0.5 font-semibold">v1.0</span>
+      </div>
+    </aside>
   </div>
 </section>
