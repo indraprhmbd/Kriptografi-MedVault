@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MedVault Go - Rekam Medis Kriptografi</title>
+  <script src="/vendor/tailwind-browser.min.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-vault-950: #050b12;
+      --color-vault-900: #08131d;
+      --color-vault-800: #0d1f2d;
+      --color-vault-700: #143247;
+      --color-vault-400: #4fb3a8;
+      --color-vault-300: #7fd6c9;
+      --color-vault-200: #b8ece3;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+  </style>
+  <style>[x-cloak] { display: none !important; }</style>
+</head>
+<body class="h-full bg-vault-950 text-slate-200 antialiased" x-data="medvault()" x-init="init()">
+
+<div class="min-h-full flex flex-col">
+
+  <header class="sticky top-0 z-30 border-b border-vault-800 bg-vault-950/95 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-4 py-3 flex flex-wrap items-center gap-3">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-lg border border-vault-400/60 bg-vault-900 grid place-items-center">
+          <span class="font-mono text-vault-300 text-sm font-bold">MV</span>
+        </div>
+        <div>
+          <h1 class="text-lg font-semibold tracking-tight text-white">MedVault Go</h1>
+          <p class="text-xs text-slate-400">Kriptografi klasik dan modern, steganografi LSB terautentikasi, ledger PoA</p>
+        </div>
+      </div>
+
+      <div class="ml-auto flex flex-wrap items-center gap-2 text-xs">
+        <span class="rounded-full border px-3 py-1"
+              :class="session ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-slate-700 bg-slate-900 text-slate-400'"
+              x-text="session ? 'Sesi aktif: ' + session.username : 'Belum ada sesi'"></span>
+        <span class="rounded-full border px-3 py-1"
+              :class="dongle ? 'border-vault-400/50 bg-vault-400/10 text-vault-200' : 'border-slate-700 bg-slate-900 text-slate-400'"
+              x-text="dongle ? 'Dongle: ' + dongle.keyId : 'Dongle belum dimuat'"></span>
+        <button type="button" class="rounded-md border border-vault-700 px-3 py-1 text-slate-300 hover:border-vault-400 hover:text-white"
+                @click="telemetryOpen = !telemetryOpen">
+          Glass-Box Inspector
+        </button>
+        <button type="button" x-show="session" class="rounded-md border border-slate-700 px-3 py-1 text-slate-300 hover:border-rose-400 hover:text-rose-200"
+                @click="logout()">Keluar</button>
+      </div>
+    </div>
+
+    <nav class="mx-auto max-w-7xl px-4 pb-2 flex gap-2 overflow-x-auto text-sm">
+      <template x-for="item in tabs" :key="item.id">
+        <button type="button"
+                class="whitespace-nowrap rounded-t-md border-b-2 px-3 py-2 transition"
+                :class="tab === item.id ? 'border-vault-400 text-white bg-vault-900' : 'border-transparent text-slate-400 hover:text-slate-200'"
+                @click="tab = item.id"
+                x-text="item.label"></button>
+      </template>
+    </nav>
+  </header>
+
+  <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-6 space-y-6">
+
+    <div x-show="!session && tab !== 'gate'" class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+      Sesi belum aktif. Buka tab Gate Otentikasi MFA untuk masuk.
+    </div>
+
+    <!-- ---------------------------------------------------------------- -->
+    <!-- Tab 1: Gate Otentikasi MFA                                       -->
+    <!-- ---------------------------------------------------------------- -->
+    <section x-show="tab === 'gate'" x-cloak class="grid gap-6 lg:grid-cols-2">
+
+      <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-4">
+        <div class="flex items-start justify-between">
+          <div>
+            <h2 class="text-base font-semibold text-white">Enrolment Dokter</h2>
+            <p class="text-xs text-slate-400">Argon2id, dongle Ed25519, WebAuthn Windows Hello, dHash wajah</p>
+          </div>
+          <span class="rounded border border-vault-700 px-2 py-0.5 text-[10px] font-mono text-vault-300">POST /api/v1/auth/register</span>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="text-xs text-slate-400">Username
+            <input x-model="registerForm.username" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm text-slate-100" placeholder="dr_andi">
+          </label>
+          <label class="text-xs text-slate-400">Nama lengkap
+            <input x-model="registerForm.full_name" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm text-slate-100" placeholder="dr. Andi Pratama">
+          </label>
+          <label class="text-xs text-slate-400">Kata sandi (minimal 12 karakter)
+            <input type="password" x-model="registerForm.password" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm text-slate-100">
+          </label>
+          <label class="text-xs text-slate-400">ID dongle
+            <input x-model="registerForm.dongle_key_id" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm text-slate-100" placeholder="DONGLE-2026-0001">
+          </label>
+          <label class="text-xs text-slate-400 sm:col-span-2">Public key Ed25519 (hex)
+            <input x-model="registerForm.dongle_pubkey_hex" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 font-mono text-xs text-slate-100" placeholder="diisi otomatis dari berkas .medkey">
+          </label>
+          <label class="text-xs text-slate-400 sm:col-span-2">dHash wajah 16 hex
+            <input x-model="registerForm.webcam_dhash_hex" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 font-mono text-xs text-slate-100" placeholder="0f0f0f0f0f0f0f0f">
+          </label>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" class="rounded-md bg-vault-400 px-3 py-2 text-sm font-medium text-vault-950 hover:bg-vault-300 disabled:opacity-50"
+                  :disabled="busy" @click="registerDoctor()">Daftarkan dokter</button>
+          <button type="button" class="rounded-md border border-vault-700 px-3 py-2 text-sm text-slate-200 hover:border-vault-400"
+                  :disabled="busy" @click="captureFace()">Ambil dHash dari kamera</button>
+          <span class="text-xs text-slate-500" x-text="faceStatus"></span>
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-4">
+        <div class="flex items-start justify-between">
+          <div>
+            <h2 class="text-base font-semibold text-white">Masuk Tiga Faktor</h2>
+            <p class="text-xs text-slate-400">Kata sandi, tanda tangan dongle, dan kemiripan wajah</p>
+          </div>
+          <span class="rounded border border-vault-700 px-2 py-0.5 text-[10px] font-mono text-vault-300">POST /api/v1/auth/login</span>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="text-xs text-slate-400">Username
+            <input x-model="loginForm.username" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm text-slate-100">
+          </label>
+          <label class="text-xs text-slate-400">Kata sandi
+            <input type="password" x-model="loginForm.password" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm text-slate-100">
+          </label>
+          <label class="text-xs text-slate-400 sm:col-span-2">dHash wajah live
+            <input x-model="loginForm.webcam_dhash_hex" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 font-mono text-xs text-slate-100">
+          </label>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" class="rounded-md bg-vault-400 px-3 py-2 text-sm font-medium text-vault-950 hover:bg-vault-300 disabled:opacity-50"
+                  :disabled="busy" @click="login()">Masuk dengan dongle dan wajah</button>
+          <button type="button" class="rounded-md border border-vault-700 px-3 py-2 text-sm text-slate-200 hover:border-vault-400"
+                  :disabled="busy" @click="captureFace()">Perbarui dHash kamera</button>
+        </div>
+
+        <div class="rounded-lg border border-vault-800 bg-vault-950/70 p-3 space-y-2">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Windows Hello</p>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="rounded-md border border-vault-700 px-3 py-2 text-xs text-slate-200 hover:border-vault-400"
+                    :disabled="busy || !session" @click="webauthnRegister()">Daftarkan perangkat</button>
+            <button type="button" class="rounded-md border border-vault-700 px-3 py-2 text-xs text-slate-200 hover:border-vault-400"
+                    :disabled="busy || !loginForm.username" @click="webauthnLogin()">Masuk dengan Windows Hello</button>
+          </div>
+          <p class="text-[11px] text-slate-500">WebAuthn tetap memerlukan tanda tangan dongle sebagai faktor kedua.</p>
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 lg:col-span-2 space-y-3">
+        <h2 class="text-base font-semibold text-white">Berkas Dongle .medkey</h2>
+        <p class="text-xs text-slate-400">Berkas dibaca di browser. Private seed tidak pernah dikirim ke server; hanya tanda tangan Ed25519 yang dikirim.</p>
+        <div class="flex flex-wrap items-center gap-3">
+          <input type="file" accept=".medkey,application/json" @change="loadDongle($event)"
+                 class="block w-full max-w-md text-xs text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-vault-700 file:px-3 file:py-2 file:text-xs file:text-white">
+          <span class="text-xs" :class="dongle ? 'text-emerald-300' : 'text-slate-500'"
+                x-text="dongle ? 'Dongle siap: ' + dongle.username + ' / ' + dongle.keyId : 'Belum ada dongle dimuat'"></span>
+        </div>
+        <p class="text-[11px] text-slate-500" x-show="dongleNote" x-text="dongleNote"></p>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------- -->
+    <!-- Tab 2: Rekam Medis dan Super Enkripsi                            -->
+    <!-- ---------------------------------------------------------------- -->
+    <section x-show="tab === 'records'" x-cloak class="space-y-6">
+
+      <div class="grid gap-6 lg:grid-cols-3">
+
+        <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-3">
+          <h2 class="text-base font-semibold text-white">Registrasi Pasien</h2>
+          <div class="grid gap-3">
+            <label class="text-xs text-slate-400">Nomor rekam medis
+              <input x-model="patientForm.medical_record_number" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+            </label>
+            <label class="text-xs text-slate-400">NIK 16 digit
+              <input x-model="patientForm.nik" maxlength="16" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm font-mono">
+            </label>
+            <label class="text-xs text-slate-400">Nama lengkap
+              <input x-model="patientForm.full_name" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+            </label>
+            <label class="text-xs text-slate-400">Alamat
+              <input x-model="patientForm.address" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+            </label>
+            <label class="text-xs text-slate-400">Tanggal lahir
+              <input type="date" x-model="patientForm.birth_date" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+            </label>
+          </div>
+          <button type="button" class="w-full rounded-md bg-vault-400 px-3 py-2 text-sm font-medium text-vault-950 hover:bg-vault-300 disabled:opacity-50"
+                  :disabled="busy || !session" @click="createPatient()">Simpan pasien terenkripsi</button>
+          <p class="text-[11px] text-slate-500">NIK, nama, dan alamat disegel AES-256-GCM dengan nama kolom sebagai AAD.</p>
+        </div>
+
+        <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-3 lg:col-span-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-base font-semibold text-white">Daftar Pasien</h2>
+            <div class="flex gap-2">
+              <button type="button" class="rounded-md border px-2 py-1 text-xs"
+                      :class="patientView === 'decrypted' ? 'border-vault-400 text-white' : 'border-vault-700 text-slate-400'"
+                      @click="patientView = 'decrypted'; loadPatients()">Plaintext</button>
+              <button type="button" class="rounded-md border px-2 py-1 text-xs"
+                      :class="patientView === 'raw' ? 'border-vault-400 text-white' : 'border-vault-700 text-slate-400'"
+                      @click="patientView = 'raw'; loadPatients()">Baris SQLite</button>
+            </div>
+          </div>
+          <div class="max-h-64 overflow-auto rounded-lg border border-vault-800">
+            <table class="min-w-full text-xs">
+              <thead class="bg-vault-950 text-slate-400">
+                <tr>
+                  <th class="px-3 py-2 text-left">ID</th>
+                  <th class="px-3 py-2 text-left">No. RM</th>
+                  <th class="px-3 py-2 text-left" x-text="patientView === 'raw' ? 'Kolom tersimpan' : 'NIK'"></th>
+                  <th class="px-3 py-2 text-left" x-text="patientView === 'raw' ? 'Ciphertext' : 'Nama'"></th>
+                  <th class="px-3 py-2 text-left" x-text="patientView === 'raw' ? '' : 'Alamat'"></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-vault-800">
+                <template x-for="p in patients" :key="p.id">
+                  <tr class="hover:bg-vault-800/40">
+                    <td class="px-3 py-2 font-mono text-slate-400" x-text="p.id"></td>
+                    <td class="px-3 py-2 font-mono" x-text="p.medical_record_number"></td>
+                    <template x-if="patientView === 'raw'">
+                      <td class="px-3 py-2 font-mono text-[10px] text-amber-200/80" x-text="p.columns.nik_enc"></td>
+                    </template>
+                    <template x-if="patientView === 'raw'">
+                      <td class="px-3 py-2 font-mono text-[10px] text-amber-200/80" x-text="p.columns.full_name_enc"></td>
+                    </template>
+                    <template x-if="patientView === 'raw'">
+                      <td class="px-3 py-2 font-mono text-[10px] text-amber-200/80" x-text="p.columns.address_enc"></td>
+                    </template>
+                    <template x-if="patientView !== 'raw'">
+                      <td class="px-3 py-2 font-mono" x-text="p.nik"></td>
+                    </template>
+                    <template x-if="patientView !== 'raw'">
+                      <td class="px-3 py-2" x-text="p.full_name"></td>
+                    </template>
+                    <template x-if="patientView !== 'raw'">
+                      <td class="px-3 py-2 text-slate-400" x-text="p.address"></td>
+                    </template>
+                  </tr>
+                </template>
+                <tr x-show="patients.length === 0"><td colspan="5" class="px-3 py-4 text-center text-slate-500">Belum ada data pasien</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid gap-6 lg:grid-cols-2">
+        <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-3">
+          <h2 class="text-base font-semibold text-white">Rekam Medis Baru</h2>
+          <p class="text-xs text-slate-400">Diagnosis dan resep melewati Extended Vigenere, Columnar Transposition, HKDF-SHA256, lalu XChaCha20-Poly1305 dengan AAD nomor rekam medis.</p>
+          <div class="grid gap-3">
+            <label class="text-xs text-slate-400">Pasien
+              <select x-model.number="recordForm.patient_id" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+                <option value="0">Pilih pasien</option>
+                <template x-for="p in patients" :key="p.id">
+                  <option :value="p.id" x-text="p.medical_record_number + ' - ' + p.full_name"></option>
+                </template>
+              </select>
+            </label>
+            <label class="text-xs text-slate-400">Diagnosis
+              <textarea x-model="recordForm.diagnosis" rows="3" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm"></textarea>
+            </label>
+            <label class="text-xs text-slate-400">Resep
+              <textarea x-model="recordForm.prescription" rows="2" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm"></textarea>
+            </label>
+            <label class="text-xs text-slate-400">Status kunjungan
+              <select x-model="recordForm.visit_status" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+                <option value="OPEN">OPEN</option>
+                <option value="CLOSED">CLOSED</option>
+              </select>
+            </label>
+          </div>
+          <button type="button" class="w-full rounded-md bg-vault-400 px-3 py-2 text-sm font-medium text-vault-950 hover:bg-vault-300 disabled:opacity-50"
+                  :disabled="busy || !session" @click="createRecord()">Enkripsi dan buat proposal blok</button>
+          <p class="text-[11px] text-slate-500">Server mengembalikan tx_payload. Tanda tangan dongle dikirim pada langkah kedua.</p>
+        </div>
+
+        <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-3">
+          <h2 class="text-base font-semibold text-white">Inspeksi Rekam Medis</h2>
+          <div class="flex gap-2">
+            <input x-model.number="inspectId" type="number" min="1" class="w-28 rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm" placeholder="ID">
+            <button type="button" class="rounded-md border border-vault-700 px-3 py-2 text-sm hover:border-vault-400"
+                    :disabled="busy || !session" @click="inspectRecord()">Dekripsi dua lapis</button>
+          </div>
+          <div x-show="inspection" class="space-y-2 rounded-lg border border-vault-800 bg-vault-950/70 p-3 text-xs">
+            <p><span class="text-slate-500">Ciphertext:</span> <span class="font-mono break-all text-amber-200/80" x-text="inspection?.record?.diagnosis_ciphertext"></span></p>
+            <p><span class="text-slate-500">Diagnosis:</span> <span class="text-vault-200" x-text="inspection?.record?.diagnosis_plaintext"></span></p>
+            <p><span class="text-slate-500">Resep:</span> <span class="text-vault-200" x-text="inspection?.record?.prescription_plaintext"></span></p>
+            <p><span class="text-slate-500">Intermediate klasik:</span> <span class="font-mono break-all text-slate-300" x-text="inspection?.classical_intermediates?.diagnosis"></span></p>
+          </div>
+
+          <div x-show="pending" class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs space-y-2">
+            <p class="font-semibold text-amber-200">Proposal blok menunggu tanda tangan dongle</p>
+            <p class="font-mono break-all text-[10px] text-amber-100/80" x-text="pending?.payload"></p>
+            <button type="button" class="rounded-md bg-amber-400 px-3 py-2 text-xs font-medium text-amber-950 hover:bg-amber-300 disabled:opacity-50"
+                    :disabled="busy || !dongle" @click="sealPending()">Tanda tangani dan segel blok</button>
+            <p class="text-[11px] text-amber-200/70" x-show="!dongle">Muat berkas .medkey pada tab Gate Otentikasi MFA.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------- -->
+    <!-- Tab 3: Brankas File Lab                                          -->
+    <!-- ---------------------------------------------------------------- -->
+    <section x-show="tab === 'vault'" x-cloak class="grid gap-6 lg:grid-cols-2">
+      <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-4">
+        <h2 class="text-base font-semibold text-white">Unggah Berkas Laboratorium</h2>
+        <p class="text-xs text-slate-400">Berkas dialirkan per 64 KiB ke ChaCha20-Poly1305 dengan nonce counter. Plaintext SHA-256 dihitung pada pass yang sama.</p>
+        <label class="text-xs text-slate-400">ID rekam medis
+          <input x-model.number="vaultRecordId" type="number" min="1" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+        </label>
+        <input type="file" @change="vaultFile = $event.target.files[0]"
+               class="block w-full text-xs text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-vault-700 file:px-3 file:py-2 file:text-xs file:text-white">
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="rounded-md bg-vault-400 px-3 py-2 text-sm font-medium text-vault-950 hover:bg-vault-300 disabled:opacity-50"
+                  :disabled="busy || !session || !vaultFile" @click="uploadLab()">Segel berkas</button>
+          <a x-show="vaultInfo" :href="vaultDownloadUrl()" class="rounded-md border border-vault-700 px-3 py-2 text-sm text-slate-200 hover:border-vault-400">Unduh plaintext</a>
+          <button type="button" class="rounded-md border border-vault-700 px-3 py-2 text-sm text-slate-200 hover:border-vault-400"
+                  :disabled="busy || !vaultRecordId" @click="inspectVault()">Metadata brankas</button>
+        </div>
+        <div x-show="vaultInfo" class="rounded-lg border border-vault-800 bg-vault-950/70 p-3 text-xs space-y-1">
+          <p><span class="text-slate-500">Berkas:</span> <span x-text="vaultInfo?.original_name"></span></p>
+          <p><span class="text-slate-500">Ciphertext:</span> <span class="font-mono" x-text="vaultInfo?.ciphertext_bytes + ' bytes'"></span></p>
+          <p><span class="text-slate-500">SHA-256 plaintext:</span> <span class="font-mono break-all text-vault-200" x-text="vaultInfo?.plaintext_sha256"></span></p>
+          <p><span class="text-slate-500">Header tersimpan:</span> <span class="font-mono break-all text-amber-200/80" x-text="vaultInfo?.header_preview_hex"></span></p>
+          <p><span class="text-slate-500">Fingerprint kunci:</span> <span class="font-mono" x-text="vaultInfo?.key_fingerprint"></span></p>
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-3">
+        <h2 class="text-base font-semibold text-white">Catatan Brankas</h2>
+        <ul class="list-disc space-y-2 pl-5 text-xs text-slate-400">
+          <li>Setiap rekam medis memiliki kunci turunan HKDF sendiri, sehingga satu kebocoran kunci tidak membuka seluruh arsip.</li>
+          <li>Tag Poly1305 diverifikasi pada setiap potongan. Satu bit yang berubah menggagalkan unduhan.</li>
+          <li>Nama berkas asli disimpan terpisah dari ciphertext dan hanya dipakai untuk header Content-Disposition.</li>
+          <li>Aksi unggah menghasilkan blok UPLOAD_LAB yang menunjuk ke rekam medis terkait.</li>
+        </ul>
+        <div x-show="pending && pending.action === 'UPLOAD_LAB'" class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs space-y-2">
+          <p class="font-semibold text-amber-200">Blok UPLOAD_LAB menunggu tanda tangan</p>
+          <button type="button" class="rounded-md bg-amber-400 px-3 py-2 text-xs font-medium text-amber-950"
+                  :disabled="busy || !dongle" @click="sealPending()">Tanda tangani dan segel</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------- -->
+    <!-- Tab 4: Watermark Steganografi                                    -->
+    <!-- ---------------------------------------------------------------- -->
+    <section x-show="tab === 'stego'" x-cloak class="grid gap-6 lg:grid-cols-2">
+      <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-4">
+        <h2 class="text-base font-semibold text-white">Sisipkan Watermark LSB</h2>
+        <p class="text-xs text-slate-400">Payload JSON dikompres zlib, diautentikasi HMAC-SHA256, lalu ditulis ke bit LSB kanal merah, hijau, dan biru. Kanal alpha tidak disentuh.</p>
+        <label class="text-xs text-slate-400">ID rekam medis
+          <input x-model.number="stegoRecordId" type="number" min="1" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+        </label>
+        <input type="file" accept="image/png" @change="stegoFile = $event.target.files[0]"
+               class="block w-full text-xs text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-vault-700 file:px-3 file:py-2 file:text-xs file:text-white">
+        <button type="button" class="rounded-md bg-vault-400 px-3 py-2 text-sm font-medium text-vault-950 hover:bg-vault-300 disabled:opacity-50"
+                :disabled="busy || !session || !stegoFile" @click="embedStego()">Sisipkan watermark</button>
+
+        <div x-show="stegoResult" class="rounded-lg border border-vault-800 bg-vault-950/70 p-3 text-xs space-y-1">
+          <p><span class="text-slate-500">PSNR:</span> <span x-text="stegoResult?.psnr_db?.toFixed(2) + ' dB'"></span></p>
+          <p><span class="text-slate-500">MSE:</span> <span x-text="stegoResult?.mse"></span></p>
+          <p><span class="text-slate-500">Kapasitas:</span> <span x-text="stegoResult?.capacity_bits + ' bit, terpakai ' + stegoResult?.used_bits"></span></p>
+          <p><span class="text-slate-500">Tag HMAC:</span> <span class="font-mono break-all text-vault-200" x-text="stegoResult?.hmac_tag_hex"></span></p>
+        </div>
+        <img x-show="stegoResult" :src="stegoImageUrl()" alt="Pratinjau stego" class="max-h-64 w-auto rounded-lg border border-vault-800">
+        <div x-show="pending && pending.action === 'EMBED_STEGO'" class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs space-y-2">
+          <p class="font-semibold text-amber-200">Blok EMBED_STEGO menunggu tanda tangan</p>
+          <button type="button" class="rounded-md bg-amber-400 px-3 py-2 text-xs font-medium text-amber-950"
+                  :disabled="busy || !dongle" @click="sealPending()">Tanda tangani dan segel</button>
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-4">
+        <h2 class="text-base font-semibold text-white">Ekstraksi dan Verifikasi</h2>
+        <p class="text-xs text-slate-400">Ekstraksi menolak gambar yang tidak memiliki watermark MedVault atau yang bit payloadnya berubah.</p>
+        <input type="file" accept="image/png" @change="extractFile = $event.target.files[0]"
+               class="block w-full text-xs text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-vault-700 file:px-3 file:py-2 file:text-xs file:text-white">
+        <button type="button" class="rounded-md border border-vault-700 px-3 py-2 text-sm text-slate-200 hover:border-vault-400 disabled:opacity-50"
+                :disabled="busy || !session || !extractFile" @click="extractStego()">Ekstrak payload</button>
+        <div x-show="extracted" class="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs space-y-1">
+          <p><span class="text-slate-500">HMAC:</span> <span class="text-emerald-300" x-text="extracted?.hmac_verified ? 'terverifikasi' : 'gagal'"></span></p>
+          <p><span class="text-slate-500">No. RM:</span> <span x-text="extracted?.payload?.mrn"></span></p>
+          <p><span class="text-slate-500">Pasien:</span> <span x-text="extracted?.payload?.patient_name"></span></p>
+          <p><span class="text-slate-500">Dokter:</span> <span x-text="extracted?.payload?.doctor"></span></p>
+          <p><span class="text-slate-500">Ringkasan:</span> <span x-text="extracted?.payload?.diagnosis_summary"></span></p>
+          <p><span class="text-slate-500">Waktu:</span> <span class="font-mono" x-text="extracted?.payload?.timestamp"></span></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------- -->
+    <!-- Tab 5: PoA Validator dan Ledger                                  -->
+    <!-- ---------------------------------------------------------------- -->
+    <section x-show="tab === 'audit'" x-cloak class="space-y-6">
+      <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="text-base font-semibold text-white">Rantai Audit PoA</h2>
+            <p class="text-xs text-slate-400">Setiap blok memuat tanda tangan dongle dokter dan countersignature validator gateway.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="rounded-md border border-vault-700 px-3 py-2 text-xs text-slate-200 hover:border-vault-400"
+                    :disabled="busy" @click="loadAudit()">Verifikasi ulang</button>
+            <button type="button" class="rounded-md border border-rose-500/50 px-3 py-2 text-xs text-rose-200 hover:border-rose-400"
+                    :disabled="busy" @click="simulateTamper()">Rusak ciphertext</button>
+            <button type="button" class="rounded-md border border-emerald-500/50 px-3 py-2 text-xs text-emerald-200 hover:border-emerald-400"
+                    :disabled="busy" @click="restoreTamper()">Pulihkan ciphertext</button>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 text-xs">
+          <label class="text-slate-400">ID rekam medis untuk simulasi
+            <input x-model.number="tamperRecordId" type="number" min="1" class="ml-2 w-24 rounded-md border border-vault-700 bg-vault-950 px-2 py-1">
+          </label>
+          <span class="rounded-full border px-3 py-1"
+                :class="validation?.valid ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-rose-500/40 bg-rose-500/10 text-rose-300'"
+                x-text="validation ? (validation.valid ? 'Rantai valid' : 'Rantai tidak valid: ' + (validation.first_failure?.reason || '')) : 'Belum diperiksa'"></span>
+          <span class="text-slate-500" x-text="validation ? validation.blocks_checked + ' blok diperiksa' : ''"></span>
+        </div>
+
+        <div class="overflow-auto rounded-lg border border-vault-800">
+          <table class="min-w-full text-xs">
+            <thead class="bg-vault-950 text-slate-400">
+              <tr>
+                <th class="px-3 py-2 text-left">Index</th>
+                <th class="px-3 py-2 text-left">Aksi</th>
+                <th class="px-3 py-2 text-left">Aktor</th>
+                <th class="px-3 py-2 text-left">Record</th>
+                <th class="px-3 py-2 text-left">Current hash</th>
+                <th class="px-3 py-2 text-left">Validator</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-vault-800">
+              <template x-for="b in blocks" :key="b.current_hash">
+                <tr class="hover:bg-vault-800/40">
+                  <td class="px-3 py-2 font-mono" x-text="b.block_index"></td>
+                  <td class="px-3 py-2" x-text="b.action_type"></td>
+                  <td class="px-3 py-2" x-text="b.actor_username"></td>
+                  <td class="px-3 py-2 font-mono" x-text="b.target_record_id ?? '-'"></td>
+                  <td class="px-3 py-2 font-mono text-[10px] text-vault-200" x-text="b.current_hash?.slice(0, 24) + '...'"></td>
+                  <td class="px-3 py-2 font-mono text-[10px]" x-text="b.validator_signature_hex ? 'Ed25519 ok' : 'belum'"></td>
+                </tr>
+              </template>
+              <tr x-show="blocks.length === 0"><td colspan="6" class="px-3 py-4 text-center text-slate-500">Ledger masih kosong</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-vault-800 px-4 py-4 text-center text-[11px] text-slate-500">
+    MedVault Go - demo kriptografi klasik dan modern, steganografi terautentikasi, dan ledger Proof-of-Authority.
+  </footer>
+</div>
+
+<!-- Glass-Box telemetry drawer -->
+<div x-show="telemetryOpen" x-cloak class="fixed inset-0 z-40 flex justify-end">
+  <div class="absolute inset-0 bg-black/50" @click="telemetryOpen = false"></div>
+  <aside class="relative h-full w-full max-w-xl overflow-auto border-l border-vault-700 bg-vault-950 p-4 space-y-3">
+    <div class="flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-white">Glass-Box Telemetry</h2>
+      <button type="button" class="text-xs text-slate-400 hover:text-white" @click="telemetryOpen = false">Tutup</button>
+    </div>
+    <p class="text-[11px] text-slate-500">Setiap respons API menyertakan objek _telemetry berisi nilai antara, nonce, tag, dan fingerprint kunci.</p>
+    <pre class="whitespace-pre-wrap break-all rounded-lg border border-vault-800 bg-black/50 p-3 text-[11px] leading-relaxed text-vault-200" x-text="telemetryPretty"></pre>
+  </aside>
+</div>
+
+<!-- Toast -->
+<div x-show="toast.message" x-cloak
+     class="fixed bottom-4 left-1/2 z-50 w-[min(90vw,36rem)] -translate-x-1/2 rounded-lg border px-4 py-3 text-sm shadow-xl"
+     :class="toast.type === 'error' ? 'border-rose-500/50 bg-rose-950 text-rose-100' : 'border-emerald-500/50 bg-emerald-950 text-emerald-100'">
+  <div class="flex items-start justify-between gap-3">
+    <p x-text="toast.message"></p>
+    <button type="button" class="text-xs opacity-70 hover:opacity-100" @click="toast.message = ''">Tutup</button>
+  </div>
+</div>
+
+<script src="/js/app.js" defer></script>
+<script src="/vendor/alpine.min.js" defer></script>
+</body>
+</html>

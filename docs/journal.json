@@ -1,0 +1,377 @@
+{
+  "version": 1,
+  "project": "MedVault Go",
+  "schema": {
+    "entries": "Append only array. Order is chronological. Entries are never edited or removed.",
+    "id_format": "YYYY-MM-DD-NN",
+    "required_fields": [
+      "id",
+      "date",
+      "phase",
+      "summary",
+      "decisions",
+      "verified",
+      "artifacts",
+      "next"
+    ]
+  },
+  "entries": [
+    {
+      "id": "2026-11-12-01",
+      "date": "2026-11-12",
+      "phase": "planning",
+      "summary": "Read the full specification set, verified the live state of vps-lama, and verified every dependency against current documentation so no deprecated API is used.",
+      "decisions": [
+        {
+          "id": "DEC-REFRESH-01",
+          "topic": "Go toolchain",
+          "decision": "Use go 1.26.0 with toolchain go1.27.4 in go.mod. Host VPS Go 1.22.2 cannot build crypto/hkdf code, so Linux binaries are cross compiled on the Windows workstation.",
+          "rationale": "crypto/hkdf was added after Go 1.22 and the VPS toolchain is stale. Cross compilation with CGO_ENABLED=0 removes the VPS toolchain from the critical path."
+        },
+        {
+          "id": "DEC-REFRESH-02",
+          "topic": "HKDF source",
+          "decision": "Use the standard library crypto/hkdf.Key and drop golang.org/x/crypto/hkdf.",
+          "rationale": "The x repository package is now a thin wrapper around the standard library implementation. A local compile probe on Go 1.26 confirmed the standard library API returns a 32 byte key without error."
+        },
+        {
+          "id": "DEC-REFRESH-03",
+          "topic": "WebAuthn implementation",
+          "decision": "Use github.com/go-webauthn/webauthn v0.18.2 instead of a hand rolled assertion verifier.",
+          "rationale": "The library implements WebAuthn Level 3, gives BeginRegistration, FinishRegistration, BeginLogin, FinishLogin, and returns a JSON serialisable SessionData plus a Credential value."
+        },
+        {
+          "id": "DEC-REFRESH-04",
+          "topic": "Frontend asset delivery",
+          "decision": "Vendor @tailwindcss/browser@4.3.5 and alpinejs@3.17.5 into web/vendor at setup time and embed them with embed.FS.",
+          "rationale": "cdn.tailwindcss.com serves Tailwind v3. cdnjs does not host the Tailwind v4 browser bundle. Vendoring keeps the strict default-src self content security policy, works offline, and removes demo day CDN risk."
+        },
+        {
+          "id": "DEC-REFRESH-05",
+          "topic": "Schema additions",
+          "decision": "Add webauthn_credentials, web_sessions, and auth_challenges tables beyond the four tables in context/001.",
+          "rationale": "go-webauthn requires a credential list per user and a persisted SessionData between ceremonies. The USB dongle challenge needs a short lived server side record with expiry."
+        },
+        {
+          "id": "DEC-REFRESH-06",
+          "topic": "VPS deploy model",
+          "decision": "Cross compile static binaries, transfer them with scp, and let a systemd unit own the Podman pod lifecycle. Build container images locally and load them remotely.",
+          "rationale": "The VPS has a stale Go toolchain, 26 GB free disk, and rootful Podman 4.9.3 with podman.socket active. Building on the host would pull a large Go image and burn disk."
+        },
+        {
+          "id": "DEC-REFRESH-07",
+          "topic": "Cloudflare hostname",
+          "decision": "Document that the public hostname for port 8095 must be added in the Cloudflare Zero Trust dashboard.",
+          "rationale": "cloudflared-claw.service runs in token mode with no on disk config.yml, so the tunnel ingress rules cannot be edited locally."
+        },
+        {
+          "id": "DEC-REFRESH-08",
+          "topic": "Dedicated service account",
+          "decision": "Run MedVault under a new unprivileged account medvault instead of the existing liteclaw account. Provision it with deploy/setup-user.sh and connect through a new SSH alias medvault-vps.",
+          "rationale": "Separates application blast radius from the pre-existing admin account. The account is password locked, has linger enabled, and receives scoped sudo rather than NOPASSWD ALL. The provisioning script is idempotent and never truncates existing users, unit files, or .env content."
+        }
+      ],
+      "verified": [
+        {
+          "item": "VPS identity",
+          "method": "ssh -o BatchMode=yes vps-lama 'uname -a'",
+          "result": "Linux VM-0-13-ubuntu 6.8.0-147-generic, liteclaw user, Ubuntu 24.04.5 LTS"
+        },
+        {
+          "item": "VPS capacity",
+          "method": "free -m, swapon --show, df -h /",
+          "result": "1967 MB RAM with 1057 MB available, 1987 MB swap with 361 MB used, 26 G free on /"
+        },
+        {
+          "item": "Podman version and capability",
+          "method": "podman --version and podman ps -a --format",
+          "result": "4.9.3. The --format and --filter flags on podman ps fail with Error: podman ps takes no arguments"
+        },
+        {
+          "item": "Tunnel mode",
+          "method": "systemctl cat cloudflared-claw.service and ls /etc/cloudflared",
+          "result": "Token managed tunnel via /etc/cloudflared/clawcontrol.token. No config.yml present"
+        },
+        {
+          "item": "Port availability",
+          "method": "ss -ltn | grep -E ':(8095|8096)'",
+          "result": "Both ports free"
+        },
+        {
+          "item": "Host Go toolchain",
+          "method": "/home/liteclaw/go/bin/go version",
+          "result": "go1.22.2 linux/amd64. Too old for crypto/hkdf"
+        },
+        {
+          "item": "Advertised module versions",
+          "method": "proxy.golang.org @latest lookups",
+          "result": "modernc.org/sqlite v1.62.0, golang.org/x/crypto v0.59.0, github.com/go-webauthn/webauthn v0.18.2"
+        },
+        {
+          "item": "Browser asset availability",
+          "method": "npm registry latest and direct asset fetches",
+          "result": "alpinejs 3.17.5 from cdnjs returns 200 with 55935 bytes. @tailwindcss/browser 4.3.5 dist/index.global.min.js from jsDelivr returns 200 with 286960 bytes. cdnjs Tailwind v4 browser asset returns 404"
+        },
+        {
+          "item": "crypto/hkdf availability on Go 1.26",
+          "method": "local compile probe importing crypto/hkdf and calling Key with sha256.New",
+          "result": "Printed 32 <nil>"
+        }
+      ],
+      "artifacts": [
+        "docs/README-docs.md",
+        "docs/0000-template-plan-12-nov-2026.md",
+        "docs/journal.json"
+      ],
+      "next": [
+        "Rewrite the skill as a MedVault-only runbook",
+        "Initialize the Go module and vendor the browser assets",
+        "Build Phase 1 schema, repositories, and medkeygen CLI"
+      ]
+    },
+    {
+      "id": "2026-11-12-02",
+      "date": "2026-11-12",
+      "phase": "phase-1-and-2-backend",
+      "summary": "Replaced the copied skill with a MedVault-only runbook, provisioned a dedicated medvault service account on the VPS, and built the configuration, database, telemetry, crypto, biometric dHash, steganography, and ledger packages test first.",
+      "decisions": [
+        {
+          "id": "DEC-IMPL-01",
+          "topic": "Test driven backend",
+          "decision": "Every backend package is written test first. The test file is created and run to observe a genuine failure before the implementation exists.",
+          "rationale": "The user explicitly required TDD for backend work. Observed red states were: stego missing symbols, then a readBits offset bug and a tamper test positioned outside the payload; biometric two wrong expectations in the test itself."
+        },
+        {
+          "id": "DEC-IMPL-02",
+          "topic": "Stale module directive",
+          "decision": "Keep the go directive at go 1.26.0 with no toolchain line.",
+          "rationale": "Local toolchain is go1.26.0. Pinning a toolchain directive would force a download on every build. crypto/hkdf compiles fine at 1.26."
+        },
+        {
+          "id": "DEC-IMPL-03",
+          "topic": "Vendored assets",
+          "decision": "web/vendor/tailwind-browser.min.js (286994 bytes) and web/vendor/alpine.min.js (55935 bytes) are fetched by deploy/fetch-assets.ps1 and deploy/fetch-assets.sh, checksummed into web/vendor/CHECKSUMS.txt.",
+          "rationale": "Enables a default-src self content security policy and removes third party origins from the demo path."
+        },
+        {
+          "id": "DEC-IMPL-04",
+          "topic": "Vault streaming nonce",
+          "decision": "Lab file vault seals 64 KiB chunks with ChaCha20-Poly1305 and a big endian counter nonce. The record identity is bound as additional data on the first chunk only.",
+          "rationale": "Keeps peak memory bounded on a 96 MB container while still authenticating every chunk."
+        }
+      ],
+      "verified": [
+        {
+          "item": "Crypto suite",
+          "method": "go test ./internal/crypto/...",
+          "result": "ok, all cases pass including AAD column swap rejection and tampered ciphertext rejection"
+        },
+        {
+          "item": "Config suite",
+          "method": "go test ./internal/config/...",
+          "result": "ok, all cases pass including aggregated validation errors and redaction"
+        },
+        {
+          "item": "Database suite",
+          "method": "go test ./internal/database/...",
+          "result": "ok, WAL and foreign_keys verified through PRAGMA readback, all 8 tables present"
+        },
+        {
+          "item": "Steganography suite",
+          "method": "go test ./internal/stego/...",
+          "result": "ok, PSNR above 50 dB, HMAC tamper detection, alpha channel preserved"
+        },
+        {
+          "item": "Biometric suite",
+          "method": "go test ./internal/biometric/...",
+          "result": "ok, brightness invariance within threshold, unrelated images rejected"
+        },
+        {
+          "item": "Ledger suite",
+          "method": "go test ./internal/ledger/...",
+          "result": "ok, dual signature flow, broken link, index gap, genesis prefix, and record tamper callback all detected"
+        },
+        {
+          "item": "Static analysis",
+          "method": "go vet ./...",
+          "result": "clean"
+        },
+        {
+          "item": "Service account",
+          "method": "ssh medvault-vps 'id; sudo -n podman --version'",
+          "result": "uid=1004(medvault), scoped sudo works for podman and systemctl medvault-pod.service. sudo -n true correctly denied."
+        }
+      ],
+      "artifacts": [
+        "deploy/setup-user.sh",
+        "deploy/fetch-assets.ps1",
+        "deploy/fetch-assets.sh",
+        "web/vendor/CHECKSUMS.txt",
+        "internal/config/config.go",
+        "internal/database/sqlite.go",
+        "internal/database/migrations.sql",
+        "internal/telemetry/telemetry.go",
+        "internal/crypto/argon2.go",
+        "internal/crypto/aesgcm.go",
+        "internal/crypto/classical.go",
+        "internal/crypto/modern.go",
+        "internal/crypto/super.go",
+        "internal/crypto/vault.go",
+        "internal/crypto/ed25519.go",
+        "internal/biometric/dhash.go",
+        "internal/stego/lsb_png.go",
+        "internal/ledger/block.go",
+        "internal/ledger/verifier.go",
+        ".agents/skills/medvault-vps-runbook/SKILL.md",
+        ".agents/skills/medvault-vps-runbook/references/vps-access.md"
+      ],
+      "next": [
+        "Repository layer with test first coverage",
+        "WebAuthn ceremony wiring through go-webauthn v0.18.2",
+        "Ledger HTTP proposal client and cmd/validator service",
+        "HTTP handlers with the mandatory telemetry envelope",
+        "Five tab Alpine.js UI",
+        "Containerfiles, build and deploy scripts",
+        "Deploy to vps-lama and run the end to end demo script"
+      ]
+    },
+    {
+      "id": "2026-11-12-03",
+      "date": "2026-11-12",
+      "phase": "phase-3-http-ui-deploy",
+      "summary": "Built the HTTP layer, the four commands, the five tab browser UI, and the full deployment toolchain test first, then deployed the pod to the VPS and verified the whole medical record flow against the live stack with a real dongle signature and a real validator countersignature.",
+      "decisions": [
+        {
+          "id": "DEC-IMPL-05",
+          "topic": "API versioning",
+          "decision": "Path based versioning. Every business route lives under /api/v1. Only /healthz stays unversioned, and the validator gateway exposes /internal/v1/validate.",
+          "rationale": "The user chose path versioning over header versioning. Keeping health probes unversioned lets container health checks and the reverse proxy stay stable across future API generations."
+        },
+        {
+          "id": "DEC-IMPL-06",
+          "topic": "Two phase record sealing",
+          "decision": "POST /api/v1/records builds the block, stashes the pending proposal under a short lived token, and returns the exact tx_payload. The browser signs that payload with the dongle key through WebCrypto Ed25519 and posts it to /api/v1/records/seal, which appends the block.",
+          "rationale": "The private seed never leaves the dongle, yet the signature must cover the server built block. Splitting the request lets the browser sign after the server has fixed the payload, without a round trip through any server side private key."
+        },
+        {
+          "id": "DEC-IMPL-07",
+          "topic": "Browser Ed25519 key import",
+          "decision": "The browser imports the raw 32 byte seed by prefixing the fixed PKCS8 header 302e020100300506032b657004220420 before calling crypto.subtle.importKey.",
+          "rationale": "WebCrypto has no raw Ed25519 seed import. The DER prefix turns a raw seed into a valid PKCS8 document, which keeps the on disk dongle format compact and portable."
+        },
+        {
+          "id": "DEC-IMPL-08",
+          "topic": "Genesis block origin",
+          "decision": "The genesis block is derived by the app from crypto.DeriveKey with the master root secret, the info string medvault-audit-genesis-v1, and the per user salt genesis:<username>.",
+          "rationale": "The dongle only certifies clinical actions, so it cannot sign a genesis block. Deriving it from the master secret keeps the chain anchored without inventing a second private key."
+        },
+        {
+          "id": "DEC-IMPL-09",
+          "topic": "Validator key material",
+          "decision": "MEDVAULT_VALIDATOR_PRIVKEY_HEX carries a 32 byte Ed25519 seed, not the 64 byte expanded private key, and matches NewSignerFromSeed and the validator-keygen output.",
+          "rationale": "The configuration validates the length at startup, so a mismatch fails fast instead of silently signing with the wrong key."
+        },
+        {
+          "id": "DEC-IMPL-10",
+          "topic": "Deployment model",
+          "decision": "Binaries are cross compiled on Windows with CGO_ENABLED=0, copied to /home/medvault/bin, and the images are built on the VPS from Containerfile.app and Containerfile.validator. The systemd unit owns the pod lifecycle.",
+          "rationale": "The host Go toolchain is 1.22.2 and cannot build crypto/hkdf code. Building images on the VPS avoids shipping a container runtime dependency to the workstation and keeps the images native to the target architecture."
+        },
+        {
+          "id": "DEC-IMPL-11",
+          "topic": "Unit enablement is mandatory",
+          "decision": "The scoped sudoers entry now allows systemctl is-enabled, enable, and disable for medvault-pod.service, and remote-deploy.sh exits non zero if enable fails.",
+          "rationale": "The first deployment left the unit disabled, so the pod would not have returned after a reboot, and the deploy script hid the failure with a trailing true. Failing loudly makes the gap impossible to miss."
+        }
+      ],
+      "verified": [
+        {
+          "item": "Handler suite",
+          "method": "go test ./internal/handler/...",
+          "result": "ok, envelope, auth, patient, record, vault, stego, and audit cases pass against a fake validator"
+        },
+        {
+          "item": "Live handler and gateway wiring",
+          "method": "go test ./internal/handler/ -run Live -v",
+          "result": "ok, five cases drive a real ledger client against a real gateway over httptest, covering a real countersignature, validator down returning 503 with only genesis persisted, stale and consumed token rejection, and phase one leaving the record unsealed"
+        },
+        {
+          "item": "Ledger wire format",
+          "method": "go test ./internal/ledger/...",
+          "result": "ok, six client tests pin the request and response shape shared with the gateway"
+        },
+        {
+          "item": "Whole repository",
+          "method": "go build ./...; go vet ./...; gofmt -l .; go test ./...",
+          "result": "clean, no build errors, no vet findings, no formatting drift, all packages pass"
+        },
+        {
+          "item": "Local loopback smoke",
+          "method": "powershell deploy/smoke.ps1",
+          "result": "13 of 13 checks pass, validator health, app health, dashboard, controller, vendored assets, unauthenticated 401, and content security policy header"
+        },
+        {
+          "item": "Cross compilation",
+          "method": "powershell deploy/build.ps1",
+          "result": "linux/amd64 binaries produced, app 13.9 MiB, validator 5.84 MiB, medkeygen 2.24 MiB, validator-keygen 1.93 MiB"
+        },
+        {
+          "item": "Live pod",
+          "method": "ssh medvault-vps with podman ps, curl 127.0.0.1:8095/healthz, curl 127.0.0.1:8096/healthz",
+          "result": "medvault-app and medvault-validator both healthy, dashboard and vendored assets return 200, unauthenticated patients returns 401"
+        },
+        {
+          "item": "Live end to end run",
+          "method": "go run deploy/e2e.go over an ssh tunnel to the VPS, executed twice back to back",
+          "result": "both runs pass every check, enrolment, login, patient creation, record proposal, seal with a real dongle signature and a real validator countersignature, chain verification over genesis plus record block, super encryption round trip, steganographic layer inspection, tamper detection, and restore verification"
+        },
+        {
+          "item": "Boot survival",
+          "method": "systemctl stop then start medvault-pod.service",
+          "result": "stop leaves 0 containers, start brings back 3, both health endpoints return ok, unit reports enabled and active with substate exited as expected for oneshot plus RemainAfterExit"
+        },
+        {
+          "item": "Demo dongle",
+          "method": "medvault-medkeygen on the VPS",
+          "result": "/home/medvault/medkeys/dr_andi.medkey created, mode 600, public key ee32a34434f7ecb25f991a66ce1bdebc62a85d3981d39dada48681d0b61e8eb3"
+        }
+      ],
+      "artifacts": [
+        "internal/handler/envelope.go",
+        "internal/handler/server.go",
+        "internal/handler/auth.go",
+        "internal/handler/patients.go",
+        "internal/handler/records.go",
+        "internal/handler/vault.go",
+        "internal/handler/stego.go",
+        "internal/handler/audit.go",
+        "internal/handler/handler_test.go",
+        "internal/handler/live_test.go",
+        "internal/ledger/client_live_test.go",
+        "cmd/app/main.go",
+        "cmd/validator/main.go",
+        "cmd/medkeygen/main.go",
+        "cmd/validator-keygen/main.go",
+        "web/index.html",
+        "web/js/app.js",
+        "web/embed.go",
+        "deploy/Containerfile.app",
+        "deploy/Containerfile.validator",
+        "deploy/env.example",
+        "deploy/init-env.sh",
+        "deploy/remote-deploy.sh",
+        "deploy/build.ps1",
+        "deploy/deploy.ps1",
+        "deploy/setup-user.sh",
+        "deploy/smoke.ps1",
+        "deploy/e2e.go"
+      ],
+      "next": [
+        "Supply the public hostname so the WebAuthn relying party id and origin can replace the localhost placeholder",
+        "Run FORCE=1 deploy/init-env.sh with the real relying party id and origin, then redeploy",
+        "Add the Cloudflare Zero Trust public hostname pointing at 127.0.0.1:8095 and verify through the tunnel",
+        "Document deploy/smoke.ps1 and deploy/e2e.go in the medvault-vps-runbook skill"
+      ]
+    }
+  ]
+}

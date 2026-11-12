@@ -1,0 +1,37 @@
+# Binaries and build artifacts
+dist/
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test and coverage artifacts
+*.test
+*.out
+coverage.html
+
+# Local secrets and environment files
+.env
+.env.*
+*.medkey
+*.token
+*.key
+*.pem
+
+# Storage and databases
+storage/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Operating system and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
