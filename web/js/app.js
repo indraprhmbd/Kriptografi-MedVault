@@ -98,6 +98,11 @@ window.medvault = function medvault() {
       dongle: false,
       face: false,
     },
+    registerDongleMode: "generate",
+    registerDongleGenerated: false,
+    registerDongleSaved: false,
+    registerDongleAck: false,
+    registerDongleSaveNote: "",
 
     busy: false,
     toast: { type: "ok", message: "" },
@@ -193,7 +198,7 @@ window.medvault = function medvault() {
 
     get registerStepSubtitle() {
       if (this.registerStep === 2) {
-        return "Hubungkan USB Dongle fisik yang diberikan fasilitas Anda.";
+        return "Siapkan flash drive Anda. Kunci dongle dibuat di browser lalu disimpan ke flash drive tersebut.";
       }
       if (this.registerStep === 3) {
         return "Ambil verifikasi wajah supaya akun terikat pada perangkat ini.";
@@ -264,8 +269,19 @@ window.medvault = function medvault() {
     },
 
     get registerDongleError() {
+      if (this.registerDongleMode === "generate") {
+        if (!this.registerDongleGenerated || !this.dongle) {
+          return "Kunci dongle belum dibuat. Buat kunci baru dulu, ya.";
+        }
+        if (!this.registerDongleSaved) {
+          return "Berkas .medkey belum disimpan. Simpan ke flash drive dulu, ya.";
+        }
+        if (this.registerDongleNeedsAck) {
+          return "Centang konfirmasi penyimpanan USB dulu, ya.";
+        }
+      }
       if (!this.dongle) {
-        return "USB Dongle belum terdeteksi. Pastikan sudah tertancap, lalu coba lagi.";
+        return "Berkas .medkey belum dipilih. Colokkan flash drive, lalu pilih berkasnya, ya.";
       }
       if (!this.registerForm.dongle_key_id.trim()) {
         return "ID USB Dongle belum terbaca. Pilih ulang berkas .medkey, ya.";
@@ -274,13 +290,48 @@ window.medvault = function medvault() {
         return "Kunci publik USB Dongle belum siap. Pilih ulang berkas .medkey, ya.";
       }
       if (this.registerDongleUsernameMismatch) {
-        return "Nama pengguna di USB Dongle berbeda dengan akun ini. Kembali ke langkah data akun atau gunakan dongle yang sesuai.";
+        return this.registerDongleMode === "generate"
+          ? "Nama pengguna berubah. Buat ulang kunci dongle, ya."
+          : "Nama pengguna di USB Dongle berbeda dengan akun ini. Kembali ke langkah data akun atau gunakan dongle yang sesuai.";
       }
       return "";
     },
 
     get registerDongleValid() {
       return !this.registerDongleError;
+    },
+
+    get registerDongleNeedsAck() {
+      return (
+        this.registerDongleMode === "generate" &&
+        this.registerDongleGenerated &&
+        this.registerDongleSaved &&
+        !this.registerDongleAck
+      );
+    },
+
+    get registerDongleStatusTitle() {
+      if (this.registerDongleMode === "generate") {
+        if (this.registerDongleSaved) return "Berkas dongle sudah disimpan";
+        if (this.registerDongleGenerated) return "Kunci dongle sudah dibuat";
+        return "Buat dongle baru";
+      }
+      return this.dongle ? "Berkas dongle siap digunakan" : "Pilih berkas dongle";
+    },
+
+    get registerDongleStatusDetail() {
+      if (this.registerDongleMode === "generate") {
+        if (this.registerDongleSaved) {
+          return "Berkas .medkey sudah tersimpan. Centang konfirmasi di bawah untuk melanjutkan.";
+        }
+        if (this.registerDongleGenerated) {
+          return "Kunci sudah dibuat di browser. Simpan berkas .medkey ke flash drive Anda, lalu centang konfirmasi.";
+        }
+        return "Colokkan flash drive ke komputer. Kunci dibuat di browser, lalu Anda menyimpannya ke flash drive tersebut.";
+      }
+      return this.dongle
+        ? "Dongle " + this.dongle.keyId + " siap digunakan."
+        : "Colokkan flash drive yang berisi berkas .medkey, lalu pilih berkasnya di bawah.";
     },
 
     get registerBiometricError() {
@@ -334,6 +385,7 @@ window.medvault = function medvault() {
     },
 
     get showRegisterDongleError() {
+      if (this.registerDongleNeedsAck) return false;
       return (this.registerTouched.dongle || Boolean(this.dongle)) && Boolean(this.registerDongleError);
     },
 
@@ -546,6 +598,180 @@ window.medvault = function medvault() {
     // ---------------------------------------------------------------
     // Dongle and camera
     // ---------------------------------------------------------------
+
+    setRegisterDongleMode(mode) {
+      if (this.registerDongleMode === mode) return;
+      this.registerDongleMode = mode;
+      this.registerDongleGenerated = false;
+      this.registerDongleSaved = false;
+      this.registerDongleAck = false;
+      this.registerDongleSaveNote = "";
+      this.dongle = null;
+      this.registerForm.dongle_key_id = "";
+      this.registerForm.dongle_pubkey_hex = "";
+      this.registerTouched.dongle = false;
+    },
+
+    onRegisterDongleIdInput() {
+      if (this.registerDongleMode !== "generate" || !this.registerDongleGenerated || !this.dongle) {
+        return;
+      }
+      if (this.registerForm.dongle_key_id.trim() !== this.dongle.keyId) {
+        this.registerDongleSaved = false;
+        this.registerDongleAck = false;
+        this.registerDongleSaveNote = "ID dongle berubah. Simpan ulang berkas .medkey, ya.";
+      } else {
+        this.registerDongleSaveNote = "";
+      }
+    },
+
+    async generateRegisterDongle() {
+      await this.run("Buat dongle", async () => {
+        const username = this.registerForm.username.trim();
+        if (this.registerUsernameError) {
+          throw new Error("Lengkapi data akun dulu, ya");
+        }
+        if (!window.crypto || !window.crypto.subtle || !window.crypto.subtle.generateKey) {
+          throw new Error(
+            "browser ini belum mendukung pembuatan kunci Ed25519, gunakan Chrome atau Edge terbaru"
+          );
+        }
+
+        let keyPair;
+        try {
+          keyPair = await crypto.subtle.generateKey(
+            { name: "Ed25519" },
+            true,
+            ["sign", "verify"]
+          );
+        } catch (_) {
+          throw new Error(
+            "browser ini belum mendukung pembuatan kunci Ed25519, gunakan Chrome atau Edge terbaru"
+          );
+        }
+
+        let pkcs8;
+        let jwk;
+        try {
+          pkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+          jwk = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
+        } catch (_) {
+          throw new Error(
+            "browser ini belum mendukung ekspor kunci Ed25519, gunakan Chrome atau Edge terbaru"
+          );
+        }
+
+        const derHex = bytesToHex(pkcs8);
+        if (!derHex.startsWith(PKCS8_ED25519_PREFIX)) {
+          throw new Error("format kunci tidak dikenali, gunakan Chrome atau Edge terbaru");
+        }
+        const seedHex = derHex.slice(PKCS8_ED25519_PREFIX.length);
+        if (!/^[0-9a-fA-F]{64}$/.test(seedHex)) {
+          throw new Error("benih kunci tidak valid, coba lagi");
+        }
+
+        const publicHex = base64urlToHex(jwk.x);
+        const derivedHex = await this.derivePublicKeyHex(seedHex);
+        if (publicHex.toLowerCase() !== derivedHex.toLowerCase()) {
+          throw new Error("kunci publik tidak cocok dengan kunci privat, coba lagi");
+        }
+
+        const year = new Date().getUTCFullYear();
+        const label =
+          username
+            .toUpperCase()
+            .replace(/[^A-Z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "") || "DOKTER";
+        const randomHex = bytesToHex(crypto.getRandomValues(new Uint8Array(2)));
+        const keyId = `DONGLE-${year}-${label}-${randomHex}`;
+
+        this.dongle = { username, keyId, seedHex };
+        this.dongleNote = "Kunci privat tetap di memori tab ini. Tutup tab untuk menghapusnya.";
+        this.registerForm.dongle_key_id = keyId;
+        this.registerForm.dongle_pubkey_hex = publicHex.toLowerCase();
+        this.registerDongleGenerated = true;
+        this.registerDongleSaved = false;
+        this.registerDongleAck = false;
+        this.registerDongleSaveNote = "";
+        this.registerTouched.dongle = true;
+        this.notify("Kunci dongle dibuat. Simpan berkasnya ke flash drive, ya");
+      });
+    },
+
+    async saveGeneratedDongle() {
+      if (!this.registerDongleGenerated || !this.dongle) {
+        this.notify("Buat kunci dongle dulu, ya", "error");
+        return;
+      }
+
+      await this.run("Simpan dongle", async () => {
+        const username = this.registerForm.username.trim();
+        const keyId = this.registerForm.dongle_key_id.trim();
+        if (!keyId) {
+          throw new Error("ID dongle belum terisi");
+        }
+
+        const payload =
+          JSON.stringify(
+            {
+              version: 1,
+              key_id: keyId,
+              username: username,
+              algorithm: "Ed25519",
+              public_key_hex: this.registerForm.dongle_pubkey_hex,
+              private_key_seed_hex: this.dongle.seedHex,
+              issued_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+            },
+            null,
+            2
+          ) + "\n";
+
+        let savedWithPicker = false;
+        if (window.showSaveFilePicker) {
+          try {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: `${username}.medkey`,
+              types: [
+                {
+                  description: "MedVault key",
+                  accept: { "application/json": [".medkey"] },
+                },
+              ],
+            });
+            const writable = await handle.createWritable();
+            await writable.write(payload);
+            await writable.close();
+            savedWithPicker = true;
+          } catch (error) {
+            if (error && error.name === "AbortError") {
+              return;
+            }
+          }
+        }
+
+        if (!savedWithPicker) {
+          const blob = new Blob([payload], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `${username}.medkey`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
+          this.registerDongleSaveNote =
+            "Peringatan: berkas diunduh ke folder Unduhan. Pindahkan ke flash drive Anda, lalu hapus salinan di folder Unduhan.";
+        } else {
+          this.registerDongleSaveNote =
+            "Berkas .medkey tersimpan. Simpan flash drive di tempat aman dan jangan bagikan berkas ini.";
+        }
+
+        this.dongle.keyId = keyId;
+        this.registerDongleSaved = true;
+        this.registerDongleAck = false;
+        this.notify("Berkas dongle siap digunakan");
+      });
+    },
 
     async loadDongle(event) {
       const file = event.target.files && event.target.files[0];
