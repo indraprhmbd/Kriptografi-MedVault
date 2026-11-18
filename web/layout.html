@@ -444,6 +444,7 @@
     .mv-auth-secondary:active:not(:disabled) { transform:scale(.98); }
     .mv-auth-secondary:focus-within { outline:3px solid var(--mv-accent); outline-offset:2px; }
     .mv-auth-secondary:disabled { opacity:.5; cursor:not-allowed; }
+    .mv-auth-secondary[aria-pressed="true"] { border-color:var(--mv-accent) !important; background:var(--mv-accent-soft) !important; color:var(--mv-accent-strong) !important; }
 
     .mv-auth-inline {
       display:inline-flex; align-items:center; gap:6px;

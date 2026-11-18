@@ -247,94 +247,95 @@
                   aria-labelledby="register-dongle-title">
               <h3 id="register-dongle-title" class="sr-only">Langkah 2: USB Dongle</h3>
 
-              <div class="grid gap-2 sm:grid-cols-2" role="group" aria-label="Cara menyiapkan dongle">
-                <button type="button" class="mv-auth-secondary"
-                        :class="registerDongleMode === 'generate' ? 'ring-2 ring-emerald-500' : ''"
-                        :aria-pressed="registerDongleMode === 'generate'"
-                        @click="setRegisterDongleMode('generate')">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
-                    <use href="#mv-icon-refresh"></use>
+              <div class="grid gap-3 sm:grid-cols-2" role="group" aria-label="Cara menyiapkan USB Dongle">
+                <button type="button" class="mv-auth-secondary h-auto min-h-12 py-2 text-center leading-tight"
+                        :aria-pressed="dongleMode === 'new' ? 'true' : 'false'"
+                        @click="chooseDongleMode('new')" :disabled="busy || newDongle.generating">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0" aria-hidden="true">
+                    <use href="#mv-icon-lock"></use>
                   </svg>
                   Buat dongle baru
                 </button>
-                <button type="button" class="mv-auth-secondary"
-                        :class="registerDongleMode === 'existing' ? 'ring-2 ring-emerald-500' : ''"
-                        :aria-pressed="registerDongleMode === 'existing'"
-                        @click="setRegisterDongleMode('existing')">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
+                <button type="button" class="mv-auth-secondary h-auto min-h-12 py-2 text-center leading-tight"
+                        :aria-pressed="dongleMode === 'existing' ? 'true' : 'false'"
+                        @click="chooseDongleMode('existing')" :disabled="busy || newDongle.generating">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0" aria-hidden="true">
                     <use href="#mv-icon-usb"></use>
                   </svg>
                   Pakai dongle yang sudah ada
                 </button>
               </div>
 
-              <div class="mv-status-card" :class="registerDongleValid ? 'mv-status-success' : ''">
+              <div class="mv-status-card" :class="registerDongleValid ? 'mv-status-success' : ''" aria-live="polite">
                 <div class="flex items-start gap-3">
                   <span class="mv-status-icon" :class="registerDongleValid ? 'is-success' : ''">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
+                    <svg x-show="!newDongle.generating" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
                       <use href="#mv-icon-usb"></use>
+                    </svg>
+                    <svg x-show="newDongle.generating" x-cloak viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 animate-spin" aria-hidden="true">
+                      <use href="#mv-icon-spinner"></use>
                     </svg>
                   </span>
                   <div class="min-w-0 flex-1">
-                    <p class="mv-strong text-sm font-bold" x-text="registerDongleStatusTitle"></p>
-                    <p class="mv-muted mt-1 text-xs leading-relaxed" x-text="registerDongleStatusDetail"></p>
+                    <p class="mv-strong text-sm font-bold" x-text="registerDongleCardTitle"></p>
+                    <p class="mv-muted mt-1 text-xs leading-relaxed" x-text="registerDongleCardText"></p>
                   </div>
                 </div>
-                <button type="button" class="mv-auth-inline mt-3" :disabled="busy"
-                        @click="registerDongleMode === 'generate' ? generateRegisterDongle() : $refs.registerDongleInput.click()">
+
+                <!-- Mode: buat dongle baru -->
+                <div x-show="dongleMode === 'new' && dongle" x-cloak class="mt-4 space-y-3">
+                  <dl class="mv-muted grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-xs">
+                    <dt>Nama berkas</dt>
+                    <dd class="mv-strong min-w-0 break-all font-semibold" x-text="newDongleFileName"></dd>
+                    <dt>Sidik jari kunci</dt>
+                    <dd class="mv-strong min-w-0 break-all font-mono font-semibold" x-text="newDongleFingerprint"></dd>
+                  </dl>
+
+                  <button type="button" class="mv-auth-primary" @click="saveNewDongle()" :disabled="busy">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
+                      <use href="#mv-icon-usb"></use>
+                    </svg>
+                    <span x-text="newDongle.saved ? 'Simpan ulang ke USB' : 'Simpan ke USB'"></span>
+                  </button>
+
+                  <label class="flex items-start gap-3 text-xs leading-relaxed" :class="newDongle.saved ? '' : 'opacity-60'">
+                    <input type="checkbox" class="mt-0.5 h-4 w-4 shrink-0" x-model="newDongle.confirmed"
+                           :disabled="!newDongle.saved || busy">
+                    <span>Saya sudah menyimpan berkas .medkey di USB dan paham berkas ini tidak bisa dipulihkan jika hilang.</span>
+                  </label>
+                </div>
+
+                <button type="button" class="mv-auth-inline mt-3" x-show="dongleMode === 'new'" x-cloak
+                        @click="regenerateDongle()" :disabled="busy || newDongle.generating">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
                     <use href="#mv-icon-refresh"></use>
                   </svg>
-                  <span x-text="registerDongleMode === 'generate' ? (registerDongleGenerated ? 'Buat ulang kunci' : 'Buat kunci dongle') : 'Pilih ulang berkas'"></span>
-                </button>
-              </div>
-
-              <div x-show="registerDongleMode === 'generate'" x-cloak class="space-y-5">
-                <button type="button" class="mv-auth-secondary" @click="saveGeneratedDongle()"
-                        :disabled="busy || !registerDongleGenerated">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
-                    <use href="#mv-icon-upload"></use>
-                  </svg>
-                  <span x-text="registerDongleSaved ? 'Simpan ulang berkas .medkey' : 'Simpan berkas ke USB'"></span>
+                  Buat ulang kunci
                 </button>
 
-                <p class="mv-muted text-xs leading-relaxed" x-show="registerDongleSaveNote" x-cloak
-                   x-text="registerDongleSaveNote"></p>
-
-                <label class="mv-status-card flex cursor-pointer items-start gap-3"
-                       :class="registerDongleAck ? 'mv-status-success' : ''">
-                  <input type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                         x-model="registerDongleAck" :disabled="!registerDongleGenerated"
-                         aria-describedby="register-dongle-ack-help">
-                  <span class="min-w-0 flex-1">
-                    <span class="mv-strong block text-sm font-bold">Saya sudah menyimpan berkas ini di USB dan paham berkas ini tidak bisa dipulihkan</span>
-                    <span id="register-dongle-ack-help" class="mv-muted mt-1 block text-xs leading-relaxed">Centang setelah berkas .medkey tersimpan di flash drive Anda.</span>
-                  </span>
-                </label>
-                <p class="mv-field-error" x-show="registerDongleNeedsAck"
-                   x-text="'Centang konfirmasi penyimpanan USB dulu, ya.'"></p>
-              </div>
-
-              <div x-show="registerDongleMode === 'existing'" x-cloak>
-                <label class="mv-auth-secondary cursor-pointer">
-                  <input x-ref="registerDongleInput" type="file" class="sr-only" accept=".medkey,application/json"
-                         @change="loadDongle($event)">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
-                    <use href="#mv-icon-upload"></use>
-                  </svg>
-                  <span x-text="dongle ? 'Ganti berkas .medkey' : 'Pilih berkas .medkey'"></span>
-                </label>
+                <!-- Mode: pakai dongle yang sudah ada -->
+                <div x-show="dongleMode === 'existing'" x-cloak class="mt-3">
+                  <label class="mv-auth-secondary cursor-pointer">
+                    <input x-ref="registerDongleInput" type="file" class="sr-only" accept=".medkey,application/json"
+                           @change="loadDongle($event)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
+                      <use href="#mv-icon-upload"></use>
+                    </svg>
+                    <span x-text="dongle ? 'Ganti berkas .medkey' : 'Pilih berkas .medkey'"></span>
+                  </label>
+                </div>
               </div>
 
               <div>
                 <label for="register-dongle-id" class="mv-label mb-2 block text-sm font-semibold">ID USB Dongle</label>
                 <input id="register-dongle-id" type="text" x-model="registerForm.dongle_key_id"
                        class="mv-auth-input" placeholder="DONGLE-2026-0001"
+                       :readonly="dongleMode === 'new'"
                        :aria-invalid="showRegisterDongleError ? 'true' : 'false'"
                        aria-describedby="register-dongle-help register-dongle-error"
-                       @blur="registerTouched.dongle = true" @input="onRegisterDongleIdInput()" required>
+                       @blur="registerTouched.dongle = true" required>
                 <p id="register-dongle-help" class="mv-muted mt-1.5 text-xs"
-                   x-text="registerDongleMode === 'generate' ? 'ID dibuat otomatis. Jika diubah, simpan ulang berkas .medkey agar isinya cocok.' : 'Terisi otomatis saat berkas .medkey dipilih. Kunci privat tetap di browser.'"></p>
+                   x-text="dongleMode === 'new' ? 'Dibuat otomatis bersama kunci. Kunci privat tetap di browser dan USB Anda, tidak dikirim ke server.' : 'Terisi otomatis saat berkas .medkey dipilih. Kunci privat tetap di browser.'"></p>
                 <p id="register-dongle-error" class="mv-field-error" x-show="showRegisterDongleError"
                    x-text="registerDongleError"></p>
               </div>
@@ -454,6 +455,10 @@
                 </p>
                 <p class="mv-muted mt-3 text-sm leading-relaxed">
                   Masuk dengan kata sandi, USB Dongle, dan verifikasi wajah yang tadi Anda daftarkan.
+                </p>
+                <p class="mv-muted mt-3 text-sm leading-relaxed" x-show="dongleMode === 'new'" x-cloak>
+                  Simpan USB yang berisi berkas <strong class="mv-strong" x-text="newDongle.savedAs || newDongleFileName"></strong>
+                  baik-baik. Berkas ini dibutuhkan setiap kali masuk dan tidak bisa dibuat ulang untuk akun yang sama.
                 </p>
               </div>
 

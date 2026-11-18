@@ -98,11 +98,6 @@ window.medvault = function medvault() {
       dongle: false,
       face: false,
     },
-    registerDongleMode: "generate",
-    registerDongleGenerated: false,
-    registerDongleSaved: false,
-    registerDongleAck: false,
-    registerDongleSaveNote: "",
 
     busy: false,
     toast: { type: "ok", message: "" },
@@ -113,6 +108,18 @@ window.medvault = function medvault() {
     health: null,
     dongle: null,
     dongleNote: "",
+    // Registration step 2: "" (not chosen), "new" (generate a .medkey in the
+    // browser) or "existing" (read a .medkey issued earlier).
+    dongleMode: "",
+    newDongle: {
+      generating: false,
+      issuedAt: "",
+      publicKeyHex: "",
+      savedAs: "",
+      saveMethod: "",
+      saved: false,
+      confirmed: false,
+    },
     faceStatus: "",
     faceStream: null,
     facePreviewActive: false,
@@ -198,7 +205,7 @@ window.medvault = function medvault() {
 
     get registerStepSubtitle() {
       if (this.registerStep === 2) {
-        return "Siapkan flash drive Anda. Kunci dongle dibuat di browser lalu disimpan ke flash drive tersebut.";
+        return "Siapkan USB Dongle: buat kunci baru atau pakai berkas .medkey yang sudah ada.";
       }
       if (this.registerStep === 3) {
         return "Ambil verifikasi wajah supaya akun terikat pada perangkat ini.";
@@ -269,19 +276,13 @@ window.medvault = function medvault() {
     },
 
     get registerDongleError() {
-      if (this.registerDongleMode === "generate") {
-        if (!this.registerDongleGenerated || !this.dongle) {
-          return "Kunci dongle belum dibuat. Buat kunci baru dulu, ya.";
-        }
-        if (!this.registerDongleSaved) {
-          return "Berkas .medkey belum disimpan. Simpan ke flash drive dulu, ya.";
-        }
-        if (this.registerDongleNeedsAck) {
-          return "Centang konfirmasi penyimpanan USB dulu, ya.";
-        }
+      if (!this.dongleMode) {
+        return "Pilih dulu: buat dongle baru atau pakai dongle yang sudah ada.";
       }
       if (!this.dongle) {
-        return "Berkas .medkey belum dipilih. Colokkan flash drive, lalu pilih berkasnya, ya.";
+        return this.dongleMode === "new"
+          ? "Kunci dongle belum dibuat. Tekan Buat ulang kunci, ya."
+          : "Berkas .medkey belum dipilih. Pilih berkas dari USB Anda.";
       }
       if (!this.registerForm.dongle_key_id.trim()) {
         return "ID USB Dongle belum terbaca. Pilih ulang berkas .medkey, ya.";
@@ -290,48 +291,62 @@ window.medvault = function medvault() {
         return "Kunci publik USB Dongle belum siap. Pilih ulang berkas .medkey, ya.";
       }
       if (this.registerDongleUsernameMismatch) {
-        return this.registerDongleMode === "generate"
-          ? "Nama pengguna berubah. Buat ulang kunci dongle, ya."
-          : "Nama pengguna di USB Dongle berbeda dengan akun ini. Kembali ke langkah data akun atau gunakan dongle yang sesuai.";
+        return "Nama pengguna di USB Dongle berbeda dengan akun ini. Kembali ke langkah data akun atau gunakan dongle yang sesuai.";
+      }
+      if (this.dongleMode === "new" && !this.newDongle.saved) {
+        return "Simpan berkas .medkey ke USB dulu sebelum melanjutkan.";
+      }
+      if (this.dongleMode === "new" && !this.newDongle.confirmed) {
+        return "Centang konfirmasi bahwa berkas sudah tersimpan di USB.";
       }
       return "";
     },
 
+    get registerDongleCardTitle() {
+      if (this.dongleMode === "new") {
+        if (this.newDongle.generating) return "Sedang membuat kunci...";
+        if (!this.dongle) return "Kunci belum dibuat";
+        if (!this.newDongle.saved) return "Kunci dongle sudah dibuat";
+        return "Berkas dongle tersimpan";
+      }
+      if (this.dongleMode === "existing") {
+        return this.dongle ? "Berkas dongle terbaca" : "Belum ada berkas dipilih";
+      }
+      return "Pilih cara menyiapkan dongle";
+    },
+
+    get registerDongleCardText() {
+      if (this.dongleMode === "new") {
+        if (this.newDongle.generating) return "Pasangan kunci dibuat di browser ini. Mohon tunggu sebentar.";
+        if (!this.dongle) return "Pembuatan kunci belum berhasil. Tekan Buat ulang kunci untuk mencoba lagi.";
+        if (!this.newDongle.saved) {
+          return "Colok USB Anda, lalu tekan Simpan ke USB dan pilih drive USB sebagai lokasi penyimpanan.";
+        }
+        return "Tersimpan sebagai " + (this.newDongle.savedAs || this.newDongleFileName) +
+          (this.newDongle.saveMethod === "download"
+            ? ". Pindahkan berkas ini dari folder Unduhan ke USB, lalu hapus salinannya dari komputer."
+            : ".");
+      }
+      if (this.dongleMode === "existing") {
+        return this.dongle
+          ? "Dongle " + this.registerForm.dongle_key_id + " siap digunakan."
+          : "Colok USB Anda, lalu pilih berkas .medkey dari drive USB.";
+      }
+      return "Belum punya berkas .medkey? Pilih Buat dongle baru, kunci dibuat otomatis oleh sistem.";
+    },
+
+    get newDongleFileName() {
+      const name = this.registerForm.username.trim() || "dongle";
+      return name + ".medkey";
+    },
+
+    get newDongleFingerprint() {
+      const hex = this.newDongle.publicKeyHex;
+      return hex ? hex.slice(0, 8) + "..." + hex.slice(-8) : "";
+    },
+
     get registerDongleValid() {
       return !this.registerDongleError;
-    },
-
-    get registerDongleNeedsAck() {
-      return (
-        this.registerDongleMode === "generate" &&
-        this.registerDongleGenerated &&
-        this.registerDongleSaved &&
-        !this.registerDongleAck
-      );
-    },
-
-    get registerDongleStatusTitle() {
-      if (this.registerDongleMode === "generate") {
-        if (this.registerDongleSaved) return "Berkas dongle sudah disimpan";
-        if (this.registerDongleGenerated) return "Kunci dongle sudah dibuat";
-        return "Buat dongle baru";
-      }
-      return this.dongle ? "Berkas dongle siap digunakan" : "Pilih berkas dongle";
-    },
-
-    get registerDongleStatusDetail() {
-      if (this.registerDongleMode === "generate") {
-        if (this.registerDongleSaved) {
-          return "Berkas .medkey sudah tersimpan. Centang konfirmasi di bawah untuk melanjutkan.";
-        }
-        if (this.registerDongleGenerated) {
-          return "Kunci sudah dibuat di browser. Simpan berkas .medkey ke flash drive Anda, lalu centang konfirmasi.";
-        }
-        return "Colokkan flash drive ke komputer. Kunci dibuat di browser, lalu Anda menyimpannya ke flash drive tersebut.";
-      }
-      return this.dongle
-        ? "Dongle " + this.dongle.keyId + " siap digunakan."
-        : "Colokkan flash drive yang berisi berkas .medkey, lalu pilih berkasnya di bawah.";
     },
 
     get registerBiometricError() {
@@ -385,8 +400,11 @@ window.medvault = function medvault() {
     },
 
     get showRegisterDongleError() {
-      if (this.registerDongleNeedsAck) return false;
-      return (this.registerTouched.dongle || Boolean(this.dongle)) && Boolean(this.registerDongleError);
+      return (
+        (this.registerTouched.dongle ||
+          (Boolean(this.dongle) && this.dongleMode !== "new")) &&
+        Boolean(this.registerDongleError)
+      );
     },
 
     get showRegisterBiometricError() {
@@ -599,179 +617,200 @@ window.medvault = function medvault() {
     // Dongle and camera
     // ---------------------------------------------------------------
 
-    setRegisterDongleMode(mode) {
-      if (this.registerDongleMode === mode) return;
-      this.registerDongleMode = mode;
-      this.registerDongleGenerated = false;
-      this.registerDongleSaved = false;
-      this.registerDongleAck = false;
-      this.registerDongleSaveNote = "";
+    // ---------------------------------------------------------------
+    // New dongle (registration step 2, "Buat dongle baru")
+    // ---------------------------------------------------------------
+
+    freshNewDongle() {
+      return {
+        generating: false,
+        issuedAt: "",
+        publicKeyHex: "",
+        savedAs: "",
+        saveMethod: "",
+        saved: false,
+        confirmed: false,
+      };
+    },
+
+    resetDongleSelection() {
       this.dongle = null;
+      this.dongleNote = "";
       this.registerForm.dongle_key_id = "";
       this.registerForm.dongle_pubkey_hex = "";
       this.registerTouched.dongle = false;
+      this.newDongle = this.freshNewDongle();
     },
 
-    onRegisterDongleIdInput() {
-      if (this.registerDongleMode !== "generate" || !this.registerDongleGenerated || !this.dongle) {
+    chooseDongleMode(mode) {
+      if (this.busy || this.newDongle.generating) return;
+      if (mode === "new") {
+        // Keep a key that was already generated for this username.
+        if (this.dongleMode === "new" && this.dongle) return;
+        this.dongleMode = "new";
+        this.resetDongleSelection();
+        void this.generateDongle();
         return;
       }
-      if (this.registerForm.dongle_key_id.trim() !== this.dongle.keyId) {
-        this.registerDongleSaved = false;
-        this.registerDongleAck = false;
-        this.registerDongleSaveNote = "ID dongle berubah. Simpan ulang berkas .medkey, ya.";
-      } else {
-        this.registerDongleSaveNote = "";
-      }
+      this.dongleMode = "existing";
+      this.resetDongleSelection();
+      // Must run synchronously inside the click so the browser allows it.
+      if (this.$refs.registerDongleInput) this.$refs.registerDongleInput.click();
     },
 
-    async generateRegisterDongle() {
-      await this.run("Buat dongle", async () => {
-        const username = this.registerForm.username.trim();
-        if (this.registerUsernameError) {
-          throw new Error("Lengkapi data akun dulu, ya");
-        }
-        if (!window.crypto || !window.crypto.subtle || !window.crypto.subtle.generateKey) {
-          throw new Error(
-            "browser ini belum mendukung pembuatan kunci Ed25519, gunakan Chrome atau Edge terbaru"
-          );
-        }
-
-        let keyPair;
-        try {
-          keyPair = await crypto.subtle.generateKey(
-            { name: "Ed25519" },
-            true,
-            ["sign", "verify"]
-          );
-        } catch (_) {
-          throw new Error(
-            "browser ini belum mendukung pembuatan kunci Ed25519, gunakan Chrome atau Edge terbaru"
-          );
-        }
-
-        let pkcs8;
-        let jwk;
-        try {
-          pkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
-          jwk = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
-        } catch (_) {
-          throw new Error(
-            "browser ini belum mendukung ekspor kunci Ed25519, gunakan Chrome atau Edge terbaru"
-          );
-        }
-
-        const derHex = bytesToHex(pkcs8);
-        if (!derHex.startsWith(PKCS8_ED25519_PREFIX)) {
-          throw new Error("format kunci tidak dikenali, gunakan Chrome atau Edge terbaru");
-        }
-        const seedHex = derHex.slice(PKCS8_ED25519_PREFIX.length);
-        if (!/^[0-9a-fA-F]{64}$/.test(seedHex)) {
-          throw new Error("benih kunci tidak valid, coba lagi");
-        }
-
-        const publicHex = base64urlToHex(jwk.x);
-        const derivedHex = await this.derivePublicKeyHex(seedHex);
-        if (publicHex.toLowerCase() !== derivedHex.toLowerCase()) {
-          throw new Error("kunci publik tidak cocok dengan kunci privat, coba lagi");
-        }
-
-        const year = new Date().getUTCFullYear();
-        const label =
-          username
-            .toUpperCase()
-            .replace(/[^A-Z0-9]+/g, "-")
-            .replace(/^-+|-+$/g, "") || "DOKTER";
-        const randomHex = bytesToHex(crypto.getRandomValues(new Uint8Array(2)));
-        const keyId = `DONGLE-${year}-${label}-${randomHex}`;
-
-        this.dongle = { username, keyId, seedHex };
-        this.dongleNote = "Kunci privat tetap di memori tab ini. Tutup tab untuk menghapusnya.";
-        this.registerForm.dongle_key_id = keyId;
-        this.registerForm.dongle_pubkey_hex = publicHex.toLowerCase();
-        this.registerDongleGenerated = true;
-        this.registerDongleSaved = false;
-        this.registerDongleAck = false;
-        this.registerDongleSaveNote = "";
-        this.registerTouched.dongle = true;
-        this.notify("Kunci dongle dibuat. Simpan berkasnya ke flash drive, ya");
-      });
-    },
-
-    async saveGeneratedDongle() {
-      if (!this.registerDongleGenerated || !this.dongle) {
-        this.notify("Buat kunci dongle dulu, ya", "error");
+    regenerateDongle() {
+      if (this.busy || this.newDongle.generating) return;
+      if (
+        this.newDongle.saved &&
+        !window.confirm(
+          "Kunci baru akan membuat berkas .medkey yang lama tidak berlaku untuk pendaftaran ini. Lanjutkan?"
+        )
+      ) {
         return;
       }
+      this.resetDongleSelection();
+      void this.generateDongle();
+    },
 
-      await this.run("Simpan dongle", async () => {
-        const username = this.registerForm.username.trim();
-        const keyId = this.registerForm.dongle_key_id.trim();
-        if (!keyId) {
-          throw new Error("ID dongle belum terisi");
-        }
+    // Generates an Ed25519 pair in the browser. Only the public key is ever
+    // sent to the server; the private seed lives in this tab and in the file
+    // the user saves to the USB drive.
+    async generateDongle() {
+      const username = this.registerForm.username.trim();
+      if (!username) {
+        this.notify("Isi nama pengguna di langkah 1 dulu, ya", "error");
+        return;
+      }
+      this.newDongle = { ...this.freshNewDongle(), generating: true };
 
-        const payload =
-          JSON.stringify(
-            {
-              version: 1,
-              key_id: keyId,
-              username: username,
-              algorithm: "Ed25519",
-              public_key_hex: this.registerForm.dongle_pubkey_hex,
-              private_key_seed_hex: this.dongle.seedHex,
-              issued_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
-            },
-            null,
-            2
-          ) + "\n";
-
-        let savedWithPicker = false;
-        if (window.showSaveFilePicker) {
+      try {
+        await this.run("Buat dongle", async () => {
+          if (!window.crypto || !crypto.subtle) {
+            throw new Error("browser tidak mendukung WebCrypto, buka lewat https atau localhost");
+          }
+          let pair;
           try {
-            const handle = await window.showSaveFilePicker({
-              suggestedName: `${username}.medkey`,
+            pair = await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]);
+          } catch (_) {
+            throw new Error("browser belum mendukung Ed25519, gunakan Chrome atau Edge terbaru");
+          }
+
+          const pkcs8Hex = bytesToHex(await crypto.subtle.exportKey("pkcs8", pair.privateKey));
+          if (!pkcs8Hex.startsWith(PKCS8_ED25519_PREFIX)) {
+            throw new Error("format kunci dari browser tidak dikenali");
+          }
+          const seedHex = pkcs8Hex.slice(PKCS8_ED25519_PREFIX.length);
+          const publicHex = bytesToHex(await crypto.subtle.exportKey("raw", pair.publicKey));
+          if (!/^[0-9a-f]{64}$/.test(seedHex) || !/^[0-9a-f]{64}$/.test(publicHex)) {
+            throw new Error("panjang kunci tidak sesuai");
+          }
+          if ((await this.derivePublicKeyHex(seedHex)) !== publicHex) {
+            throw new Error("kunci publik tidak cocok dengan kunci privat");
+          }
+
+          const suffix = bytesToHex(crypto.getRandomValues(new Uint8Array(2)));
+          const keyId =
+            "DONGLE-" + new Date().getFullYear() + "-" + username.toUpperCase() + "-" + suffix.toUpperCase();
+
+          this.dongle = { username, keyId, seedHex };
+          this.dongleNote =
+            "Kunci privat tetap di memori tab ini. Tutup tab untuk menghapusnya.";
+          this.loginForm.username = username;
+          this.registerForm.dongle_key_id = keyId;
+          this.registerForm.dongle_pubkey_hex = publicHex;
+          this.newDongle = {
+            ...this.freshNewDongle(),
+            issuedAt: new Date().toISOString(),
+            publicKeyHex: publicHex,
+          };
+          this.notify("Kunci dongle baru sudah dibuat. Simpan ke USB ya.");
+        });
+      } finally {
+        this.newDongle.generating = false;
+      }
+    },
+
+    // Same JSON shape as cmd/medkeygen (internal/crypto MedKey), so the file
+    // also works through "Pakai dongle yang sudah ada" and the login page.
+    buildMedKeyText() {
+      if (!this.dongle || !this.newDongle.publicKeyHex) {
+        throw new Error("kunci belum dibuat");
+      }
+      return (
+        JSON.stringify(
+          {
+            version: 1,
+            key_id: this.dongle.keyId,
+            username: this.dongle.username,
+            algorithm: "Ed25519",
+            public_key_hex: this.newDongle.publicKeyHex,
+            private_key_seed_hex: this.dongle.seedHex,
+            issued_at: this.newDongle.issuedAt,
+          },
+          null,
+          2
+        ) + "\n"
+      );
+    },
+
+    async saveNewDongle() {
+      if (this.busy || this.newDongle.generating) return;
+      // showSaveFilePicker needs a fresh click, so it is called before any await.
+      await this.run("Simpan dongle", async () => {
+        const text = this.buildMedKeyText();
+        const fileName = this.newDongleFileName;
+
+        if (typeof window.showSaveFilePicker === "function") {
+          let handle;
+          try {
+            handle = await window.showSaveFilePicker({
+              suggestedName: fileName,
               types: [
                 {
-                  description: "MedVault key",
+                  description: "Kunci USB Dongle MedVault",
                   accept: { "application/json": [".medkey"] },
                 },
               ],
             });
-            const writable = await handle.createWritable();
-            await writable.write(payload);
-            await writable.close();
-            savedWithPicker = true;
           } catch (error) {
             if (error && error.name === "AbortError") {
+              this.notify("Penyimpanan dibatalkan. Tekan Simpan ke USB untuk mencoba lagi.", "error");
               return;
             }
+            throw error;
           }
-        }
+          const writable = await handle.createWritable();
+          await writable.write(text);
+          await writable.close();
 
-        if (!savedWithPicker) {
-          const blob = new Blob([payload], { type: "application/json" });
-          const url = URL.createObjectURL(blob);
+          // Read it back so we know the USB really holds a valid key.
+          const written = JSON.parse(await (await handle.getFile()).text());
+          if (
+            written.private_key_seed_hex !== this.dongle.seedHex ||
+            written.public_key_hex !== this.newDongle.publicKeyHex
+          ) {
+            throw new Error("berkas yang tersimpan tidak cocok, coba simpan ulang");
+          }
+          this.newDongle.savedAs = handle.name;
+          this.newDongle.saveMethod = "picker";
+        } else {
+          const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
           const link = document.createElement("a");
           link.href = url;
-          link.download = `${username}.medkey`;
+          link.download = fileName;
           document.body.appendChild(link);
           link.click();
           link.remove();
-          URL.revokeObjectURL(url);
-          this.registerDongleSaveNote =
-            "Peringatan: berkas diunduh ke folder Unduhan. Pindahkan ke flash drive Anda, lalu hapus salinan di folder Unduhan.";
-        } else {
-          this.registerDongleSaveNote =
-            "Berkas .medkey tersimpan. Simpan flash drive di tempat aman dan jangan bagikan berkas ini.";
+          window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+          this.newDongle.savedAs = fileName;
+          this.newDongle.saveMethod = "download";
         }
 
-        this.dongle.keyId = keyId;
-        this.registerDongleSaved = true;
-        this.registerDongleAck = false;
-        this.notify("Berkas dongle siap digunakan");
+        this.newDongle.saved = true;
+        this.notify("Berkas dongle tersimpan. Centang konfirmasi untuk melanjutkan.");
       });
     },
+
 
     async loadDongle(event) {
       const file = event.target.files && event.target.files[0];
@@ -980,6 +1019,13 @@ window.medvault = function medvault() {
           return;
         }
         this.registerStep = 2;
+        if (this.dongleMode === "new") {
+          const username = this.registerForm.username.trim();
+          if (this.dongle && this.dongle.username !== username) {
+            this.resetDongleSelection();
+          }
+          if (!this.dongle) void this.generateDongle();
+        }
         return;
       }
 
