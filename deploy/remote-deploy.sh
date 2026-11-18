@@ -49,6 +49,7 @@ if [[ -z "$current_dhash" ]]; then
 elif [[ "$current_dhash" == "14" ]]; then
   sed -i 's/^MEDVAULT_DHASH_MAX_DISTANCE=.*/MEDVAULT_DHASH_MAX_DISTANCE=32/' "$ENV_FILE"
 fi
+echo "effective face threshold: MEDVAULT_DHASH_MAX_DISTANCE=$(grep -E '^MEDVAULT_DHASH_MAX_DISTANCE=' "$ENV_FILE" | tail -n 1 | cut -d= -f2-)"
 
 mkdir -p "$STORAGE/encrypted_labs" "$STORAGE/stego_scans" "$STORAGE/biometrics"
 
