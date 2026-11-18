@@ -52,8 +52,8 @@ func TestLoadWithValidEnvironment(t *testing.T) {
 	if len(cfg.MasterAES256Key) != 32 {
 		t.Fatalf("AES key must be 32 bytes, got %d", len(cfg.MasterAES256Key))
 	}
-	if cfg.DHASHMaxDistance != 14 {
-		t.Fatalf("expected default dHash distance 14, got %d", cfg.DHASHMaxDistance)
+	if cfg.DHASHMaxDistance != 32 {
+		t.Fatalf("expected default dHash distance 32, got %d", cfg.DHASHMaxDistance)
 	}
 	if len(cfg.WebAuthnRPOrigins) != 2 {
 		t.Fatalf("expected 2 origins, got %d", len(cfg.WebAuthnRPOrigins))

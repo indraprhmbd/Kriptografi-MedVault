@@ -39,6 +39,17 @@ if ! grep -q '^MEDVAULT_VALIDATOR_PRIVKEY_HEX=.\+' "$ENV_FILE"; then
   exit 1
 fi
 
+# The face matching fix raises the release default from 14 to 32 of 64 bits,
+# which is the 50 percent similarity floor requested for the demo. Upgrade the
+# legacy value on the host so the old strict threshold does not linger. A
+# deliberate operator value other than 14 is left untouched.
+current_dhash=$(grep -E '^MEDVAULT_DHASH_MAX_DISTANCE=' "$ENV_FILE" | tail -n 1 | cut -d= -f2- || true)
+if [[ -z "$current_dhash" ]]; then
+  printf '\nMEDVAULT_DHASH_MAX_DISTANCE=32\n' >> "$ENV_FILE"
+elif [[ "$current_dhash" == "14" ]]; then
+  sed -i 's/^MEDVAULT_DHASH_MAX_DISTANCE=.*/MEDVAULT_DHASH_MAX_DISTANCE=32/' "$ENV_FILE"
+fi
+
 mkdir -p "$STORAGE/encrypted_labs" "$STORAGE/stego_scans" "$STORAGE/biometrics"
 
 echo "building images"

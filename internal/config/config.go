@@ -25,7 +25,7 @@ const (
 	defaultVaultDir      = "./storage/encrypted_labs"
 	defaultStegoDir      = "./storage/stego_scans"
 	defaultBiometricDir  = "./storage/biometrics"
-	defaultDHASHMax      = 14
+	defaultDHASHMax      = 32
 	defaultSessionTTL    = 8 * time.Hour
 	defaultChallengeTTL  = 60 * time.Second
 )
