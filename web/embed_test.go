@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
 )
 
 func TestHandlerServesEveryModulePage(t *testing.T) {
@@ -80,5 +81,89 @@ func TestHandlerKeepsFragmentsPrivateAndServesAssets(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Errorf("%s: status = %d, want %d", route, rec.Code, http.StatusOK)
 		}
+	}
+}
+
+func TestHandlerVersionsAssetURLsAndBypassesCaches(t *testing.T) {
+	handler, err := Handler("")
+	if err != nil {
+		t.Fatalf("Handler: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/login", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("/login: status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+		t.Errorf("/login: Cache-Control = %q, want %q", got, "no-store")
+	}
+
+	body := rec.Body.String()
+	const marker = "/js/app.js?v="
+	index := strings.Index(body, marker)
+	if index < 0 {
+		t.Fatalf("/login: app.js URL is not versioned")
+	}
+	version := body[index+len(marker):]
+	if len(version) < 12 {
+		t.Fatalf("/login: asset version is too short: %q", version)
+	}
+	version = version[:12]
+	for _, char := range version {
+		if !(char >= '0' && char <= '9' || char >= 'a' && char <= 'f') {
+			t.Fatalf("/login: asset version %q is not a lower-case hex digest", version)
+		}
+	}
+
+	for _, want := range []string{
+		"/vendor/alpine.min.js?v=" + version,
+		"/vendor/tailwind-browser.min.js?v=" + version,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("/login: body does not contain %q", want)
+		}
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/js/app.js?v="+version, nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("/js/app.js: status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if got := rec.Header().Get("Cache-Control"); !strings.Contains(got, "immutable") {
+		t.Errorf("/js/app.js: Cache-Control = %q, want an immutable cache", got)
+	}
+}
+
+func TestAssetVersionChangesWithContent(t *testing.T) {
+	src := fstest.MapFS{
+		"js/app.js":   {Data: []byte("first")},
+		"layout.html": {Data: []byte("not a static asset")},
+	}
+
+	before, err := assetVersion(src)
+	if err != nil {
+		t.Fatalf("assetVersion: %v", err)
+	}
+	if len(before) != 12 {
+		t.Fatalf("assetVersion length = %d, want 12", len(before))
+	}
+
+	src["js/app.js"] = &fstest.MapFile{Data: []byte("second")}
+	after, err := assetVersion(src)
+	if err != nil {
+		t.Fatalf("assetVersion: %v", err)
+	}
+	if before == after {
+		t.Fatalf("assetVersion did not change after app.js content changed")
+	}
+
+	src["layout.html"] = &fstest.MapFile{Data: []byte("still not a static asset")}
+	unchanged, err := assetVersion(src)
+	if err != nil {
+		t.Fatalf("assetVersion: %v", err)
+	}
+	if unchanged != after {
+		t.Fatalf("assetVersion changed after a non-static file changed")
 	}
 }

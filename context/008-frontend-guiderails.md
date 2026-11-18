@@ -3,6 +3,7 @@
 ## 1. Core Principles
 
 - **Zero CDN Dependencies:** All frontend assets (Tailwind CSS v4 browser runtime and Alpine.js v3) are vendored inside `web/vendor/` and embedded directly into the Go executable via `embed.FS`.
+- **Versioned Asset URLs:** `web.Handler` fingerprints every file under `web/js`, `web/vendor`, and `web/assets` at startup and appends the 12-hex digest as `?v=...` in `layout.html`. Rendered pages are served with `Cache-Control: no-store`, embedded scripts with `public, max-age=31536000, immutable`, and the image drop folder with a short `max-age=300`. A deploy therefore never leaves a browser or Cloudflare edge cache serving an older `app.js` next to newer HTML.
 - **Strict Content Security Policy (CSP):** The application serves `default-src 'self'` with no external third-party script, stylesheet, or font origins allowed. This guarantees offline operation and zero presentation-day CDN downtime risk.
 - **Glass-Box Telemetry Inspector:** Every view or action involving cryptography, steganography, or ledger operations must provide a collapsible Telemetry Drawer displaying mathematical transformations, intermediate ciphertext states, and algorithm timings.
 - **Indonesian Language for UI Labels:** End-user labels, button texts, status banners, and clinical terms must be in Indonesian. Technical error messages and internal telemetry keys remain in English.

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{.Title}}</title>
-  <script src="/vendor/tailwind-browser.min.js"></script>
+  <script src="/vendor/tailwind-browser.min.js?v={{.AssetVersion}}"></script>
   <style type="text/tailwindcss">
     @theme {
       --color-vault-950: #f5f8fb;
@@ -572,7 +572,7 @@
   </div>
 </div>
 
-<script src="/js/app.js" defer></script>
-<script src="/vendor/alpine.min.js" defer></script>
+<script src="/js/app.js?v={{.AssetVersion}}" defer></script>
+<script src="/vendor/alpine.min.js?v={{.AssetVersion}}" defer></script>
 </body>
 </html>

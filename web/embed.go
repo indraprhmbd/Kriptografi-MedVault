@@ -3,7 +3,9 @@ package web
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -41,9 +43,10 @@ var pages = map[string]pageSpec{
 
 // pageData is the single template payload for the shared shell.
 type pageData struct {
-	Title   string
-	Route   string
-	Content template.HTML
+	Title        string
+	Route        string
+	AssetVersion string
+	Content      template.HTML
 }
 
 // Handler serves the modular pages through a shared layout and exposes only the
@@ -62,16 +65,21 @@ func Handler(devDir string) (http.Handler, error) {
 		src = os.DirFS(devDir)
 	}
 
+	version, err := assetVersion(src)
+	if err != nil {
+		return nil, err
+	}
+
 	cache := make(map[string][]byte, len(pages))
 	if devDir == "" {
 		for route, spec := range pages {
-			data, err := renderPage(src, spec)
+			data, err := renderPage(src, spec, version)
 			if err != nil {
 				return nil, err
 			}
 			cache[route] = data
 		}
-	} else if _, err := renderPage(src, pages["/"]); err != nil {
+	} else if _, err := renderPage(src, pages["/"], version); err != nil {
 		// Fail fast when the layout or login fragment is missing or broken.
 		return nil, err
 	}
@@ -84,6 +92,7 @@ func Handler(devDir string) (http.Handler, error) {
 			return
 		}
 		if isStaticAsset(clean) {
+			w.Header().Set("Cache-Control", staticCacheControl(clean, devDir))
 			static.ServeHTTP(w, r)
 			return
 		}
@@ -95,13 +104,16 @@ func Handler(devDir string) (http.Handler, error) {
 		data, ok := cache[clean]
 		if !ok {
 			var err error
-			data, err = renderPage(src, spec)
+			data, err = renderPage(src, spec, version)
 			if err != nil {
 				http.Error(w, "frontend unavailable", http.StatusInternalServerError)
 				return
 			}
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		// Pages embed the asset version, so they must never be reused from a
+		// browser or edge cache after a deploy.
+		w.Header().Set("Cache-Control", "no-store")
 		_, _ = w.Write(data)
 	}), nil
 }
@@ -118,8 +130,21 @@ func isStaticAsset(clean string) bool {
 		strings.HasPrefix(clean, "/assets/")
 }
 
+// staticCacheControl lets the browser keep versioned code forever while the
+// image drop folder stays replaceable without a year long cache pinning an old
+// picture. The development directory is always revalidated.
+func staticCacheControl(clean, devDir string) string {
+	if devDir != "" {
+		return "no-store"
+	}
+	if strings.HasPrefix(clean, "/assets/") {
+		return "public, max-age=300"
+	}
+	return "public, max-age=31536000, immutable"
+}
+
 // renderPage composes the shared layout with one page fragment.
-func renderPage(src fs.FS, spec pageSpec) ([]byte, error) {
+func renderPage(src fs.FS, spec pageSpec, version string) ([]byte, error) {
 	layout, err := fs.ReadFile(src, "layout.html")
 	if err != nil {
 		return nil, fmt.Errorf("web: layout: %w", err)
@@ -134,11 +159,39 @@ func renderPage(src fs.FS, spec pageSpec) ([]byte, error) {
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, pageData{
-		Title:   spec.title,
-		Route:   spec.route,
-		Content: template.HTML(content),
+		Title:        spec.title,
+		Route:        spec.route,
+		AssetVersion: version,
+		Content:      template.HTML(content),
 	}); err != nil {
 		return nil, fmt.Errorf("web: render %s: %w", spec.file, err)
 	}
 	return buf.Bytes(), nil
+}
+
+// assetVersion fingerprints every vendored static file. Layout URLs append the
+// digest as a query string, so a deploy that changes app.js produces a new URL
+// that neither the browser cache nor the Cloudflare edge cache can answer with
+// an older script.
+func assetVersion(src fs.FS) (string, error) {
+	digest := sha256.New()
+	err := fs.WalkDir(src, ".", func(name string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || !isStaticAsset("/"+name) {
+			return nil
+		}
+		data, err := fs.ReadFile(src, name)
+		if err != nil {
+			return err
+		}
+		_, _ = digest.Write([]byte(name))
+		_, _ = digest.Write(data)
+		return nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("web: asset version: %w", err)
+	}
+	return hex.EncodeToString(digest.Sum(nil))[:12], nil
 }
