@@ -59,4 +59,4 @@ To avoid heavy C++ OpenCV dependencies while still verifying live webcam presenc
 3. **Similarity Matching:**
    * Compute the **Hamming Distance** between `enrolled_dhash` and `live_dhash` using `bits.OnesCount64(enrolled ^ live)`.
    * Convert to similarity percentage: `similarity = (64.0 - float64(distance)) / 64.0 * 100.0`.
-   * If `distance <= MEDVAULT_DHASH_MAX_DISTANCE` (default `14`, i.e., `>= 78.1%` structural similarity), biometric check passes.
+   * If `distance <= MEDVAULT_DHASH_MAX_DISTANCE` (default `32`, i.e., `>= 50.0%` structural similarity), biometric check passes.

@@ -123,6 +123,12 @@ window.medvault = function medvault() {
     faceStatus: "",
     faceStream: null,
     facePreviewActive: false,
+    // Login step 3 uses its own preview because the gate page has no
+    // registration wizard. The captured flag is the single source of truth
+    // for the Selesaikan login button.
+    loginFaceStream: null,
+    loginFacePreviewActive: false,
+    loginFaceCaptured: false,
 
     registerForm: {
       username: "",
@@ -447,6 +453,9 @@ window.medvault = function medvault() {
       if (/permission|notallowed|denied|izin/i.test(message)) {
         return "Akses kamera belum diizinkan. Izinkan kamera di browser, lalu coba lagi.";
       }
+      if (/belum mendaftarkan windows hello/i.test(message)) {
+        return "Akun ini belum mendaftarkan Windows Hello. Masuk dengan verifikasi wajah dulu, ya.";
+      }
       if (/webauthn|windows hello|passkey/i.test(message)) {
         return "Verifikasi Windows Hello belum selesai. Coba lagi, ya.";
       }
@@ -471,7 +480,10 @@ window.medvault = function medvault() {
       this.setupAssetFallbacks();
       if (!this._faceUnloadBound) {
         this._faceUnloadBound = true;
-        window.addEventListener("beforeunload", () => this.stopFacePreview());
+        window.addEventListener("beforeunload", () => {
+          this.stopFacePreview();
+          this.stopLoginFacePreview();
+        });
       }
       this.restoreRememberedRecord();
       await this.checkHealth();
@@ -963,7 +975,6 @@ window.medvault = function medvault() {
           ctx.drawImage(video, 0, 0, 9, 8);
 
           const hashHex = this.dhashFromCanvas(ctx);
-          this.loginForm.webcam_dhash_hex = hashHex;
           this.registerForm.webcam_dhash_hex = hashHex;
           this.registerTouched.face = true;
           this.faceStatus = `dHash ${hashHex}`;
@@ -974,6 +985,99 @@ window.medvault = function medvault() {
           }
         }
       });
+    },
+
+    async startLoginFacePreview() {
+      if (this.loginFacePreviewActive) return;
+
+      await this.run("Nyalakan kamera", async () => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("browser ini belum menyediakan akses kamera, gunakan Chrome atau Edge terbaru");
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 640, height: 480, facingMode: "user" },
+          audio: false,
+        });
+
+        if (this.loginStep !== 3) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        const video = document.getElementById("login-face-video");
+        if (!video) {
+          stream.getTracks().forEach((track) => track.stop());
+          throw new Error("pratinjau kamera tidak tersedia, muat ulang halaman lalu coba lagi");
+        }
+
+        video.srcObject = stream;
+        video.muted = true;
+        video.playsInline = true;
+        await video.play();
+
+        this.loginFaceStream = stream;
+        this.loginFacePreviewActive = true;
+        this.clearLoginFaceCapture();
+      });
+    },
+
+    stopLoginFacePreview() {
+      if (this.loginFaceStream) {
+        this.loginFaceStream.getTracks().forEach((track) => track.stop());
+      }
+      this.loginFaceStream = null;
+      this.loginFacePreviewActive = false;
+      const video = document.getElementById("login-face-video");
+      if (video) video.srcObject = null;
+    },
+
+    clearLoginFaceCapture() {
+      this.loginForm.webcam_dhash_hex = "";
+      this.loginFaceCaptured = false;
+    },
+
+    async captureLoginFace() {
+      await this.run("Ambil kamera", async () => {
+        this.clearLoginFaceCapture();
+
+        if (!this.loginFacePreviewActive || !this.loginFaceStream) {
+          throw new Error("nyalakan kamera dulu, lalu ambil verifikasi wajah");
+        }
+
+        const video = document.getElementById("login-face-video");
+        if (!video) {
+          throw new Error("pratinjau kamera tidak tersedia, muat ulang halaman lalu coba lagi");
+        }
+
+        for (let i = 0; i < 20 && video.readyState < 2; i += 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 100));
+        }
+        if (video.readyState < 2) {
+          throw new Error("kamera belum siap, tunggu sebentar lalu coba lagi");
+        }
+
+        // Let the exposure settle so a warming up sensor is not sampled.
+        await new Promise((resolve) => window.setTimeout(resolve, 350));
+
+        const canvas = document.createElement("canvas");
+        canvas.width = 9;
+        canvas.height = 8;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(video, 0, 0, 9, 8);
+
+        const hashHex = this.dhashFromCanvas(ctx);
+        this.loginForm.webcam_dhash_hex = hashHex;
+        this.loginFaceCaptured = true;
+        this.faceStatus = `dHash ${hashHex}`;
+        this.notify("Wajah berhasil dipindai");
+      });
+    },
+
+    backFromLoginFace() {
+      this.stopLoginFacePreview();
+      this.clearLoginFaceCapture();
+      this.loginStep = 2;
     },
 
     dhashFromCanvas(ctx) {
@@ -1110,6 +1214,7 @@ window.medvault = function medvault() {
           this.notify("Nama pengguna di USB Dongle tidak cocok dengan akun ini", "error");
           return;
         }
+        this.clearLoginFaceCapture();
         this.loginStep = 3;
       }
     },
@@ -1118,7 +1223,7 @@ window.medvault = function medvault() {
       await this.run("Masuk", async () => {
         const username = this.loginForm.username.trim();
         if (!username) throw new Error("isi nama pengguna dulu, ya");
-        if (!this.loginForm.webcam_dhash_hex) {
+        if (!this.loginFaceCaptured || !this.loginForm.webcam_dhash_hex) {
           throw new Error("wajah belum dipindai, ambil verifikasi wajah dulu");
         }
 
@@ -1128,17 +1233,26 @@ window.medvault = function medvault() {
         const challenge = challengeEnv.data.challenge_hex;
         const signature = await this.signPayload(challenge);
 
-        const env = await this.api("/api/v1/auth/login", {
-          method: "POST",
-          body: {
-            username,
-            password: this.loginForm.password,
-            challenge_hex: challenge,
-            signature_hex: signature,
-            webcam_dhash_hex: this.loginForm.webcam_dhash_hex,
-          },
-        });
+        let env;
+        try {
+          env = await this.api("/api/v1/auth/login", {
+            method: "POST",
+            body: {
+              username,
+              password: this.loginForm.password,
+              challenge_hex: challenge,
+              signature_hex: signature,
+              webcam_dhash_hex: this.loginForm.webcam_dhash_hex,
+            },
+          });
+        } catch (error) {
+          // A rejected face must not leave the previous reading marked as
+          // ready. The user has to capture a fresh frame before retrying.
+          this.clearLoginFaceCapture();
+          throw error;
+        }
 
+        this.stopLoginFacePreview();
         this.session = (env.data && env.data.user) || { username };
         this.loginStep = 1;
         this.notify(env.message || "Sesi aktif. Selamat bekerja.");
@@ -1191,16 +1305,27 @@ window.medvault = function medvault() {
         const username = this.loginForm.username.trim();
         if (!username) throw new Error("isi nama pengguna dulu, ya");
 
+        // Ask for the assertion options first so an account without an
+        // enrolled credential does not consume a dongle challenge.
+        let begin;
+        try {
+          begin = await this.api("/api/v1/auth/webauthn/login/begin", {
+            method: "POST",
+            body: { username },
+          });
+        } catch (error) {
+          if (/no Windows Hello credential|belum mendaftarkan/i.test(error.message || "")) {
+            throw new Error("akun ini belum mendaftarkan Windows Hello, masuk dengan verifikasi wajah dulu");
+          }
+          throw error;
+        }
+
         const challengeEnv = await this.api(
           `/api/v1/auth/challenge?username=${encodeURIComponent(username)}`
         );
         const challenge = challengeEnv.data.challenge_hex;
         const signature = await this.signPayload(challenge);
 
-        const begin = await this.api("/api/v1/auth/webauthn/login/begin", {
-          method: "POST",
-          body: { username },
-        });
         const options = readWebAuthnOptions(begin.data.options);
         const publicKey = PublicKeyCredential.parseRequestOptionsFromJSON
           ? PublicKeyCredential.parseRequestOptionsFromJSON(options)

@@ -256,45 +256,67 @@
                   aria-labelledby="step-biometric-title">
               <h3 id="step-biometric-title" class="sr-only">Langkah 3: biometrik</h3>
 
-              <div class="mv-status-card" :class="loginForm.webcam_dhash_hex ? 'mv-status-success' : ''">
+              <div class="mv-camera-preview">
+                <video id="login-face-video" class="mv-camera-video" x-show="loginFacePreviewActive" x-cloak
+                       autoplay muted playsinline aria-label="Pratinjau kamera verifikasi wajah"></video>
+                <div class="mv-camera-empty" x-show="!loginFacePreviewActive">
+                  <span class="mv-status-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6" aria-hidden="true">
+                      <use href="#mv-icon-camera"></use>
+                    </svg>
+                  </span>
+                  <p class="mv-strong text-sm font-bold">Kamera belum aktif</p>
+                  <p class="mv-muted text-xs leading-relaxed">Nyalakan kamera untuk melihat pratinjau wajah.</p>
+                </div>
+                <span class="mv-camera-frame" aria-hidden="true"></span>
+              </div>
+
+              <div class="grid gap-3 sm:grid-cols-2">
+                <button type="button" class="mv-auth-secondary" @click="startLoginFacePreview()" :disabled="busy || loginFacePreviewActive">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
+                    <use href="#mv-icon-camera"></use>
+                  </svg>
+                  Nyalakan kamera
+                </button>
+                <button type="button" class="mv-auth-secondary" @click="captureLoginFace()" :disabled="busy || !loginFacePreviewActive">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
+                    <use href="#mv-icon-check"></use>
+                  </svg>
+                  <span x-text="loginFaceCaptured ? 'Ambil ulang' : 'Ambil verifikasi'"></span>
+                </button>
+              </div>
+
+              <div class="mv-status-card" :class="loginFaceCaptured ? 'mv-status-success' : ''">
                 <div class="flex items-start gap-3">
-                  <span class="mv-status-icon" :class="loginForm.webcam_dhash_hex ? 'is-success' : ''">
+                  <span class="mv-status-icon" :class="loginFaceCaptured ? 'is-success' : ''">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
                       <use href="#mv-icon-camera"></use>
                     </svg>
                   </span>
                   <div class="min-w-0 flex-1">
-                    <p class="mv-strong text-sm font-bold" x-text="loginForm.webcam_dhash_hex ? 'Wajah berhasil dipindai' : 'Wajah belum dipindai'"></p>
+                    <p class="mv-strong text-sm font-bold" x-text="loginFaceCaptured ? 'Wajah berhasil dipindai' : 'Wajah belum dipindai'"></p>
                     <p class="mv-muted mt-1 text-xs leading-relaxed"
-                       x-text="loginForm.webcam_dhash_hex ? 'Semua siap. Tekan Selesaikan login untuk masuk.' : 'Duduk di depan kamera dengan cahaya yang cukup, lalu ambil verifikasi wajah.'"></p>
+                       x-text="loginFaceCaptured ? 'Wajah siap dicocokkan. Tekan Selesaikan login untuk masuk.' : 'Duduk di depan kamera dengan cahaya yang cukup, lalu ambil verifikasi wajah.'"></p>
                   </div>
                 </div>
-                <button type="button" class="mv-auth-inline mt-3" @click="captureFace()" :disabled="busy">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
-                    <use href="#mv-icon-camera"></use>
-                  </svg>
-                  <span x-text="loginForm.webcam_dhash_hex ? 'Coba lagi' : 'Ambil verifikasi wajah'"></span>
-                </button>
               </div>
 
+              <p class="mv-muted text-xs leading-relaxed">Wajah akan dicocokkan dengan data pendaftaran minimal 50%. Gambar wajah tidak dikirim ke server.</p>
+
               <div class="grid gap-3 sm:grid-cols-2">
-                <button type="button" class="mv-auth-secondary" @click="loginStep = 2" :disabled="busy">
+                <button type="button" class="mv-auth-secondary" @click="backFromLoginFace()" :disabled="busy">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
                     <use href="#mv-icon-arrow-left"></use>
                   </svg>
                   Kembali
                 </button>
-                <button type="submit" class="mv-auth-primary" :disabled="busy || !loginForm.webcam_dhash_hex">
+                <button type="submit" class="mv-auth-primary" :disabled="busy || !loginFaceCaptured">
                   <svg x-show="busy" x-cloak viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 animate-spin" aria-hidden="true">
                     <use href="#mv-icon-spinner"></use>
                   </svg>
                   <span x-text="busy ? 'Memverifikasi...' : 'Selesaikan login'"></span>
                 </button>
               </div>
-
-              <button type="button" class="mv-auth-text" :disabled="busy || !loginForm.username" @click="webauthnLogin()">
-                Gunakan Windows Hello + Dongle
-              </button>
             </form>
           </div>
 
