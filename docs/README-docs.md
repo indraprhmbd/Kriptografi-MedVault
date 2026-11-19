@@ -33,3 +33,6 @@ If a conflict is found that the agent cannot resolve without guessing, work stop
 | Number | File | Status | Scope |
 | :--- | :--- | :--- | :--- |
 | 0000 | `0000-template-plan-12-nov-2026.md` | Active | Plan for skill renewal and the four phase MedVault Go implementation. |
+| 0001 | `0001-design-tokens-19-nov-2026.md` | Active | Figma derived UI tokens and their location in web/assets and web/layout. |
+| 0002 | `0002-telemetry-contract-19-nov-2026.md` | Active | Canonical _telemetry fields, per module requirements, and UI binding. |
+| 0003 | `0003-figma-ui-mapping-19-nov-2026.md` | Active | Figma frame to route and page fragment mapping with data sources. |

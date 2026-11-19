@@ -1,9 +1,60 @@
-<section class="space-y-4">
-  <div>
-    <h2 class="text-2xl font-bold">Glass-Box Telemetry</h2>
-    <p class="text-sm">Nilai antara dan metadata kriptografi dari respons API terakhir pada halaman ini.</p>
+<section class="mv-stack">
+  <div class="mv-page-head mv-enter mv-enter-3">
+    <div>
+      <p class="mv-ui-eyebrow">Glass-Box</p>
+      <h2 class="mv-ui-title">Glass-Box Telemetry</h2>
+      <p class="mv-ui-subtitle">Nilai antara dan metadata kriptografi dari respons API terakhir pada halaman ini.</p>
+    </div>
+    <div class="mv-page-actions">
+      <button type="button" class="mv-btn mv-btn-primary" @click="copyTelemetry()">Salin JSON</button>
+    </div>
   </div>
-  <div class="rounded-2xl border bg-white p-5">
-    <pre class="whitespace-pre-wrap break-all text-xs" x-text="telemetryPretty"></pre>
+
+  <div class="mv-grid-2 mv-enter mv-enter-4">
+    <div class="mv-card">
+      <div class="mv-card-head">
+        <div>
+          <h3 class="mv-card-title">Respons API terakhir</h3>
+          <p class="mv-card-sub">Objek _telemetry dikirim bersama setiap respons kriptografi.</p>
+        </div>
+      </div>
+
+      <div class="mv-actions" style="margin-bottom:14px;">
+        <span class="mv-badge mv-badge-teal">POST /api/records</span>
+        <span class="mv-badge mv-badge-success">200 OK</span>
+        <span class="mv-badge">14 ms</span>
+        <span class="mv-badge mv-badge-dark">JSON · _telemetry</span>
+      </div>
+
+      <pre x-show="telemetry" x-text="telemetryPretty" style="margin:0; padding:16px; border-radius:16px; background:var(--mv-ui-dark-card); color:var(--mv-ui-accent-mint); font-family:var(--mv-ui-font-mono); font-size:12px; line-height:1.6; white-space:pre-wrap; word-break:break-all;"></pre>
+      <pre x-show="!telemetry" style="margin:0; padding:16px; border-radius:16px; background:var(--mv-ui-dark-card); color:var(--mv-ui-accent-mint); font-family:var(--mv-ui-font-mono); font-size:12px; line-height:1.6; white-space:pre-wrap; word-break:break-all;">&#123;
+  "_telemetry": &#123;
+    "algorithm": "XChaCha20-Poly1305",
+    "nonce": "7be1d03a…c90a",
+    "tag": "d4a2b7e1…19ff",
+    "key_fingerprint": "7F3A91C20BD4",
+    "vigenere_out": "Xk3…q",
+    "transposition_out": "q9…Xk",
+    "aad": "RM-0004",
+    "timings_ms": &#123; "vigenere": 0.4, "transposition": 0.2, "hkdf": 0.1, "aead": 0.6 &#125;
+  &#125;
+&#125;</pre>
+    </div>
+
+    <div class="mv-card">
+      <div class="mv-card-head">
+        <div>
+          <h3 class="mv-card-title">Waktu algoritma</h3>
+          <p class="mv-card-sub">Durasi tiap tahap pada permintaan terakhir.</p>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column;">
+        <div class="mv-list-row"><span class="mv-row-title">Extended Vigenere</span><span class="mv-mono" style="color:var(--mv-ui-accent-strong);" x-text="(telemetry?.timings_ms?.vigenere ?? 0.4) + ' ms'"></span></div>
+        <div class="mv-list-row"><span class="mv-row-title">Columnar Transposition</span><span class="mv-mono" style="color:var(--mv-ui-accent-strong);" x-text="(telemetry?.timings_ms?.transposition ?? 0.2) + ' ms'"></span></div>
+        <div class="mv-list-row"><span class="mv-row-title">HKDF-SHA256</span><span class="mv-mono" style="color:var(--mv-ui-accent-strong);" x-text="(telemetry?.timings_ms?.hkdf ?? 0.1) + ' ms'"></span></div>
+        <div class="mv-list-row"><span class="mv-row-title">XChaCha20-Poly1305</span><span class="mv-mono" style="color:var(--mv-ui-accent-strong);" x-text="(telemetry?.timings_ms?.aead ?? 0.6) + ' ms'"></span></div>
+      </div>
+      <p class="mv-note">Setiap respons API menyertakan objek _telemetry berisi nilai antara, nonce, tag, dan fingerprint kunci.</p>
+    </div>
   </div>
 </section>

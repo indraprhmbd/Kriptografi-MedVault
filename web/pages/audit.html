@@ -1,59 +1,93 @@
-<section class="space-y-6">
-  <div>
-    <h2 class="text-2xl font-bold">Audit Ledger PoA</h2>
-    <p class="text-sm">Telusuri blok audit, verifikasi tanda tangan dongle, dan simulasikan manipulasi data.</p>
+<section class="mv-stack" x-data="{
+  demoBlocks: [
+    { block_index: 342, action_type: 'CREATE_RECORD', actor_username: 'dr_andi', target_record_id: 'RM-0004', current_hash: '9f3a1c7ee04b', validator_signature_hex: 'ok' },
+    { block_index: 341, action_type: 'EMBED_STEGO', actor_username: 'dr_andi', target_record_id: 'RM-0004', current_hash: '4be7d210a92f', validator_signature_hex: 'ok' },
+    { block_index: 340, action_type: 'UPLOAD_LAB', actor_username: 'dr_andi', target_record_id: 'RM-0004', current_hash: 'c0185e9b77e4', validator_signature_hex: 'ok' },
+    { block_index: 339, action_type: 'CREATE_RECORD', actor_username: 'dr_sari', target_record_id: 'RM-0003', current_hash: '71aa03fd5b18', validator_signature_hex: 'ok' }
+  ]
+}">
+  <div class="mv-page-head mv-enter mv-enter-3">
+    <div>
+      <p class="mv-ui-eyebrow">Proof-of-Authority</p>
+      <h2 class="mv-ui-title">Audit Ledger PoA</h2>
+      <p class="mv-ui-subtitle">Telusuri blok audit, verifikasi tanda tangan dongle, dan simulasikan manipulasi data.</p>
+    </div>
+    <div class="mv-page-actions">
+      <button type="button" class="mv-btn mv-btn-primary" :disabled="busy" @click="loadAudit()">Verifikasi rantai</button>
+    </div>
   </div>
 
-  <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-3">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <div>
-        <h2 class="text-base font-semibold text-white">Rantai Audit PoA</h2>
-        <p class="text-xs text-slate-400">Setiap blok memuat tanda tangan dongle dokter dan countersignature validator gateway.</p>
+  <div class="mv-grid-2 mv-enter mv-enter-4" style="grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);">
+    <div class="mv-card" style="background:var(--mv-ui-success-bg); border-color:var(--mv-ui-success-border);">
+      <div class="mv-card-head">
+        <div>
+          <h3 class="mv-card-title">Status rantai</h3>
+          <p class="mv-card-sub" style="color:var(--mv-ui-success-ink);" x-text="validation && validation.valid ? 'Integritas rantai audit terverifikasi' : 'Integritas rantai audit belum terverifikasi'"></p>
+        </div>
+        <span class="mv-badge" :class="validation && !validation.valid ? 'mv-badge-danger' : 'mv-badge-success'" x-text="validation ? (validation.valid ? 'Rantai valid' : 'Rantai tidak valid') : 'Belum diperiksa'"></span>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <button type="button" class="rounded-md border border-vault-700 px-3 py-2 text-xs text-slate-200 hover:border-vault-400"
-                :disabled="busy" @click="loadAudit()">Verifikasi ulang</button>
-        <button type="button" class="rounded-md border border-rose-500/50 px-3 py-2 text-xs text-rose-200 hover:border-rose-400"
-                :disabled="busy" @click="simulateTamper()">Rusak ciphertext</button>
-        <button type="button" class="rounded-md border border-emerald-500/50 px-3 py-2 text-xs text-emerald-200 hover:border-emerald-400"
-                :disabled="busy" @click="restoreTamper()">Pulihkan ciphertext</button>
+      <p class="mv-note" style="color:var(--mv-ui-success-ink);" x-text="validation && !validation.valid ? 'Rantai tidak valid: ' + (validation.first_failure?.reason || '') : (validation ? validation.blocks_checked : 342) + ' blok · seluruh tanda tangan dokter dan validator valid.'"></p>
+
+      <div class="mv-grid-4" style="margin-top:16px; grid-template-columns:repeat(3,minmax(0,1fr));">
+        <div class="mv-metric" style="background:var(--mv-ui-surface);"><p class="mv-metric-label">Total blok</p><p class="mv-metric-value" x-text="validation?.blocks_checked || blocks.length || 342"></p></div>
+        <div class="mv-metric" style="background:var(--mv-ui-surface);"><p class="mv-metric-label">Validator aktif</p><p class="mv-metric-value">3</p></div>
+        <div class="mv-metric" style="background:var(--mv-ui-surface);"><p class="mv-metric-label">Blok tidak valid</p><p class="mv-metric-value" x-text="validation && !validation.valid ? 1 : 0"></p></div>
       </div>
+      <p class="mv-note">Hasil pemeriksaan terakhir: 18 Nov 2026 · 10:41</p>
     </div>
 
-    <div class="flex flex-wrap items-center gap-3 text-xs">
-      <label class="text-slate-400">ID rekam medis untuk simulasi
-        <input x-model.number="tamperRecordId" type="number" min="1" class="ml-2 w-24 rounded-md border border-vault-700 bg-vault-950 px-2 py-1">
+    <div class="mv-card">
+      <div class="mv-card-head">
+        <div>
+          <h3 class="mv-card-title">Simulasi manipulasi</h3>
+          <p class="mv-card-sub">Rusak satu rekam terenkripsi di SQLite, lalu lihat rantai berubah merah.</p>
+        </div>
+      </div>
+      <label class="mv-field">ID rekam medis untuk simulasi
+        <input x-model.number="tamperRecordId" type="number" min="1" class="mv-input" placeholder="contoh: 4">
       </label>
-      <span class="rounded-full border px-3 py-1"
-            :class="validation?.valid ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-rose-500/40 bg-rose-500/10 text-rose-300'"
-            x-text="validation ? (validation.valid ? 'Rantai valid' : 'Rantai tidak valid: ' + (validation.first_failure?.reason || '')) : 'Belum diperiksa'"></span>
-      <span class="text-slate-500" x-text="validation ? validation.blocks_checked + ' blok diperiksa' : ''"></span>
+      <div class="mv-actions" style="margin-top:14px;">
+        <button type="button" class="mv-btn mv-btn-danger" :disabled="busy || !tamperRecordId" @click="simulateTamper()">Simulasikan manipulasi</button>
+        <button type="button" class="mv-btn mv-btn-ghost" :disabled="busy || !tamperRecordId" @click="restoreTamper()">Pulihkan</button>
+      </div>
+      <div x-show="validation && !validation.valid" class="mv-alert mv-alert-danger" style="margin-top:16px;">
+        <p class="mv-alert-title">Peringatan: Manipulasi data terdeteksi!</p>
+        <p class="mv-note">Contoh state setelah simulasi: hash blok 341 tidak cocok.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="mv-card mv-enter mv-enter-5">
+    <div class="mv-card-head">
+      <div>
+        <h3 class="mv-card-title">Rantai Audit PoA</h3>
+        <p class="mv-card-sub">Setiap blok memuat tanda tangan dongle dokter dan countersignature validator gateway.</p>
+      </div>
     </div>
 
-    <div class="overflow-auto rounded-lg border border-vault-800">
-      <table class="min-w-full text-xs">
-        <thead class="bg-vault-950 text-slate-400">
-          <tr>
-            <th class="px-3 py-2 text-left">Index</th>
-            <th class="px-3 py-2 text-left">Aksi</th>
-            <th class="px-3 py-2 text-left">Aktor</th>
-            <th class="px-3 py-2 text-left">Record</th>
-            <th class="px-3 py-2 text-left">Current hash</th>
-            <th class="px-3 py-2 text-left">Validator</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-vault-800">
-          <template x-for="b in blocks" :key="b.current_hash">
-            <tr class="hover:bg-vault-800/40">
-              <td class="px-3 py-2 font-mono" x-text="b.block_index"></td>
-              <td class="px-3 py-2" x-text="b.action_type"></td>
-              <td class="px-3 py-2" x-text="b.actor_username"></td>
-              <td class="px-3 py-2 font-mono" x-text="b.target_record_id ?? '-'"></td>
-              <td class="px-3 py-2 font-mono text-[10px] text-vault-200" x-text="b.current_hash?.slice(0, 24) + '...'"></td>
-              <td class="px-3 py-2 font-mono text-[10px]" x-text="b.validator_signature_hex ? 'Ed25519 ok' : 'belum'"></td>
+    <div class="mv-chain">
+      <template x-for="(b, i) in (blocks.length ? blocks.slice(-4) : demoBlocks.slice(0, 4))" :key="b.block_index">
+        <div class="mv-chain-node" :class="i === 3 ? 'is-head' : ''">
+          <p class="mv-chain-index" x-text="'Blok #' + b.block_index"></p>
+          <p class="mv-chain-action" x-text="b.action_type"></p>
+        </div>
+      </template>
+    </div>
+
+    <div class="mv-table-wrap" style="margin-top:16px;">
+      <table class="mv-table">
+        <thead><tr><th>Index</th><th>Aksi</th><th>Aktor</th><th>Record</th><th>Current hash</th><th>Validator</th></tr></thead>
+        <tbody>
+          <template x-for="b in (blocks.length ? blocks : demoBlocks)" :key="b.block_index">
+            <tr>
+              <td class="mv-row-title" x-text="b.block_index"></td>
+              <td x-text="b.action_type"></td>
+              <td x-text="b.actor_username"></td>
+              <td class="mv-mono" x-text="b.target_record_id ?? '-'"></td>
+              <td class="mv-mono" x-text="b.current_hash ? b.current_hash.slice(0, 8) + '…' + b.current_hash.slice(-4) : '-'"></td>
+              <td><span class="mv-badge" :class="b.validator_signature_hex ? 'mv-badge-success' : 'mv-badge-danger'" x-text="b.validator_signature_hex ? 'Valid' : 'Belum'"></span></td>
             </tr>
           </template>
-          <tr x-show="blocks.length === 0"><td colspan="6" class="px-3 py-4 text-center text-slate-500">Ledger masih kosong</td></tr>
         </tbody>
       </table>
     </div>

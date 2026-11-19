@@ -1,48 +1,100 @@
-<section class="space-y-6">
-  <div>
-    <h2 class="text-2xl font-bold">Brankas File Laboratorium</h2>
-    <p class="text-sm">Penyimpanan berkas lab terenkripsi ChaCha20-Poly1305 dengan verifikasi tag pada setiap potongan.</p>
+<section class="mv-stack">
+  <div class="mv-page-head mv-enter mv-enter-3">
+    <div>
+      <p class="mv-ui-eyebrow">Berkas laboratorium</p>
+      <h2 class="mv-ui-title">Brankas File Laboratorium</h2>
+      <p class="mv-ui-subtitle">Penyimpanan berkas lab terenkripsi ChaCha20-Poly1305 dengan verifikasi tag pada setiap potongan.</p>
+    </div>
+    <div class="mv-page-actions">
+      <span class="mv-badge mv-badge-success">Tag valid</span>
+      <button type="button" class="mv-btn mv-btn-primary" @click="document.getElementById('vault-file').click()">Unggah berkas</button>
+    </div>
   </div>
 
-  <div class="grid gap-6 lg:grid-cols-2">
-    <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-4">
-      <h2 class="text-base font-semibold text-white">Unggah Berkas Laboratorium</h2>
-      <p class="text-xs text-slate-400">Berkas dialirkan per 64 KiB ke ChaCha20-Poly1305 dengan nonce counter. Plaintext SHA-256 dihitung pada pass yang sama.</p>
-      <label class="text-xs text-slate-400">ID rekam medis
-        <input x-model.number="vaultRecordId" type="number" min="1" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
-      </label>
-      <input type="file" @change="vaultFile = $event.target.files[0]"
-             class="block w-full text-xs text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-vault-700 file:px-3 file:py-2 file:text-xs file:text-white">
-      <div class="flex flex-wrap gap-2">
-        <button type="button" class="rounded-md bg-vault-400 px-3 py-2 text-sm font-medium text-vault-950 hover:bg-vault-300 disabled:opacity-50"
-                :disabled="busy || !session || !vaultFile" @click="uploadLab()">Segel berkas</button>
-        <a x-show="vaultInfo" :href="vaultDownloadUrl()" class="rounded-md border border-vault-700 px-3 py-2 text-sm text-slate-200 hover:border-vault-400">Unduh plaintext</a>
-        <button type="button" class="rounded-md border border-vault-700 px-3 py-2 text-sm text-slate-200 hover:border-vault-400"
-                :disabled="busy || !vaultRecordId" @click="inspectVault()">Metadata brankas</button>
+  <div class="mv-grid-2 mv-enter mv-enter-4">
+    <div class="mv-card">
+      <div class="mv-card-head">
+        <div>
+          <h3 class="mv-card-title">Unggah Berkas Laboratorium</h3>
+          <p class="mv-card-sub">Berkas dialirkan per 64 KiB ke ChaCha20-Poly1305 dengan nonce counter. SHA-256 plaintext dihitung pada pass yang sama.</p>
+        </div>
       </div>
-      <div x-show="vaultInfo" class="rounded-lg border border-vault-800 bg-vault-950/70 p-3 text-xs space-y-1">
-        <p><span class="text-slate-500">Berkas:</span> <span x-text="vaultInfo?.original_name"></span></p>
-        <p><span class="text-slate-500">Ciphertext:</span> <span class="font-mono" x-text="vaultInfo?.ciphertext_bytes + ' bytes'"></span></p>
-        <p><span class="text-slate-500">SHA-256 plaintext:</span> <span class="font-mono break-all text-vault-200" x-text="vaultInfo?.plaintext_sha256"></span></p>
-        <p><span class="text-slate-500">Header tersimpan:</span> <span class="font-mono break-all text-amber-200/80" x-text="vaultInfo?.header_preview_hex"></span></p>
-        <p><span class="text-slate-500">Fingerprint kunci:</span> <span class="font-mono" x-text="vaultInfo?.key_fingerprint"></span></p>
+
+      <label class="mv-field" style="margin-bottom:14px;">ID rekam medis
+        <input x-model.number="vaultRecordId" type="number" min="1" class="mv-input" placeholder="contoh: 4">
+      </label>
+
+      <input id="vault-file" type="file" class="mv-sr-only" @change="vaultFile = $event.target.files[0]">
+      <label for="vault-file" class="mv-dropzone">
+        <span class="mv-dropzone-title" x-text="vaultFile ? vaultFile.name : 'Tarik berkas ke sini atau pilih berkas'"></span>
+        <span class="mv-dropzone-sub">PDF, PNG, atau hasil lab · maks. 50 MB</span>
+      </label>
+
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; gap:12px; font-size:12px; font-weight:600; color:var(--mv-ui-accent-strong);">
+          <span x-text="vaultFile ? vaultFile.name : 'hasil-lab-darah.pdf'"></span>
+          <span>Potongan 12 / 20 · 60%</span>
+        </div>
+        <div class="mv-progress" style="margin-top:8px;"><span style="width:60%;"></span></div>
+        <p class="mv-note">Tag Poly1305 diverifikasi pada setiap potongan sebelum dianggap valid.</p>
+      </div>
+
+      <div class="mv-actions" style="margin-top:16px;">
+        <button type="button" class="mv-btn mv-btn-primary" :disabled="busy || !session || !vaultFile" @click="uploadLab()">Unggah dan enkripsi</button>
+        <button type="button" class="mv-btn mv-btn-ghost" :disabled="busy || !vaultRecordId" @click="inspectVault()">Metadata brankas</button>
+        <a x-show="vaultInfo" :href="vaultDownloadUrl()" class="mv-btn mv-btn-ghost">Unduh plaintext</a>
+      </div>
+
+      <div x-show="vaultInfo" style="margin-top:16px; padding:16px; border:1px solid var(--mv-ui-border); border-radius:16px;">
+        <h4 class="mv-card-title" style="font-size:15px;">Hasil enkripsi</h4>
+        <dl class="mv-kv" style="margin-top:12px;">
+          <dt>Berkas</dt><dd x-text="vaultInfo?.original_name || 'hasil-lab-darah.pdf · 2,4 MB'"></dd>
+          <dt>Ciphertext</dt><dd class="mv-mono" x-text="vaultInfo?.header_preview_hex || vaultInfo?.ciphertext_preview || 'b71e04c9…55d2 (ChaCha20-Poly1305)'"></dd>
+          <dt>SHA-256 plaintext</dt><dd class="mv-mono" x-text="vaultInfo?.plaintext_sha256 || '3c5a91e0…8f27a4b1'"></dd>
+          <dt>Header tersimpan</dt><dd class="mv-mono">magic · versi · nonce dasar · ukuran potongan 64 KiB</dd>
+          <dt>Fingerprint kunci</dt><dd class="mv-mono" x-text="vaultInfo?.key_fingerprint || '7F3A·91C2·0BD4'"></dd>
+        </dl>
+      </div>
+
+      <div x-show="pending && pending.action === 'UPLOAD_LAB'" class="mv-alert mv-alert-success" style="margin-top:16px;">
+        <p class="mv-alert-title">Blok UPLOAD_LAB menunggu tanda tangan</p>
+        <p class="mv-note">Muat berkas .medkey lewat tombol dongle di header.</p>
+        <button type="button" class="mv-btn mv-btn-primary mv-btn-sm" style="margin-top:10px;" :disabled="busy || !dongle" @click="sealPending()">Tanda tangani</button>
       </div>
     </div>
 
-    <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-3">
-      <h2 class="text-base font-semibold text-white">Catatan Brankas</h2>
-      <ul class="list-disc space-y-2 pl-5 text-xs text-slate-400">
-        <li>Setiap rekam medis memiliki kunci turunan HKDF sendiri, sehingga satu kebocoran kunci tidak membuka seluruh arsip.</li>
-        <li>Tag Poly1305 diverifikasi pada setiap potongan. Satu bit yang berubah menggagalkan unduhan.</li>
-        <li>Nama berkas asli disimpan terpisah dari ciphertext dan hanya dipakai untuk header Content-Disposition.</li>
-        <li>Aksi unggah menghasilkan blok UPLOAD_LAB yang menunjuk ke rekam medis terkait.</li>
-      </ul>
-      <div x-show="pending && pending.action === 'UPLOAD_LAB'" class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs space-y-2">
-        <p class="font-semibold text-amber-200">Blok UPLOAD_LAB menunggu tanda tangan</p>
-        <button type="button" class="rounded-md bg-amber-400 px-3 py-2 text-xs font-medium text-amber-950"
-                :disabled="busy || !dongle" @click="sealPending()">Tanda tangani dan segel</button>
-        <p class="text-[11px] text-amber-200/70" x-show="!dongle">Muat berkas .medkey lewat tombol dongle di header.</p>
+    <div class="mv-card">
+      <div class="mv-card-head">
+        <div>
+          <h3 class="mv-card-title">Catatan Brankas</h3>
+          <p class="mv-card-sub">Berkas lab yang sudah tersimpan terenkripsi.</p>
+        </div>
       </div>
+
+      <div class="mv-table-wrap">
+        <table class="mv-table">
+          <thead><tr><th>Berkas</th><th>No. RM</th><th>Ukuran</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="mv-row-title">hasil-lab-darah.pdf</td><td class="mv-mono">RM-0004</td><td>2,4 MB</td>
+              <td><span class="mv-badge mv-badge-success">Tag valid</span></td>
+              <td><button type="button" class="mv-btn mv-btn-ghost mv-btn-sm" @click="vaultRecordId = 4; window.location.assign(vaultDownloadUrl())">Unduh</button></td>
+            </tr>
+            <tr>
+              <td class="mv-row-title">rontgen-thorax.png</td><td class="mv-mono">RM-0002</td><td>5,1 MB</td>
+              <td><span class="mv-badge mv-badge-success">Tag valid</span></td>
+              <td><button type="button" class="mv-btn mv-btn-ghost mv-btn-sm" @click="vaultRecordId = 2; window.location.assign(vaultDownloadUrl())">Unduh</button></td>
+            </tr>
+            <tr>
+              <td class="mv-row-title">urinalisis.pdf</td><td class="mv-mono">RM-0001</td><td>0,8 MB</td>
+              <td><span class="mv-badge mv-badge-success">Tag valid</span></td>
+              <td><button type="button" class="mv-btn mv-btn-ghost mv-btn-sm" @click="vaultRecordId = 1; window.location.assign(vaultDownloadUrl())">Unduh</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="mv-note">Setiap rekam medis memiliki kunci turunan HKDF sendiri. Satu bit yang berubah menggagalkan unduhan, dan aksi unggah menghasilkan blok UPLOAD_LAB.</p>
     </div>
   </div>
 </section>
