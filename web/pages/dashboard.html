@@ -2,7 +2,7 @@
   <div class="mv-page-head mv-enter mv-enter-3">
     <div>
       <p class="mv-ui-eyebrow">Clinical workspace</p>
-      <h2 class="mv-ui-title" x-text="session && session.full_name ? 'Selamat datang, ' + session.full_name : 'Selamat datang, dr. Andi'"></h2>
+      <h2 class="mv-ui-title" x-text="!sessionReady ? 'Selamat datang' : (session && session.full_name ? 'Selamat datang, ' + session.full_name : 'Selamat datang')"></h2>
       <p class="mv-ui-subtitle">Ringkasan ruang kerja MedVault dan akses cepat seluruh modul.</p>
     </div>
     <div class="mv-page-actions">
@@ -14,22 +14,22 @@
   <div class="mv-grid-4 mv-enter mv-enter-4">
     <div class="mv-stat">
       <p class="mv-stat-label">Pasien terdaftar</p>
-      <p class="mv-stat-value" x-text="patients.length || 128"></p>
+      <p class="mv-stat-value" x-text="patients.length"></p>
       <p class="mv-stat-note">Data dari API pasien</p>
     </div>
     <div class="mv-stat">
       <p class="mv-stat-label">Blok audit</p>
-      <p class="mv-stat-value" x-text="blocks.length || 342"></p>
+      <p class="mv-stat-value" x-text="blocks.length"></p>
       <p class="mv-stat-note">Ledger yang dimuat</p>
     </div>
     <div class="mv-stat">
       <p class="mv-stat-label">Validasi ledger</p>
-      <p class="mv-stat-value" :style="validation && !validation.valid ? 'color:var(--mv-ui-danger-ink);' : 'color:var(--mv-ui-success-ink);'" x-text="validation ? (validation.valid ? 'Valid' : 'Tidak valid') : 'Valid'"></p>
+      <p class="mv-stat-value" :style="validation ? (validation.valid ? 'color:var(--mv-ui-success-ink);' : 'color:var(--mv-ui-danger-ink);') : 'color:var(--mv-ui-ink-muted);'" x-text="validation ? (validation.valid ? 'Valid' : 'Tidak valid') : 'Belum diperiksa'"></p>
       <p class="mv-stat-note">Pemeriksaan terakhir</p>
     </div>
     <div class="mv-stat">
       <p class="mv-stat-label">Sesi aktif</p>
-      <p class="mv-stat-value" style="font-size:var(--mv-ui-text-24);" x-text="session && session.username ? session.username : 'dr_andi'"></p>
+      <p class="mv-stat-value" style="font-size:var(--mv-ui-text-24);" x-text="!sessionReady || !session || !session.username ? '-' : session.username"></p>
       <p class="mv-stat-note">Identitas pengguna</p>
     </div>
   </div>
@@ -69,7 +69,7 @@
       <div class="mv-card-head">
         <div>
           <h3 class="mv-ledger-title">Status Ledger</h3>
-          <p class="mv-ledger-sub">Proof-of-Authority · <span x-text="blocks.length || 342"></span> blok</p>
+          <p class="mv-ledger-sub">Proof-of-Authority · <span x-text="blocks.length"></span> blok</p>
         </div>
         <button type="button" class="mv-btn mv-btn-mint mv-btn-sm" @click="loadAudit()">Verifikasi rantai</button>
       </div>
@@ -90,11 +90,7 @@
           </div>
         </template>
         <template x-if="blocks.length === 0">
-          <div>
-            <div class="mv-block-row"><div><p style="margin:0; font-weight:700;">#342</p><p class="mv-block-hash" style="margin:3px 0 0;">9f3a…c1d0</p></div><span class="mv-badge mv-badge-success">Valid</span></div>
-            <div class="mv-block-row"><div><p style="margin:0; font-weight:700;">#341</p><p class="mv-block-hash" style="margin:3px 0 0;">4be7…a92f</p></div><span class="mv-badge mv-badge-success">Valid</span></div>
-            <div class="mv-block-row"><div><p style="margin:0; font-weight:700;">#340</p><p class="mv-block-hash" style="margin:3px 0 0;">c018…77e4</p></div><span class="mv-badge mv-badge-success">Valid</span></div>
-          </div>
+          <p class="mv-note" style="margin:0;">Belum ada blok audit. Tekan Verifikasi rantai untuk memuat ledger.</p>
         </template>
       </div>
 

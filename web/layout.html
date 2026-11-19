@@ -707,8 +707,8 @@
         <img src="/assets/maskot.svg" width="44" height="44" decoding="async" alt="">
       </div>
       <div>
-        <div class="mv-profile-name" x-text="session && session.full_name ? session.full_name : 'dr. Andi'"></div>
-        <div class="mv-profile-mail" x-text="(session && session.username ? session.username : 'dr_andi') + '@medvault.id'"></div>
+        <div class="mv-profile-name" x-text="!sessionReady ? 'Memuat sesi...' : (session && session.full_name ? session.full_name : (session && session.username) || '-')"></div>
+        <div class="mv-profile-mail" x-text="!sessionReady ? '' : ((session && session.username ? session.username : '-') + '@medvault.id')"></div>
       </div>
     </div>
 
@@ -767,8 +767,8 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg>
         </button>
         <div class="mv-user-chip">
-          <span class="mv-user-dot" x-text="session && session.username ? session.username.slice(0, 2) : 'dr'"></span>
-          <span x-text="session && session.username ? session.username : 'dr_andi'"></span>
+          <span class="mv-user-dot" x-text="!sessionReady || !session || !session.username ? '--' : session.username.slice(0, 2)"></span>
+          <span x-text="!sessionReady ? 'Memuat...' : (session && session.username ? session.username : '-')"></span>
         </div>
       </div>
     </header>

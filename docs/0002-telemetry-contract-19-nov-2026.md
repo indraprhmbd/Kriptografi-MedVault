@@ -13,7 +13,7 @@ Menetapkan satu bentuk objek `_telemetry` yang dipakai semua handler. Tanpa kont
 1. Objek `_telemetry` wajib ada di setiap respons API yang menjalankan kriptografi, steganografi, biometrik, atau ledger.
 2. Nama field memakai bahasa Inggris sesuai AGENTS.md. Label UI tetap bahasa Indonesia.
 3. Kunci rahasia, seed, dan kata sandi tidak boleh masuk telemetry. Yang boleh muncul hanya fingerprint, nonce, tag, dan preview yang sudah dipotong.
-4. `duration_us` adalah bilangan bulat mikrodetik untuk seluruh operasi. `timings_ms` adalah rincian per tahap dalam milidetik.
+4. `duration_us` adalah bilangan bulat mikrodetik untuk seluruh operasi. Kalau rincian per tahap dibutuhkan, backend harus menambahkannya sebagai metric atau field baru yang benar-benar diisi; UI tidak boleh mengarang nilai cadangan.
 5. Figma memakai nama pendek `nonce` dan `tag` untuk tampilan. Kontrak ini memakai nama itu di ringkasan, sementara detail di dalam `steps` tetap memakai `nonce_hex` dan `poly1305_tag_hex` seperti context/005.
 
 ## Bentuk kanonik
@@ -101,10 +101,12 @@ Field tambahan per modul diizinkan selama tidak mengandung material rahasia. Sem
 
 Halaman `/telemetry` merender `telemetryPretty` dari `web/js/app.js`. Nilai itu berasal dari properti `telemetry` yang diisi setiap kali handler API selesai. Karena itu handler harus menaruh seluruh objek `_telemetry`, bukan hanya field ringkasan. Drawer Glass-Box di layout memakai sumber yang sama.
 
-Contoh tampilan yang menjadi acuan: `POST /api/records`, `200 OK`, `14 ms`, badge `JSON · _telemetry`, lalu baris waktu `Extended Vigenere 0.4 ms`, `Columnar Transposition 0.2 ms`, `HKDF-SHA256 0.1 ms`, dan `XChaCha20-Poly1305 0.6 ms`.
+Karena setiap modul adalah dokumen terpisah, trace terakhir juga disalin ke `sessionStorage` dan dipulihkan saat halaman dimuat. Metode dan path permintaan disimpan bersama trace supaya badge sumber respons berasal dari permintaan nyata, bukan teks contoh.
+
+UI hanya menampilkan field yang ada di payload: `module`, `duration_us`, `steps`, `metrics`, dan `warnings`. Field yang tidak tersedia ditampilkan sebagai `-`. Tidak ada badge `200 OK`, durasi, nonce, tag, atau JSON contoh yang ditulis mati di HTML.
 
 ## Validasi
 
 1. Pastikan setiap handler mengembalikan `ok`, `message`, `data`, dan `_telemetry`.
-2. Pastikan `duration_us` kira-kira sama dengan jumlah `timings_ms` dikali 1000 untuk modul yang memakai rincian tahap.
+2. Pastikan `duration_us` konsisten dengan waktu eksekusi nyata. Jangan menambahkan `timings_ms` di UI sebelum backend benar-benar mengirimkannya.
 3. Pastikan tidak ada field bernama `key`, `seed`, `password`, atau `private_key` di dalam telemetry.

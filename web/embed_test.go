@@ -167,3 +167,44 @@ func TestAssetVersionChangesWithContent(t *testing.T) {
 		t.Fatalf("assetVersion changed after a non-static file changed")
 	}
 }
+
+// TestModulePagesShipNoPlaceholderData guards the live UI against demo rows.
+// Every value below used to be written into the HTML and looked real until the
+// API was queried, which made the Glass-Box demo misrepresent actual state.
+func TestModulePagesShipNoPlaceholderData(t *testing.T) {
+	handler, err := Handler("")
+	if err != nil {
+		t.Fatalf("Handler: %v", err)
+	}
+
+	forbidden := []string{
+		"dr_andi",
+		"dr_sari",
+		"200 OK",
+		"14 ms",
+		"demoBlocks",
+		"Potongan 12 / 20",
+		"9f3a1c7e52b0",
+		"41cc08d9a77f",
+		"b71e04c9",
+	}
+
+	routes := []string{
+		"/dashboard", "/patients", "/records", "/vault",
+		"/steganography", "/audit", "/telemetry", "/security",
+	}
+	for _, route := range routes {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, route, nil))
+		if rec.Code != http.StatusOK {
+			t.Errorf("%s: status = %d, want %d", route, rec.Code, http.StatusOK)
+			continue
+		}
+		body := rec.Body.String()
+		for _, marker := range forbidden {
+			if strings.Contains(body, marker) {
+				t.Errorf("%s: rendered page still contains placeholder value %q", route, marker)
+			}
+		}
+	}
+}

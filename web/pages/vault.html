@@ -6,7 +6,7 @@
       <p class="mv-ui-subtitle">Penyimpanan berkas lab terenkripsi ChaCha20-Poly1305 dengan verifikasi tag pada setiap potongan.</p>
     </div>
     <div class="mv-page-actions">
-      <span class="mv-badge mv-badge-success">Tag valid</span>
+      <span class="mv-badge" :class="vaultInfo ? 'mv-badge-success' : ''" x-text="vaultInfo ? 'Tag valid' : 'Belum diverifikasi'"></span>
       <button type="button" class="mv-btn mv-btn-primary" @click="document.getElementById('vault-file').click()">Unggah berkas</button>
     </div>
   </div>
@@ -30,14 +30,7 @@
         <span class="mv-dropzone-sub">PDF, PNG, atau hasil lab · maks. 50 MB</span>
       </label>
 
-      <div style="margin-top:16px;">
-        <div style="display:flex; justify-content:space-between; gap:12px; font-size:12px; font-weight:600; color:var(--mv-ui-accent-strong);">
-          <span x-text="vaultFile ? vaultFile.name : 'hasil-lab-darah.pdf'"></span>
-          <span>Potongan 12 / 20 · 60%</span>
-        </div>
-        <div class="mv-progress" style="margin-top:8px;"><span style="width:60%;"></span></div>
-        <p class="mv-note">Tag Poly1305 diverifikasi pada setiap potongan sebelum dianggap valid.</p>
-      </div>
+      <p class="mv-note" style="margin-top:16px;">Berkas dialirkan per 64 KiB. Tag Poly1305 diverifikasi pada setiap potongan sebelum dianggap valid.</p>
 
       <div class="mv-actions" style="margin-top:16px;">
         <button type="button" class="mv-btn mv-btn-primary" :disabled="busy || !session || !vaultFile" @click="uploadLab()">Unggah dan enkripsi</button>
@@ -48,11 +41,11 @@
       <div x-show="vaultInfo" style="margin-top:16px; padding:16px; border:1px solid var(--mv-ui-border); border-radius:16px;">
         <h4 class="mv-card-title" style="font-size:15px;">Hasil enkripsi</h4>
         <dl class="mv-kv" style="margin-top:12px;">
-          <dt>Berkas</dt><dd x-text="vaultInfo?.original_name || 'hasil-lab-darah.pdf · 2,4 MB'"></dd>
-          <dt>Ciphertext</dt><dd class="mv-mono" x-text="vaultInfo?.header_preview_hex || vaultInfo?.ciphertext_preview || 'b71e04c9…55d2 (ChaCha20-Poly1305)'"></dd>
-          <dt>SHA-256 plaintext</dt><dd class="mv-mono" x-text="vaultInfo?.plaintext_sha256 || '3c5a91e0…8f27a4b1'"></dd>
+          <dt>Berkas</dt><dd x-text="vaultInfo?.original_name || '-'"></dd>
+          <dt>Ciphertext</dt><dd class="mv-mono" x-text="vaultInfo?.header_preview_hex || vaultInfo?.ciphertext_preview || '-'"></dd>
+          <dt>SHA-256 plaintext</dt><dd class="mv-mono" x-text="vaultInfo?.plaintext_sha256 || '-'"></dd>
           <dt>Header tersimpan</dt><dd class="mv-mono">magic · versi · nonce dasar · ukuran potongan 64 KiB</dd>
-          <dt>Fingerprint kunci</dt><dd class="mv-mono" x-text="vaultInfo?.key_fingerprint || '7F3A·91C2·0BD4'"></dd>
+          <dt>Fingerprint kunci</dt><dd class="mv-mono" x-text="vaultInfo?.key_fingerprint || '-'"></dd>
         </dl>
       </div>
 
@@ -71,28 +64,7 @@
         </div>
       </div>
 
-      <div class="mv-table-wrap">
-        <table class="mv-table">
-          <thead><tr><th>Berkas</th><th>No. RM</th><th>Ukuran</th><th>Status</th><th></th></tr></thead>
-          <tbody>
-            <tr>
-              <td class="mv-row-title">hasil-lab-darah.pdf</td><td class="mv-mono">RM-0004</td><td>2,4 MB</td>
-              <td><span class="mv-badge mv-badge-success">Tag valid</span></td>
-              <td><button type="button" class="mv-btn mv-btn-ghost mv-btn-sm" @click="vaultRecordId = 4; window.location.assign(vaultDownloadUrl())">Unduh</button></td>
-            </tr>
-            <tr>
-              <td class="mv-row-title">rontgen-thorax.png</td><td class="mv-mono">RM-0002</td><td>5,1 MB</td>
-              <td><span class="mv-badge mv-badge-success">Tag valid</span></td>
-              <td><button type="button" class="mv-btn mv-btn-ghost mv-btn-sm" @click="vaultRecordId = 2; window.location.assign(vaultDownloadUrl())">Unduh</button></td>
-            </tr>
-            <tr>
-              <td class="mv-row-title">urinalisis.pdf</td><td class="mv-mono">RM-0001</td><td>0,8 MB</td>
-              <td><span class="mv-badge mv-badge-success">Tag valid</span></td>
-              <td><button type="button" class="mv-btn mv-btn-ghost mv-btn-sm" @click="vaultRecordId = 1; window.location.assign(vaultDownloadUrl())">Unduh</button></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <p class="mv-note" style="margin:0;">Daftar berkas per rekam medis belum tersedia lewat API. Masukkan ID rekam medis di formulir, lalu tekan Metadata brankas untuk melihat header dan sidik jari kunci.</p>
 
       <p class="mv-note">Setiap rekam medis memiliki kunci turunan HKDF sendiri. Satu bit yang berubah menggagalkan unduhan, dan aksi unggah menghasilkan blok UPLOAD_LAB.</p>
     </div>
