@@ -135,7 +135,8 @@ func TestHandlerVersionsAssetURLsAndBypassesCaches(t *testing.T) {
 	}
 }
 
-func TestAssetVersionChangesWithContent(t *testing.T) {	src := fstest.MapFS{
+func TestAssetVersionChangesWithContent(t *testing.T) {
+	src := fstest.MapFS{
 		"js/app.js":   {Data: []byte("first")},
 		"layout.html": {Data: []byte("not a static asset")},
 	}
