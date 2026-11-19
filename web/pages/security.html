@@ -79,7 +79,7 @@
         </div>
 
         <dl class="mv-kv">
-          <dt>Pengguna</dt><dd x-text="session && session.username ? session.username : 'dr_andi'"></dd>
+          <dt>Pengguna</dt><dd x-text="!sessionReady || !session || !session.username ? '-' : session.username"></dd>
           <dt>Peran</dt><dd>Dokter</dd>
           <dt>Mulai</dt><dd>09:02</dd>
           <dt>Berakhir</dt><dd>17:02</dd>

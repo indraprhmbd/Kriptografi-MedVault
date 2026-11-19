@@ -2,7 +2,7 @@
   <div class="mv-page-head mv-enter mv-enter-3">
     <div>
       <p class="mv-ui-eyebrow">Clinical workspace</p>
-      <h2 class="mv-ui-title" x-text="session && session.full_name ? 'Selamat datang, ' + session.full_name : 'Selamat datang, dr. Andi'"></h2>
+      <h2 class="mv-ui-title" x-text="!sessionReady ? 'Selamat datang' : (session && session.full_name ? 'Selamat datang, ' + session.full_name : 'Selamat datang')"></h2>
       <p class="mv-ui-subtitle">Ringkasan ruang kerja MedVault dan akses cepat seluruh modul.</p>
     </div>
     <div class="mv-page-actions">
@@ -29,7 +29,7 @@
     </div>
     <div class="mv-stat">
       <p class="mv-stat-label">Sesi aktif</p>
-      <p class="mv-stat-value" style="font-size:var(--mv-ui-text-24);" x-text="session && session.username ? session.username : 'dr_andi'"></p>
+      <p class="mv-stat-value" style="font-size:var(--mv-ui-text-24);" x-text="!sessionReady || !session || !session.username ? '-' : session.username"></p>
       <p class="mv-stat-note">Identitas pengguna</p>
     </div>
   </div>

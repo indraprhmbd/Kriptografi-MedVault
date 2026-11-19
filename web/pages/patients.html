@@ -7,7 +7,7 @@
     </div>
     <div class="mv-page-actions">
       <span class="mv-badge mv-badge-teal">AES-256-GCM</span>
-      <button type="button" class="mv-btn mv-btn-primary" @click="document.getElementById('patient-mrn').focus()">Pasien baru</button>
+      <button type="button" class="mv-btn mv-btn-primary" @click="focusPatientMrn()">Pasien baru</button>
     </div>
   </div>
 
@@ -39,7 +39,7 @@
       </div>
 
       <p class="mv-note">NIK, nama, dan alamat disegel AES-256-GCM dengan nama kolom sebagai AAD.</p>
-      <button type="button" class="mv-btn mv-btn-primary" style="width:100%; margin-top:14px;" :disabled="busy || !session" @click="createPatient()">Daftarkan pasien</button>
+      <button type="button" class="mv-btn mv-btn-primary" style="width:100%; margin-top:14px;" :disabled="busy" @click="createPatient()">Daftarkan pasien</button>
     </div>
 
     <div class="mv-card">

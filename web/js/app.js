@@ -105,6 +105,9 @@ window.medvault = function medvault() {
     telemetryOpen: false,
 
     session: null,
+    // Keeps live identity hidden until /auth/me resolves, so Figma demo labels
+    // never flash on the sidebar during a full page navigation.
+    sessionReady: false,
     health: null,
     dongle: null,
     dongleNote: "",
@@ -486,8 +489,11 @@ window.medvault = function medvault() {
         });
       }
       this.restoreRememberedRecord();
-      await this.checkHealth();
-      await this.restoreSession();
+      try {
+        await Promise.all([this.checkHealth(), this.restoreSession()]);
+      } finally {
+        this.sessionReady = true;
+      }
 
       if (this.session && this.route === "gate") {
         window.location.replace("/dashboard");
@@ -1397,11 +1403,44 @@ window.medvault = function medvault() {
       }
     },
 
+    // Focuses the enrolment form without relying on a DOM global inside an
+    // Alpine expression, so a missing element cannot break the page.
+    focusPatientMrn() {
+      const input = document.getElementById("patient-mrn");
+      if (!input) return;
+      input.focus();
+      if (typeof input.scrollIntoView === "function") {
+        input.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+    },
+
     async createPatient() {
+      const form = this.patientForm || {};
+      const medicalRecordNumber = String(form.medical_record_number || "").trim();
+      const nik = String(form.nik || "").trim();
+      const fullName = String(form.full_name || "").trim();
+      const address = String(form.address || "").trim();
+      const birthDate = String(form.birth_date || "").trim();
+
+      if (!medicalRecordNumber || !nik || !fullName || !birthDate) {
+        this.notify("Lengkapi nomor rekam medis, NIK, nama lengkap, dan tanggal lahir", "error");
+        return;
+      }
+      if (nik.length !== 16) {
+        this.notify("NIK harus tepat 16 digit", "error");
+        return;
+      }
+
       await this.run("Simpan pasien", async () => {
         const env = await this.api("/api/v1/patients", {
           method: "POST",
-          body: this.patientForm,
+          body: {
+            medical_record_number: medicalRecordNumber,
+            nik,
+            full_name: fullName,
+            address,
+            birth_date: birthDate,
+          },
         });
         const patient = env.data && env.data.patient;
         this.patientForm = {
