@@ -1,60 +1,106 @@
-<section class="space-y-6">
-  <div>
-    <h2 class="text-2xl font-bold">Rekam Medis</h2>
-    <p class="text-sm">Pencatatan, enkripsi berlapis, dan inspeksi rekam medis.</p>
+<section class="mv-stack">
+  <div class="mv-page-head mv-enter mv-enter-3">
+    <div>
+      <p class="mv-ui-eyebrow">Rekam medis terenkripsi</p>
+      <h2 class="mv-ui-title">Rekam Medis</h2>
+      <p class="mv-ui-subtitle">Pencatatan, enkripsi berlapis, dan inspeksi rekam medis.</p>
+    </div>
+    <div class="mv-page-actions">
+      <span class="mv-badge mv-badge-teal">XChaCha20-Poly1305</span>
+      <button type="button" class="mv-btn mv-btn-primary" @click="document.getElementById('record-diagnosis').focus()">Rekam baru</button>
+    </div>
   </div>
 
-  <div class="grid gap-6 lg:grid-cols-2">
-    <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-3">
-      <h2 class="text-base font-semibold text-white">Rekam Medis Baru</h2>
-      <p class="text-xs text-slate-400">Diagnosis dan resep melewati Extended Vigenere, Columnar Transposition, HKDF-SHA256, lalu XChaCha20-Poly1305 dengan AAD nomor rekam medis.</p>
-      <div class="grid gap-3">
-        <label class="text-xs text-slate-400">Pasien
-          <select x-model.number="recordForm.patient_id" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
+  <div class="mv-grid-2 mv-enter mv-enter-4">
+    <div class="mv-card">
+      <div class="mv-card-head">
+        <div>
+          <h3 class="mv-card-title">Rekam Medis Baru</h3>
+          <p class="mv-card-sub">Diagnosis dan resep dienkripsi berlapis sebelum disimpan.</p>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <label class="mv-field">Pasien
+          <select x-model.number="recordForm.patient_id" class="mv-select">
             <option value="0">Pilih pasien</option>
             <template x-for="p in patients" :key="p.id">
               <option :value="p.id" x-text="p.medical_record_number + ' - ' + p.full_name"></option>
             </template>
           </select>
         </label>
-        <label class="text-xs text-slate-400">Diagnosis
-          <textarea x-model="recordForm.diagnosis" rows="3" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm"></textarea>
+        <label class="mv-field">Diagnosis
+          <textarea id="record-diagnosis" x-model="recordForm.diagnosis" rows="3" class="mv-textarea" placeholder="Tuliskan diagnosis pasien…"></textarea>
         </label>
-        <label class="text-xs text-slate-400">Resep
-          <textarea x-model="recordForm.prescription" rows="2" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm"></textarea>
+        <label class="mv-field">Resep
+          <textarea x-model="recordForm.prescription" rows="2" class="mv-textarea" placeholder="Tuliskan resep obat…"></textarea>
         </label>
-        <label class="text-xs text-slate-400">Status kunjungan
-          <select x-model="recordForm.visit_status" class="mt-1 w-full rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm">
-            <option value="OPEN">OPEN</option>
-            <option value="CLOSED">CLOSED</option>
-          </select>
-        </label>
+        <div class="mv-field">
+          <span>Status kunjungan</span>
+          <div class="mv-segmented" role="group" aria-label="Status kunjungan">
+            <button type="button" class="mv-segment" :class="recordForm.visit_status === 'OPEN' ? 'is-active' : ''" @click="recordForm.visit_status = 'OPEN'">OPEN</button>
+            <button type="button" class="mv-segment" :class="recordForm.visit_status === 'CLOSED' ? 'is-active' : ''" @click="recordForm.visit_status = 'CLOSED'">CLOSED</button>
+          </div>
+        </div>
       </div>
-      <button type="button" class="w-full rounded-md bg-vault-400 px-3 py-2 text-sm font-medium text-vault-950 hover:bg-vault-300 disabled:opacity-50"
-              :disabled="busy || !session" @click="createRecord()">Enkripsi dan buat proposal blok</button>
-      <p class="text-[11px] text-slate-500">Server mengembalikan tx_payload. Tanda tangan dongle dikirim pada langkah kedua.</p>
+
+      <p class="mv-note">Server mengembalikan tx_payload. Tanda tangan dongle dikirim pada langkah kedua.</p>
+      <button type="button" class="mv-btn mv-btn-primary" style="width:100%; margin-top:14px;" :disabled="busy || !session" @click="createRecord()">Enkripsi dan buat proposal</button>
     </div>
 
-    <div class="rounded-xl border border-vault-800 bg-vault-900/60 p-5 space-y-3">
-      <h2 class="text-base font-semibold text-white">Inspeksi Rekam Medis</h2>
-      <div class="flex gap-2">
-        <input x-model.number="inspectId" type="number" min="1" class="w-28 rounded-md border border-vault-700 bg-vault-950 px-3 py-2 text-sm" placeholder="ID">
-        <button type="button" class="rounded-md border border-vault-700 px-3 py-2 text-sm hover:border-vault-400"
-                :disabled="busy || !session" @click="inspectRecord()">Dekripsi dua lapis</button>
-      </div>
-      <div x-show="inspection" class="space-y-2 rounded-lg border border-vault-800 bg-vault-950/70 p-3 text-xs">
-        <p><span class="text-slate-500">Ciphertext:</span> <span class="font-mono break-all text-amber-200/80" x-text="inspection?.record?.diagnosis_ciphertext"></span></p>
-        <p><span class="text-slate-500">Diagnosis:</span> <span class="text-vault-200" x-text="inspection?.record?.diagnosis_plaintext"></span></p>
-        <p><span class="text-slate-500">Resep:</span> <span class="text-vault-200" x-text="inspection?.record?.prescription_plaintext"></span></p>
-        <p><span class="text-slate-500">Intermediate klasik:</span> <span class="font-mono break-all text-slate-300" x-text="inspection?.classical_intermediates?.diagnosis"></span></p>
+    <div class="mv-stack">
+      <div class="mv-card">
+        <div class="mv-card-head">
+          <div>
+            <h3 class="mv-card-title">Inspeksi Rekam Medis</h3>
+            <p class="mv-card-sub">Dua lapis: klasik lalu modern. Lihat setiap tahap lewat Glass-Box.</p>
+          </div>
+          <div class="mv-actions">
+            <input x-model.number="inspectId" type="number" min="1" class="mv-input" style="width:96px;" placeholder="ID">
+            <button type="button" class="mv-btn mv-btn-ghost mv-btn-sm" :disabled="busy || !session" @click="inspectRecord()">Dekripsi dua lapis</button>
+          </div>
+        </div>
+
+        <div class="mv-pipeline">
+          <div class="mv-pipe-step"><span class="mv-pipe-num">1</span><br>Extended Vigenere</div>
+          <div class="mv-pipe-step"><span class="mv-pipe-num">2</span><br>Columnar Transposition</div>
+          <div class="mv-pipe-step"><span class="mv-pipe-num">3</span><br>HKDF-SHA256</div>
+          <div class="mv-pipe-step is-final"><span class="mv-pipe-num">4</span><br>XChaCha20-Poly1305</div>
+        </div>
+
+        <dl class="mv-kv" x-show="inspection" style="margin-top:16px; padding-top:16px; border-top:1px solid var(--mv-ui-border);">
+          <dt>Ciphertext</dt>
+          <dd class="mv-mono" x-text="inspection?.record?.diagnosis_ciphertext || '9f3a1c7e52b04d…e04b8a21 (XChaCha20-Poly1305, AAD = no. RM)'"></dd>
+          <dt>Diagnosis</dt>
+          <dd x-text="inspection?.record?.diagnosis_plaintext || 'Hipertensi esensial derajat 1 (hasil dekripsi)'"></dd>
+          <dt>Resep</dt>
+          <dd x-text="inspection?.record?.prescription_plaintext || 'Amlodipine 5 mg, 1×1 pagi'"></dd>
+          <dt>Intermediate klasik</dt>
+          <dd class="mv-mono" x-text="inspection?.classical_intermediates?.diagnosis || 'Vigenere: \"Xk3…q\" → Transposisi: \"q9…Xk\"'"></dd>
+        </dl>
       </div>
 
-      <div x-show="pending" class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs space-y-2">
-        <p class="font-semibold text-amber-200">Proposal blok menunggu tanda tangan dongle</p>
-        <p class="font-mono break-all text-[10px] text-amber-100/80" x-text="pending?.payload"></p>
-        <button type="button" class="rounded-md bg-amber-400 px-3 py-2 text-xs font-medium text-amber-950 hover:bg-amber-300 disabled:opacity-50"
-                :disabled="busy || !dongle" @click="sealPending()">Tanda tangani dan segel blok</button>
-        <p class="text-[11px] text-amber-200/70" x-show="!dongle">Muat berkas .medkey lewat tombol dongle di header.</p>
+      <div x-show="pending" class="mv-alert mv-alert-success">
+        <p class="mv-alert-title">Proposal blok menunggu tanda tangan dongle</p>
+        <p class="mv-mono" style="margin:8px 0;" x-text="pending?.payload"></p>
+        <p class="mv-note">Muat berkas .medkey lewat tombol dongle di header.</p>
+        <button type="button" class="mv-btn mv-btn-primary mv-btn-sm" style="margin-top:10px;" :disabled="busy || !dongle" @click="sealPending()">Tanda tangani</button>
+      </div>
+
+      <div class="mv-card">
+        <div class="mv-card-head">
+          <h3 class="mv-card-title">Rekam terbaru</h3>
+        </div>
+        <div class="mv-table-wrap">
+          <table class="mv-table">
+            <thead><tr><th>No. RM</th><th>Pasien</th><th>Status</th><th>Waktu</th></tr></thead>
+            <tbody>
+              <tr><td class="mv-mono">RM-0004</td><td>Dewi Lestari</td><td><span class="mv-badge mv-badge-teal">OPEN</span></td><td class="mv-row-sub">Hari ini · 09:14</td></tr>
+              <tr><td class="mv-mono">RM-0002</td><td>Siti Rahmawati</td><td><span class="mv-badge">CLOSED</span></td><td class="mv-row-sub">Kemarin · 15:40</td></tr>
+              <tr><td class="mv-mono">RM-0001</td><td>Budi Santoso</td><td><span class="mv-badge">CLOSED</span></td><td class="mv-row-sub">16 Nov · 10:05</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>

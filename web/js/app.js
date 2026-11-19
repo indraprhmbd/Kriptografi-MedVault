@@ -579,6 +579,16 @@ window.medvault = function medvault() {
       }, 6000);
     },
 
+    // Copies the exact _telemetry object rendered by the Glass-Box Inspector.
+    async copyTelemetry() {
+      try {
+        await navigator.clipboard.writeText(this.telemetryPretty);
+        this.notify("JSON telemetry disalin");
+      } catch (_) {
+        this.notify("Gagal menyalin JSON telemetry", "error");
+      }
+    },
+
     async run(label, fn) {
       this.busy = true;
       try {

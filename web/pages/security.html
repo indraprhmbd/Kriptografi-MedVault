@@ -1,24 +1,92 @@
-<section class="space-y-4">
-  <div>
-    <h2 class="text-2xl font-bold">Keamanan dan Sesi</h2>
-    <p class="text-sm">Status autentikasi, kondisi layanan, serta seluruh gerbang keamanan perangkat.</p>
-  </div>
-
-  <div class="grid gap-4 md:grid-cols-2">
-    <div class="rounded-2xl border bg-white p-5">
-      <h3 class="font-semibold">Status autentikasi</h3>
-      <p class="mt-2 text-sm" x-text="session ? 'Sesi aktif: ' + session.username : 'Belum masuk'"></p>
-      <p class="mt-2 text-xs text-slate-500">Autentikasi akun, dongle Ed25519, biometrik dHash, dan opsi WebAuthn.</p>
-      <p class="mt-2 text-xs text-slate-500" x-text="dongle ? 'Dongle dimuat: ' + dongle.keyId : 'Dongle belum dimuat pada tab ini'"></p>
+<section class="mv-stack">
+  <div class="mv-page-head mv-enter mv-enter-3">
+    <div>
+      <p class="mv-ui-eyebrow">Sesi dan perangkat</p>
+      <h2 class="mv-ui-title">Keamanan dan Sesi</h2>
+      <p class="mv-ui-subtitle">Status autentikasi, kondisi layanan, serta seluruh gerbang keamanan perangkat.</p>
     </div>
-    <div class="rounded-2xl border bg-white p-5">
-      <h3 class="font-semibold">Kondisi layanan</h3>
-      <p class="mt-2 text-sm" x-text="health ? JSON.stringify(health, null, 2) : 'Informasi health belum tersedia'"></p>
+    <div class="mv-page-actions">
+      <button type="button" class="mv-btn mv-btn-primary" x-show="!session" @click="navigate('/login')">Buka autentikasi</button>
+      <button type="button" class="mv-btn mv-btn-danger" x-show="session" @click="logout()">Keluar dari sesi</button>
     </div>
   </div>
 
-  <div class="flex flex-wrap gap-2">
-    <button type="button" x-show="!session" @click="navigate('/login')" class="rounded-lg bg-vault-400 px-4 py-2 text-sm font-semibold">Buka autentikasi</button>
-    <button type="button" x-show="session" @click="logout()" class="rounded-lg border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-700">Keluar dari sesi</button>
+  <div class="mv-grid-2 mv-enter mv-enter-4" style="grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);">
+    <div class="mv-card">
+      <div class="mv-card-head">
+        <div>
+          <h3 class="mv-card-title">Status autentikasi</h3>
+          <p class="mv-card-sub">Autentikasi akun, dongle Ed25519, biometrik dHash, dan opsi WebAuthn.</p>
+        </div>
+      </div>
+
+      <div class="mv-list-row">
+        <div class="mv-row-main">
+          <p class="mv-row-title">Akun dan kata sandi</p>
+          <p class="mv-row-sub">Langkah 1 · nama pengguna dr_andi</p>
+        </div>
+        <span class="mv-badge" :class="session ? 'mv-badge-success' : 'mv-badge-danger'" x-text="session ? 'Terverifikasi' : 'Belum terverifikasi'"></span>
+      </div>
+
+      <div class="mv-list-row">
+        <div class="mv-row-main">
+          <p class="mv-row-title">USB Dongle Ed25519</p>
+          <p class="mv-row-sub">Langkah 2 · Key ID 7F3A, tanda tangan di browser</p>
+        </div>
+        <span class="mv-badge" :class="dongle ? 'mv-badge-success' : 'mv-badge-danger'" x-text="dongle ? 'Terhubung' : 'Belum terhubung'"></span>
+      </div>
+
+      <div class="mv-list-row">
+        <div class="mv-row-main">
+          <p class="mv-row-title">Biometrik dHash</p>
+          <p class="mv-row-sub">Langkah 3 · cocok dengan data pendaftaran minimal 50%</p>
+        </div>
+        <span class="mv-badge mv-badge-success">Terverifikasi</span>
+      </div>
+
+      <div class="mv-list-row">
+        <div class="mv-row-main">
+          <p class="mv-row-title">WebAuthn Passkey</p>
+          <p class="mv-row-sub">Opsional · Windows Hello atau Touch ID</p>
+        </div>
+        <span class="mv-badge">Belum diaktifkan</span>
+      </div>
+
+      <button type="button" class="mv-btn mv-btn-primary mv-btn-sm" style="margin-top:16px;">Aktifkan Passkey</button>
+    </div>
+
+    <div class="mv-stack">
+      <div class="mv-card">
+        <div class="mv-card-head">
+          <div>
+            <h3 class="mv-card-title">Kondisi layanan</h3>
+            <p class="mv-card-sub" x-text="health ? 'Pemeriksaan kesehatan terakhir tersedia' : 'Menunggu data health'"></p>
+          </div>
+        </div>
+
+        <div class="mv-list-row"><span class="mv-row-title">API server</span><span class="mv-badge mv-badge-success">Sehat</span></div>
+        <div class="mv-list-row"><span class="mv-row-title">Database SQLite</span><span class="mv-badge mv-badge-success">Sehat</span></div>
+        <div class="mv-list-row"><span class="mv-row-title">Ledger PoA</span><span class="mv-badge mv-badge-success">Sehat</span></div>
+        <div class="mv-list-row"><span class="mv-row-title">Validator gateway</span><span class="mv-badge mv-badge-success">Sehat</span></div>
+      </div>
+
+      <div class="mv-card">
+        <div class="mv-card-head">
+          <div>
+            <h3 class="mv-card-title">Sesi aktif</h3>
+            <p class="mv-card-sub">Identitas dan rentang waktu sesi kerja.</p>
+          </div>
+        </div>
+
+        <dl class="mv-kv">
+          <dt>Pengguna</dt><dd x-text="session && session.username ? session.username : 'dr_andi'"></dd>
+          <dt>Peran</dt><dd>Dokter</dd>
+          <dt>Mulai</dt><dd>09:02</dd>
+          <dt>Berakhir</dt><dd>17:02</dd>
+        </dl>
+
+        <button type="button" class="mv-btn mv-btn-danger mv-btn-sm" style="margin-top:16px;" @click="logout()">Keluar dari sesi</button>
+      </div>
+    </div>
   </div>
 </section>
