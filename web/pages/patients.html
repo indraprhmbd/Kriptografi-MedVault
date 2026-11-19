@@ -99,11 +99,11 @@
         <p style="margin:0 0 10px; font-size:11px; font-weight:700; letter-spacing:.06em; color:var(--mv-ui-accent-bright);">Tampilan raw SQLite · terenkripsi</p>
         <dl class="mv-kv" style="color:var(--mv-ui-accent-mint);">
           <dt style="color:var(--mv-ui-ink-soft);">nik_enc</dt>
-          <dd class="mv-mono" x-text="(patients[0] && patients[0].columns && patients[0].columns.nik_enc) || '9f3a1c7e52b0…e04b (AES-256-GCM, nonce 12 byte)'"></dd>
+          <dd class="mv-mono" x-text="(patients[0] && patients[0].columns && patients[0].columns.nik_enc) || '-'"></dd>
           <dt style="color:var(--mv-ui-ink-soft);">nama_enc</dt>
-          <dd class="mv-mono" x-text="(patients[0] && patients[0].columns && patients[0].columns.full_name_enc) || '41cc08d9a77f…3b9a'"></dd>
+          <dd class="mv-mono" x-text="(patients[0] && patients[0].columns && patients[0].columns.full_name_enc) || '-'"></dd>
           <dt style="color:var(--mv-ui-ink-soft);">alamat_enc</dt>
-          <dd class="mv-mono" x-text="(patients[0] && patients[0].columns && patients[0].columns.address_enc) || 'c2e5d014f8aa…71d2'"></dd>
+          <dd class="mv-mono" x-text="(patients[0] && patients[0].columns && patients[0].columns.address_enc) || '-'"></dd>
           <dt style="color:var(--mv-ui-ink-soft);">AAD</dt>
           <dd class="mv-mono">"patients.nik" · "patients.nama" · "patients.alamat"</dd>
         </dl>

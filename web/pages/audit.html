@@ -1,11 +1,4 @@
-<section class="mv-stack" x-data="{
-  demoBlocks: [
-    { block_index: 342, action_type: 'CREATE_RECORD', actor_username: 'dr_andi', target_record_id: 'RM-0004', current_hash: '9f3a1c7ee04b', validator_signature_hex: 'ok' },
-    { block_index: 341, action_type: 'EMBED_STEGO', actor_username: 'dr_andi', target_record_id: 'RM-0004', current_hash: '4be7d210a92f', validator_signature_hex: 'ok' },
-    { block_index: 340, action_type: 'UPLOAD_LAB', actor_username: 'dr_andi', target_record_id: 'RM-0004', current_hash: 'c0185e9b77e4', validator_signature_hex: 'ok' },
-    { block_index: 339, action_type: 'CREATE_RECORD', actor_username: 'dr_sari', target_record_id: 'RM-0003', current_hash: '71aa03fd5b18', validator_signature_hex: 'ok' }
-  ]
-}">
+<section class="mv-stack">
   <div class="mv-page-head mv-enter mv-enter-3">
     <div>
       <p class="mv-ui-eyebrow">Proof-of-Authority</p>
@@ -26,14 +19,14 @@
         </div>
         <span class="mv-badge" :class="validation && !validation.valid ? 'mv-badge-danger' : 'mv-badge-success'" x-text="validation ? (validation.valid ? 'Rantai valid' : 'Rantai tidak valid') : 'Belum diperiksa'"></span>
       </div>
-      <p class="mv-note" style="color:var(--mv-ui-success-ink);" x-text="validation && !validation.valid ? 'Rantai tidak valid: ' + (validation.first_failure?.reason || '') : (validation ? validation.blocks_checked : 342) + ' blok · seluruh tanda tangan dokter dan validator valid.'"></p>
+      <p class="mv-note" style="color:var(--mv-ui-success-ink);" x-text="validation && !validation.valid ? 'Rantai tidak valid: ' + (validation.first_failure?.reason || '') : (validation ? validation.blocks_checked + ' blok · seluruh tanda tangan dokter dan validator valid.' : 'Belum ada hasil pemeriksaan. Tekan Verifikasi rantai untuk memeriksa integritas ledger.')"></p>
 
       <div class="mv-grid-4" style="margin-top:16px; grid-template-columns:repeat(3,minmax(0,1fr));">
-        <div class="mv-metric" style="background:var(--mv-ui-surface);"><p class="mv-metric-label">Total blok</p><p class="mv-metric-value" x-text="validation?.blocks_checked || blocks.length || 342"></p></div>
-        <div class="mv-metric" style="background:var(--mv-ui-surface);"><p class="mv-metric-label">Validator aktif</p><p class="mv-metric-value">3</p></div>
-        <div class="mv-metric" style="background:var(--mv-ui-surface);"><p class="mv-metric-label">Blok tidak valid</p><p class="mv-metric-value" x-text="validation && !validation.valid ? 1 : 0"></p></div>
+        <div class="mv-metric" style="background:var(--mv-ui-surface);"><p class="mv-metric-label">Total blok</p><p class="mv-metric-value" x-text="validation?.blocks_checked ?? blocks.length"></p></div>
+        <div class="mv-metric" style="background:var(--mv-ui-surface);"><p class="mv-metric-label">Blok ditampilkan</p><p class="mv-metric-value" x-text="blocks.length"></p></div>
+        <div class="mv-metric" style="background:var(--mv-ui-surface);"><p class="mv-metric-label">Blok tidak valid</p><p class="mv-metric-value" x-text="validation ? (validation.valid ? 0 : 1) : '-'"></p></div>
       </div>
-      <p class="mv-note">Hasil pemeriksaan terakhir: 18 Nov 2026 · 10:41</p>
+      <p class="mv-note" x-text="'Hasil pemeriksaan terakhir: ' + validationCheckedLabel"></p>
     </div>
 
     <div class="mv-card">
@@ -52,7 +45,7 @@
       </div>
       <div x-show="validation && !validation.valid" class="mv-alert mv-alert-danger" style="margin-top:16px;">
         <p class="mv-alert-title">Peringatan: Manipulasi data terdeteksi!</p>
-        <p class="mv-note">Contoh state setelah simulasi: hash blok 341 tidak cocok.</p>
+        <p class="mv-note" x-text="validation && validation.first_failure ? ('Blok #' + validation.first_failure.block_index + ': ' + (validation.first_failure.reason || 'tidak cocok') + (validation.first_failure.detail ? ' (' + validation.first_failure.detail + ')' : '')) : 'Ledger menandai setidaknya satu blok tidak valid.'"></p>
       </div>
     </div>
   </div>
@@ -66,19 +59,20 @@
     </div>
 
     <div class="mv-chain">
-      <template x-for="(b, i) in (blocks.length ? blocks.slice(-4) : demoBlocks.slice(0, 4))" :key="b.block_index">
-        <div class="mv-chain-node" :class="i === 3 ? 'is-head' : ''">
+      <template x-for="(b, i) in blocks.slice(-4)" :key="b.block_index">
+        <div class="mv-chain-node" :class="i === blocks.slice(-4).length - 1 ? 'is-head' : ''">
           <p class="mv-chain-index" x-text="'Blok #' + b.block_index"></p>
           <p class="mv-chain-action" x-text="b.action_type"></p>
         </div>
       </template>
     </div>
+    <p class="mv-note" x-show="blocks.length === 0" style="margin-top:12px;">Belum ada blok audit untuk ditampilkan.</p>
 
     <div class="mv-table-wrap" style="margin-top:16px;">
       <table class="mv-table">
         <thead><tr><th>Index</th><th>Aksi</th><th>Aktor</th><th>Record</th><th>Current hash</th><th>Validator</th></tr></thead>
         <tbody>
-          <template x-for="b in (blocks.length ? blocks : demoBlocks)" :key="b.block_index">
+          <template x-for="b in blocks" :key="b.block_index">
             <tr>
               <td class="mv-row-title" x-text="b.block_index"></td>
               <td x-text="b.action_type"></td>
@@ -88,6 +82,7 @@
               <td><span class="mv-badge" :class="b.validator_signature_hex ? 'mv-badge-success' : 'mv-badge-danger'" x-text="b.validator_signature_hex ? 'Valid' : 'Belum'"></span></td>
             </tr>
           </template>
+          <tr x-show="blocks.length === 0"><td colspan="6" style="text-align:center; color:var(--mv-ui-ink-muted);">Belum ada data blok audit</td></tr>
         </tbody>
       </table>
     </div>

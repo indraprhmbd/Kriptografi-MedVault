@@ -23,7 +23,7 @@
       <div class="mv-list-row">
         <div class="mv-row-main">
           <p class="mv-row-title">Akun dan kata sandi</p>
-          <p class="mv-row-sub">Langkah 1 · nama pengguna dr_andi</p>
+          <p class="mv-row-sub" x-text="'Langkah 1 - ' + (session && session.username ? session.username : 'belum ada sesi')"></p>
         </div>
         <span class="mv-badge" :class="session ? 'mv-badge-success' : 'mv-badge-danger'" x-text="session ? 'Terverifikasi' : 'Belum terverifikasi'"></span>
       </div>
@@ -31,28 +31,26 @@
       <div class="mv-list-row">
         <div class="mv-row-main">
           <p class="mv-row-title">USB Dongle Ed25519</p>
-          <p class="mv-row-sub">Langkah 2 · Key ID 7F3A, tanda tangan di browser</p>
+          <p class="mv-row-sub" x-text="session && session.dongle_key_id ? 'Langkah 2 - Key ID ' + session.dongle_key_id : 'Langkah 2 - belum ada dongle terdaftar'"></p>
         </div>
-        <span class="mv-badge" :class="dongle ? 'mv-badge-success' : 'mv-badge-danger'" x-text="dongle ? 'Terhubung' : 'Belum terhubung'"></span>
+        <span class="mv-badge" :class="session && session.dongle_key_id ? 'mv-badge-success' : 'mv-badge-danger'" x-text="session && session.dongle_key_id ? 'Terdaftar' : 'Belum terdaftar'"></span>
       </div>
 
       <div class="mv-list-row">
         <div class="mv-row-main">
           <p class="mv-row-title">Biometrik dHash</p>
-          <p class="mv-row-sub">Langkah 3 · cocok dengan data pendaftaran minimal 50%</p>
+          <p class="mv-row-sub">Langkah 3 - cocok dengan data pendaftaran minimal 50%</p>
         </div>
-        <span class="mv-badge mv-badge-success">Terverifikasi</span>
+        <span class="mv-badge" :class="session && session.webcam_dhash_hex ? 'mv-badge-success' : 'mv-badge-danger'" x-text="session && session.webcam_dhash_hex ? 'Terdaftar' : 'Belum terdaftar'"></span>
       </div>
 
       <div class="mv-list-row">
         <div class="mv-row-main">
           <p class="mv-row-title">WebAuthn Passkey</p>
-          <p class="mv-row-sub">Opsional · Windows Hello atau Touch ID</p>
+          <p class="mv-row-sub">Opsional - Windows Hello atau Touch ID</p>
         </div>
-        <span class="mv-badge">Belum diaktifkan</span>
+        <span class="mv-badge" :class="session && session.has_webauthn_credential ? 'mv-badge-success' : ''" x-text="session && session.has_webauthn_credential ? 'Aktif' : 'Belum diaktifkan'"></span>
       </div>
-
-      <button type="button" class="mv-btn mv-btn-primary mv-btn-sm" style="margin-top:16px;">Aktifkan Passkey</button>
     </div>
 
     <div class="mv-stack">
@@ -64,10 +62,11 @@
           </div>
         </div>
 
-        <div class="mv-list-row"><span class="mv-row-title">API server</span><span class="mv-badge mv-badge-success">Sehat</span></div>
-        <div class="mv-list-row"><span class="mv-row-title">Database SQLite</span><span class="mv-badge mv-badge-success">Sehat</span></div>
-        <div class="mv-list-row"><span class="mv-row-title">Ledger PoA</span><span class="mv-badge mv-badge-success">Sehat</span></div>
-        <div class="mv-list-row"><span class="mv-row-title">Validator gateway</span><span class="mv-badge mv-badge-success">Sehat</span></div>
+        <div class="mv-list-row"><span class="mv-row-title">API server</span><span class="mv-badge" :class="health ? 'mv-badge-success' : 'mv-badge-danger'" x-text="health ? 'Sehat' : 'Tidak diketahui'"></span></div>
+        <div class="mv-list-row"><span class="mv-row-title">Validator gateway</span><span class="mv-badge" :class="health && health.validator_gateway_configured ? 'mv-badge-success' : 'mv-badge-danger'" x-text="health ? (health.validator_gateway_configured ? 'Terhubung' : 'Belum dikonfigurasi') : 'Tidak diketahui'"></span></div>
+        <div class="mv-list-row"><span class="mv-row-title">Kunci publik validator</span><span class="mv-badge" :class="health && health.validator_pubkey_pinned ? 'mv-badge-success' : 'mv-badge-danger'" x-text="health ? (health.validator_pubkey_pinned ? 'Dipin' : 'Belum dipin') : 'Tidak diketahui'"></span></div>
+        <div class="mv-list-row"><span class="mv-row-title">WebAuthn RP ID</span><span class="mv-mono" x-text="health && health.webauthn_rpid ? health.webauthn_rpid : '-'"></span></div>
+        <div class="mv-list-row"><span class="mv-row-title">Session TTL</span><span class="mv-mono" x-text="health && health.session_ttl_min ? health.session_ttl_min + ' menit' : '-'"></span></div>
       </div>
 
       <div class="mv-card">
@@ -80,9 +79,11 @@
 
         <dl class="mv-kv">
           <dt>Pengguna</dt><dd x-text="!sessionReady || !session || !session.username ? '-' : session.username"></dd>
-          <dt>Peran</dt><dd>Dokter</dd>
-          <dt>Mulai</dt><dd>09:02</dd>
-          <dt>Berakhir</dt><dd>17:02</dd>
+          <dt>Nama lengkap</dt><dd x-text="session && session.full_name ? session.full_name : '-'"></dd>
+          <dt>Peran</dt><dd x-text="session && session.role ? session.role : '-'"></dd>
+          <dt>Mulai</dt><dd x-text="sessionInfo && sessionInfo.created_at ? new Date(sessionInfo.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-'"></dd>
+          <dt>Berakhir</dt><dd x-text="sessionInfo && sessionInfo.expires_at ? new Date(sessionInfo.expires_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-'"></dd>
+          <dt>Terakhir dilihat</dt><dd x-text="sessionInfo && sessionInfo.last_seen_at ? new Date(sessionInfo.last_seen_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-'"></dd>
         </dl>
 
         <button type="button" class="mv-btn mv-btn-danger mv-btn-sm" style="margin-top:16px;" @click="logout()">Keluar dari sesi</button>

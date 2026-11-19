@@ -103,8 +103,13 @@ window.medvault = function medvault() {
     toast: { type: "ok", message: "" },
     telemetry: null,
     telemetryOpen: false,
+    // The Glass-Box page is a separate document, so the last trace is mirrored
+    // into sessionStorage and restored on load instead of being invented.
+    telemetrySource: null,
+    telemetryAt: "",
 
     session: null,
+    sessionInfo: null,
     // Keeps live identity hidden until /auth/me resolves, so Figma demo labels
     // never flash on the sidebar during a full page navigation.
     sessionReady: false,
@@ -178,6 +183,7 @@ window.medvault = function medvault() {
 
     blocks: [],
     validation: null,
+    validationCheckedAt: "",
     tamperRecordId: 0,
 
     pending: null,
@@ -187,6 +193,27 @@ window.medvault = function medvault() {
         return "Belum ada respons kriptografi. Lakukan satu aksi untuk melihat nilai antara.";
       }
       return JSON.stringify(this.telemetry, null, 2);
+    },
+
+    get telemetryDurationLabel() {
+      const micros = this.telemetry && this.telemetry.duration_us;
+      if (typeof micros !== "number") {
+        return "-";
+      }
+      if (micros < 1000) {
+        return micros + " us";
+      }
+      return (micros / 1000).toFixed(2) + " ms";
+    },
+
+    get validationCheckedLabel() {
+      if (!this.validationCheckedAt) {
+        return "Belum diperiksa";
+      }
+      return new Date(this.validationCheckedAt).toLocaleString("id-ID", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
     },
 
     // Presentation-only mood for the mascot. Authentication still flows through
@@ -481,6 +508,7 @@ window.medvault = function medvault() {
       this.route = document.body.dataset.route || "gate";
       this.tab = this.route;
       this.setupAssetFallbacks();
+      this.restoreTelemetry();
       if (!this._faceUnloadBound) {
         this._faceUnloadBound = true;
         window.addEventListener("beforeunload", () => {
@@ -569,11 +597,30 @@ window.medvault = function medvault() {
         const env = await this.api("/api/v1/auth/me");
         const data = env.data || {};
         this.session = data.user || null;
+        this.sessionInfo = data.session || null;
         if (this.session) {
           this.loginForm.username = this.session.username;
         }
       } catch (_) {
         this.session = null;
+        this.sessionInfo = null;
+      }
+    },
+
+    // The Glass-Box page reads the last trace from sessionStorage because each
+    // navigation is a full document load. Only real API responses are stored.
+    restoreTelemetry() {
+      try {
+        const raw = sessionStorage.getItem("medvault.telemetry");
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (saved && saved.trace) {
+          this.telemetry = saved.trace;
+          this.telemetrySource = saved.source || null;
+          this.telemetryAt = saved.captured_at || "";
+        }
+      } catch (_) {
+        // Ignore an unreadable cache entry.
       }
     },
 
@@ -631,9 +678,25 @@ window.medvault = function medvault() {
 
       if (envelope._telemetry) {
         this.telemetry = envelope._telemetry;
+        this.telemetrySource = { method: request.method, path };
+        this.telemetryAt = new Date().toISOString();
+        try {
+          sessionStorage.setItem(
+            "medvault.telemetry",
+            JSON.stringify({
+              trace: this.telemetry,
+              source: this.telemetrySource,
+              captured_at: this.telemetryAt,
+            })
+          );
+        } catch (_) {
+          // Storage may be unavailable in private mode; the in-memory copy
+          // still works for the current document.
+        }
       }
       if (response.status === 401) {
         this.session = null;
+        this.sessionInfo = null;
       }
       if (!response.ok || envelope.ok === false) {
         throw new Error(envelope.error || `status ${response.status}`);
@@ -1270,6 +1333,7 @@ window.medvault = function medvault() {
 
         this.stopLoginFacePreview();
         this.session = (env.data && env.data.user) || { username };
+        this.sessionInfo = (env.data && env.data.session) || null;
         this.loginStep = 1;
         this.notify(env.message || "Sesi aktif. Selamat bekerja.");
         this.navigate("/dashboard");
@@ -1280,9 +1344,19 @@ window.medvault = function medvault() {
       await this.run("Keluar", async () => {
         await this.api("/api/v1/auth/logout", { method: "POST", body: {} });
         this.session = null;
+        this.sessionInfo = null;
         this.patients = [];
         this.blocks = [];
         this.validation = null;
+        this.validationCheckedAt = "";
+        this.telemetry = null;
+        this.telemetrySource = null;
+        this.telemetryAt = "";
+        try {
+          sessionStorage.removeItem("medvault.telemetry");
+        } catch (_) {
+          // Ignore storage failures on logout.
+        }
         this.dongle = null;
         this.dongleNote = "";
         this.loginStep = 1;
@@ -1617,6 +1691,7 @@ window.medvault = function medvault() {
       const data = env.data || {};
       this.blocks = data.blocks || [];
       this.validation = data.validation || null;
+      this.validationCheckedAt = new Date().toISOString();
     },
 
     async simulateTamper() {

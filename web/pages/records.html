@@ -70,13 +70,13 @@
 
         <dl class="mv-kv" x-show="inspection" style="margin-top:16px; padding-top:16px; border-top:1px solid var(--mv-ui-border);">
           <dt>Ciphertext</dt>
-          <dd class="mv-mono" x-text="inspection?.record?.diagnosis_ciphertext || '9f3a1c7e52b04d…e04b8a21 (XChaCha20-Poly1305, AAD = no. RM)'"></dd>
+          <dd class="mv-mono" x-text="inspection?.record?.diagnosis_ciphertext || '-'"></dd>
           <dt>Diagnosis</dt>
-          <dd x-text="inspection?.record?.diagnosis_plaintext || 'Hipertensi esensial derajat 1 (hasil dekripsi)'"></dd>
+          <dd x-text="inspection?.record?.diagnosis_plaintext || '-'"></dd>
           <dt>Resep</dt>
-          <dd x-text="inspection?.record?.prescription_plaintext || 'Amlodipine 5 mg, 1×1 pagi'"></dd>
+          <dd x-text="inspection?.record?.prescription_plaintext || '-'"></dd>
           <dt>Intermediate klasik</dt>
-          <dd class="mv-mono" x-text="inspection?.classical_intermediates?.diagnosis || 'Vigenere: \"Xk3…q\" → Transposisi: \"q9…Xk\"'"></dd>
+          <dd class="mv-mono" x-text="inspection?.classical_intermediates?.diagnosis || '-'"></dd>
         </dl>
       </div>
 
@@ -91,16 +91,7 @@
         <div class="mv-card-head">
           <h3 class="mv-card-title">Rekam terbaru</h3>
         </div>
-        <div class="mv-table-wrap">
-          <table class="mv-table">
-            <thead><tr><th>No. RM</th><th>Pasien</th><th>Status</th><th>Waktu</th></tr></thead>
-            <tbody>
-              <tr><td class="mv-mono">RM-0004</td><td>Dewi Lestari</td><td><span class="mv-badge mv-badge-teal">OPEN</span></td><td class="mv-row-sub">Hari ini · 09:14</td></tr>
-              <tr><td class="mv-mono">RM-0002</td><td>Siti Rahmawati</td><td><span class="mv-badge">CLOSED</span></td><td class="mv-row-sub">Kemarin · 15:40</td></tr>
-              <tr><td class="mv-mono">RM-0001</td><td>Budi Santoso</td><td><span class="mv-badge">CLOSED</span></td><td class="mv-row-sub">16 Nov · 10:05</td></tr>
-            </tbody>
-          </table>
-        </div>
+        <p class="mv-note" style="margin:0;">API belum menyediakan daftar rekam medis. Gunakan ID rekam pada formulir inspeksi untuk membuka ciphertext dan hasil dekripsi.</p>
       </div>
     </div>
   </div>

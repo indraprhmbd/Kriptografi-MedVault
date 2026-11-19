@@ -37,10 +37,10 @@
           <span>Citra asli</span><span>Berwatermark</span>
         </div>
         <div class="mv-metric-grid" style="margin-top:8px;">
-          <div class="mv-metric"><p class="mv-metric-label">PSNR</p><p class="mv-metric-value" x-text="stegoResult ? stegoResult.psnr_db.toFixed(1).replace('.', ',') + ' dB' : '52,4 dB'"></p></div>
-          <div class="mv-metric"><p class="mv-metric-label">MSE</p><p class="mv-metric-value" x-text="stegoResult ? stegoResult.mse : '0,37'"></p></div>
-          <div class="mv-metric"><p class="mv-metric-label">Kapasitas</p><p class="mv-metric-value" x-text="stegoResult ? Math.floor(stegoResult.capacity_bits / 8192) + ' KB' : '24 KB'"></p></div>
-          <div class="mv-metric"><p class="mv-metric-label">Tag HMAC</p><p class="mv-metric-value mv-mono" x-text="stegoResult?.hmac_tag_hex || '8d1f…c3a9'"></p></div>
+          <div class="mv-metric"><p class="mv-metric-label">PSNR</p><p class="mv-metric-value" x-text="stegoResult && typeof stegoResult.psnr_db === 'number' ? stegoResult.psnr_db.toFixed(1).replace('.', ',') + ' dB' : '-'"></p></div>
+          <div class="mv-metric"><p class="mv-metric-label">MSE</p><p class="mv-metric-value" x-text="stegoResult && typeof stegoResult.mse === 'number' ? stegoResult.mse : '-'"></p></div>
+          <div class="mv-metric"><p class="mv-metric-label">Kapasitas</p><p class="mv-metric-value" x-text="stegoResult && stegoResult.capacity_bits ? Math.floor(stegoResult.capacity_bits / 8192) + ' KB' : '-'"></p></div>
+          <div class="mv-metric"><p class="mv-metric-label">Tag HMAC</p><p class="mv-metric-value mv-mono" x-text="stegoResult?.hmac_tag_hex || '-'"></p></div>
         </div>
         <img x-show="stegoResult" :src="stegoImageUrl()" alt="Pratinjau citra berwatermark" style="max-height:240px; width:auto; margin-top:14px; border:1px solid var(--mv-ui-border); border-radius:16px;">
       </div>
@@ -80,10 +80,8 @@
       </div>
 
       <div x-show="toast.type === 'error' && /watermark|HMAC|Ekstrak/i.test(toast.message)" class="mv-alert mv-alert-danger" style="margin-top:16px;">
-        <p class="mv-alert-title">State gagal ekstraksi</p>
-        <p class="mv-note">Contoh tampilan bila verifikasi ditolak.</p>
-        <p class="mv-alert-title" style="margin-top:10px;">Ekstraksi ditolak</p>
-        <p class="mv-note">Tidak ada watermark MedVault, atau bit payload telah berubah.</p>
+        <p class="mv-alert-title">Ekstraksi ditolak</p>
+        <p class="mv-note" x-text="toast.message"></p>
       </div>
     </div>
   </div>
