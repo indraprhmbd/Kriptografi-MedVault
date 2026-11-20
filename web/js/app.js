@@ -7,6 +7,7 @@
 const PKCS8_ED25519_PREFIX = "302e020100300506032b657004220420";
 const MAX_VAULT_FILE_BYTES = 64 * 1024 * 1024;
 const PENDING_STORAGE_KEY = "medvault.pending";
+const PATIENT_DRAFT_KEY = "medvault.patientDraft";
 
 function hexToBytes(hex) {
   const clean = (hex || "").trim();
@@ -163,6 +164,23 @@ window.medvault = function medvault() {
       full_name: "",
       address: "",
       birth_date: "",
+    },
+    patientTouched: {
+      medical_record_number: false,
+      nik: false,
+      full_name: false,
+      birth_date: false,
+    },
+
+    get patientNikValid() {
+      return /^[0-9]{16}$/.test(String(this.patientForm.nik || "").trim());
+    },
+
+    get patientBirthDateValid() {
+      const value = String(this.patientForm.birth_date || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+      const parsed = new Date(`${value}T00:00:00Z`);
+      return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
     },
 
     recordForm: {
@@ -537,6 +555,10 @@ window.medvault = function medvault() {
         });
       }
       this.restoreRememberedRecord();
+      this.restorePatientDraft();
+      ["medical_record_number", "nik", "full_name", "address", "birth_date"].forEach((field) => {
+        this.$watch(`patientForm.${field}`, () => this.savePatientDraft());
+      });
       try {
         await Promise.all([this.checkHealth(), this.restoreSession()]);
       } finally {
@@ -1451,6 +1473,7 @@ window.medvault = function medvault() {
         this.telemetrySource = null;
         this.telemetryAt = "";
         this.clearPending();
+        this.clearPatientDraft();
         try {
           sessionStorage.removeItem("medvault.telemetry");
         } catch (_) {
@@ -1579,6 +1602,67 @@ window.medvault = function medvault() {
       }
     },
 
+    // The enrolment form is a full document load per module. Keep a draft in
+    // sessionStorage so an expired session or an accidental refresh does not
+    // throw away everything the doctor already typed.
+    savePatientDraft() {
+      const hasContent = Object.values(this.patientForm).some(
+        (value) => String(value || "").trim() !== ""
+      );
+      try {
+        if (!hasContent) {
+          sessionStorage.removeItem(PATIENT_DRAFT_KEY);
+          return;
+        }
+        sessionStorage.setItem(PATIENT_DRAFT_KEY, JSON.stringify(this.patientForm));
+      } catch (_) {
+        // Storage may be disabled; the in-memory form still applies.
+      }
+    },
+
+    clearPatientDraft() {
+      try {
+        sessionStorage.removeItem(PATIENT_DRAFT_KEY);
+      } catch (_) {
+        // Ignore storage failures.
+      }
+    },
+
+    restorePatientDraft() {
+      try {
+        const raw = sessionStorage.getItem(PATIENT_DRAFT_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (!saved || typeof saved !== "object") return;
+        this.patientForm = {
+          medical_record_number: String(saved.medical_record_number || ""),
+          nik: String(saved.nik || ""),
+          full_name: String(saved.full_name || ""),
+          address: String(saved.address || ""),
+          birth_date: String(saved.birth_date || ""),
+        };
+      } catch (_) {
+        this.clearPatientDraft();
+      }
+    },
+
+    patientApiError(error) {
+      const message = String((error && error.message) || error || "");
+      if (/already exists|already enrolled|sudah terdaftar|unique/i.test(message)) {
+        return new Error("Nomor rekam medis sudah terdaftar. Gunakan nomor lain.");
+      }
+      if (/nik|16 digits/i.test(message)) {
+        return new Error("NIK harus tepat 16 digit angka tanpa spasi.");
+      }
+      if (/birth_date|YYYY-MM-DD/i.test(message)) {
+        return new Error("Tanggal lahir harus berformat YYYY-MM-DD.");
+      }
+      if (/are required|is required/i.test(message)) {
+        return new Error("Lengkapi nomor rekam medis, NIK, nama lengkap, dan tanggal lahir.");
+      }
+      return error;
+    },
+
     // Focuses the enrolment form without relying on a DOM global inside an
     // Alpine expression, so a missing element cannot break the page.
     focusPatientMrn() {
@@ -1598,26 +1682,40 @@ window.medvault = function medvault() {
       const address = String(form.address || "").trim();
       const birthDate = String(form.birth_date || "").trim();
 
+      this.patientTouched.medical_record_number = true;
+      this.patientTouched.nik = true;
+      this.patientTouched.full_name = true;
+      this.patientTouched.birth_date = true;
+
       if (!medicalRecordNumber || !nik || !fullName || !birthDate) {
         this.notify("Lengkapi nomor rekam medis, NIK, nama lengkap, dan tanggal lahir", "error");
         return;
       }
       if (!/^[0-9]{16}$/.test(nik)) {
-        this.notify("NIK harus tepat 16 digit", "error");
+        this.notify("NIK harus 16 digit angka tanpa spasi atau tanda baca", "error");
+        return;
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+        this.notify("Tanggal lahir harus berformat YYYY-MM-DD", "error");
         return;
       }
 
       await this.run("Simpan pasien", async () => {
-        const env = await this.api("/api/v1/patients", {
-          method: "POST",
-          body: {
-            medical_record_number: medicalRecordNumber,
-            nik,
-            full_name: fullName,
-            address,
-            birth_date: birthDate,
-          },
-        });
+        let env;
+        try {
+          env = await this.api("/api/v1/patients", {
+            method: "POST",
+            body: {
+              medical_record_number: medicalRecordNumber,
+              nik,
+              full_name: fullName,
+              address,
+              birth_date: birthDate,
+            },
+          });
+        } catch (error) {
+          throw this.patientApiError(error);
+        }
         const patient = env.data && env.data.patient;
         this.patientForm = {
           medical_record_number: "",
@@ -1626,6 +1724,13 @@ window.medvault = function medvault() {
           address: "",
           birth_date: "",
         };
+        this.patientTouched = {
+          medical_record_number: false,
+          nik: false,
+          full_name: false,
+          birth_date: false,
+        };
+        this.clearPatientDraft();
         await this.loadPatients();
         if (patient) {
           this.recordForm.patient_id = patient.id;

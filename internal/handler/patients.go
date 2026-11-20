@@ -5,8 +5,10 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"medvault/internal/crypto"
 	"medvault/internal/repository"
@@ -55,6 +57,10 @@ func (s *Server) handleCreatePatient(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, badRequest("nik must be 16 digits"))
 		return
 	}
+	if !isISODate(req.BirthDate) {
+		respondError(w, http.StatusBadRequest, badRequest("birth_date must use YYYY-MM-DD format"))
+		return
+	}
 
 	tr := telemetry.NewTrace("PATIENT_COLUMN_ENCRYPTION")
 
@@ -80,9 +86,10 @@ func (s *Server) handleCreatePatient(w http.ResponseWriter, r *http.Request) {
 	// The repository encrypts on write with fresh nonces. Read the row back so
 	// the glass box shows the exact ciphertext that sits on disk, not a
 	// throwaway encryption produced only for the telemetry response.
+	// The row is already committed here, so a telemetry read failure must not
+	// turn a successful write into a 500 and strand the UI with a stale form.
 	if err := addStoredColumnTelemetry(r.Context(), s.store.Patients, created.ID, req, tr); err != nil {
-		respondError(w, http.StatusInternalServerError, err)
-		return
+		log.Printf("patient %d: build column telemetry: %v", created.ID, err)
 	}
 
 	tr.Metric("encrypted_columns", 3, "columns")
@@ -159,6 +166,15 @@ func isSixteenDigits(value string) bool {
 		}
 	}
 	return true
+}
+
+// isISODate reports whether value is a strict YYYY-MM-DD calendar date.
+func isISODate(value string) bool {
+	if len(value) != 10 {
+		return false
+	}
+	_, err := time.Parse("2006-01-02", value)
+	return err == nil
 }
 
 // storedColumnReader is the narrow repository surface needed by the glass-box
