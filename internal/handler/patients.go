@@ -1,10 +1,14 @@
 package handler
 
 import (
+	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strings"
 
+	"medvault/internal/crypto"
 	"medvault/internal/repository"
 	"medvault/internal/telemetry"
 )
@@ -47,7 +51,7 @@ func (s *Server) handleCreatePatient(w http.ResponseWriter, r *http.Request) {
 			badRequest("medical_record_number, nik, full_name, and birth_date are required"))
 		return
 	}
-	if len(req.NIK) != 16 {
+	if !isSixteenDigits(req.NIK) {
 		respondError(w, http.StatusBadRequest, badRequest("nik must be 16 digits"))
 		return
 	}
@@ -62,12 +66,6 @@ func (s *Server) handleCreatePatient(w http.ResponseWriter, r *http.Request) {
 		BirthDate:           req.BirthDate,
 	}
 
-	encrypted, err := s.encryptPatientColumns(patient, tr)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, err)
-		return
-	}
-
 	created, err := s.store.Patients.Create(r.Context(), patient)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
@@ -79,7 +77,14 @@ func (s *Server) handleCreatePatient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = encrypted
+	// The repository encrypts on write with fresh nonces. Read the row back so
+	// the glass box shows the exact ciphertext that sits on disk, not a
+	// throwaway encryption produced only for the telemetry response.
+	if err := addStoredColumnTelemetry(r.Context(), s.store.Patients, created.ID, req, tr); err != nil {
+		respondError(w, http.StatusInternalServerError, err)
+		return
+	}
+
 	tr.Metric("encrypted_columns", 3, "columns")
 
 	respondOK(w, "Pasien tersimpan dengan kolom identitas terenkripsi AES-256-GCM",
@@ -143,27 +148,45 @@ func (s *Server) handleListPatients(w http.ResponseWriter, r *http.Request) {
 	}, tr)
 }
 
-// encryptPatientColumns encrypts the three protected patient fields and records
-// one telemetry step per column, including the exact stored Base64 value.
-func (s *Server) encryptPatientColumns(p *repository.Patient, tr *telemetry.Trace) (map[string]string, error) {
-	out := make(map[string]string, 3)
+// isSixteenDigits reports whether value is exactly 16 ASCII decimal digits.
+func isSixteenDigits(value string) bool {
+	if len(value) != 16 {
+		return false
+	}
+	for i := 0; i < len(value); i++ {
+		if value[i] < '0' || value[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// storedColumnReader is the narrow repository surface needed by the glass-box
+// telemetry. It keeps addStoredColumnTelemetry easy to unit test.
+type storedColumnReader interface {
+	RawRow(ctx context.Context, id int64) (map[string]string, error)
+}
+
+// addStoredColumnTelemetry records the exact ciphertext written to disk. The
+// repository encrypts with fresh nonces, so reading the row back is the only
+// way to show the real nonce and tag in the glass box.
+func addStoredColumnTelemetry(ctx context.Context, reader storedColumnReader, id int64, req createPatientRequest, tr *telemetry.Trace) error {
+	row, err := reader.RawRow(ctx, id)
+	if err != nil {
+		return fmt.Errorf("read stored patient columns: %w", err)
+	}
 
 	for _, item := range []struct {
 		column    string
+		key       string
 		plaintext string
 		label     string
 	}{
-		{repository.ColumnPatientNIK, p.NIK, "NIK"},
-		{repository.ColumnPatientName, p.FullName, "Nama lengkap"},
-		{repository.ColumnPatientAddress, p.Address, "Alamat"},
+		{repository.ColumnPatientNIK, "nik_enc", req.NIK, "NIK"},
+		{repository.ColumnPatientName, "full_name_enc", req.FullName, "Nama lengkap"},
+		{repository.ColumnPatientAddress, "address_enc", req.Address, "Alamat"},
 	} {
-		enc := s.column
-		sealed, columnTrace, err := enc.Encrypt(item.column, item.plaintext)
-		if err != nil {
-			return nil, fmt.Errorf("encrypt %s: %w", item.column, err)
-		}
-		out[item.column] = sealed
-
+		sealed := row[item.key]
 		tr.Add(telemetry.Step{
 			Name:          item.label + " (" + item.column + ")",
 			Algorithm:     "AES-256-GCM, AAD bound to the column name",
@@ -171,19 +194,34 @@ func (s *Server) encryptPatientColumns(p *repository.Patient, tr *telemetry.Trac
 			OutputPreview: telemetry.Preview(sealed, 48),
 			StorageB64:    telemetry.Preview(sealed, 64),
 		})
-		if columnTrace != nil && len(columnTrace.Steps) > 1 {
-			tr.Add(telemetry.Step{
-				Name:      "Nonce and tag for " + item.column,
-				Algorithm: "crypto/rand plus Poly1305 tag",
-				NonceHex:  columnTrace.Steps[1].NonceHex,
-				TagHex:    columnTrace.Steps[1].TagHex,
-				Detail:    "column swap or bit flip makes GCM authentication fail",
-			})
+
+		nonceHex, tagHex, ok := decodeAESGCMNonceTag(sealed)
+		if !ok {
+			return fmt.Errorf("stored %s is not a valid AES-GCM column", item.column)
 		}
+		tr.Add(telemetry.Step{
+			Name:      "Nonce and tag for " + item.column,
+			Algorithm: "crypto/rand plus Poly1305 tag",
+			NonceHex:  nonceHex,
+			TagHex:    tagHex,
+			Detail:    "column swap or bit flip makes GCM authentication fail",
+		})
 	}
 
 	tr.Metric("key_bytes", 32, "bytes")
-	return out, nil
+	return nil
+}
+
+// decodeAESGCMNonceTag extracts the leading nonce and trailing tag from the
+// Base64(nonce || ciphertext || tag) layout used by ColumnEncryptor.
+func decodeAESGCMNonceTag(encoded string) (string, string, bool) {
+	raw, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil || len(raw) < crypto.AESGCMNonceSize+crypto.AESGCMTagSize {
+		return "", "", false
+	}
+	nonce := raw[:crypto.AESGCMNonceSize]
+	tag := raw[len(raw)-crypto.AESGCMTagSize:]
+	return hex.EncodeToString(nonce), hex.EncodeToString(tag), true
 }
 
 func patientViewFrom(p *repository.Patient) patientView {

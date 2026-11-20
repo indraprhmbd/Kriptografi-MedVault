@@ -559,43 +559,47 @@ func (s *Server) sealPending(ctx context.Context, user *repository.User, token, 
 		return nil, nil, errUnauthorized
 	}
 
+	// Work on a copy so a second peek cannot observe fields mutated by the
+	// validator countersignature while the first request is still sealing.
+	block := *proposal.Block
+
 	signatureHex = strings.TrimSpace(signatureHex)
-	if err := crypto.VerifySignature(user.DongleEd25519PubkeyHex, string(ledger.TxPayload(proposal.Block)), signatureHex); err != nil {
+	if err := crypto.VerifySignature(user.DongleEd25519PubkeyHex, string(ledger.TxPayload(&block)), signatureHex); err != nil {
 		return nil, nil, badRequest("dongle signature does not match the transaction payload: %v", err)
 	}
 
-	block := proposal.Block
 	tr := telemetry.NewTrace("POA_BLOCK_SEAL")
 	tr.Add(telemetry.Step{
 		Step:         1,
 		Name:         "Browser dongle Ed25519 signature verified",
 		Algorithm:    "Ed25519 over the canonical transaction payload",
-		InputPreview: telemetry.Preview(string(ledger.TxPayload(block)), 96),
+		InputPreview: telemetry.Preview(string(ledger.TxPayload(&block)), 96),
 		Fingerprint:  "ed25519:" + shortHex(user.DongleEd25519PubkeyHex, 16),
 	})
 
+	// Keep the lock until the block is appended and consumed. Releasing it
+	// before the append lets two proposals built from the same head both pass
+	// the staleness check and append duplicate block indexes.
 	s.chainMu.Lock()
+	defer s.chainMu.Unlock()
+
 	last, headErr := s.store.Audit.Last(ctx)
 	if headErr == nil {
 		if last.BlockIndex+1 != block.BlockIndex || !strings.EqualFold(last.CurrentHash, block.PreviousHash) {
-			s.chainMu.Unlock()
 			return nil, tr, badRequest("block proposal is stale, rebuild the record to sign a fresh block")
 		}
 	} else if !errors.Is(headErr, repository.ErrNotFound) {
-		s.chainMu.Unlock()
 		return nil, tr, headErr
 	}
 
 	block.DoctorSignatureHex = signatureHex
 	hash, err := block.ComputeCurrentHash()
 	if err != nil {
-		s.chainMu.Unlock()
 		return nil, tr, err
 	}
 	block.CurrentHash = hash
 
-	decision, validatorTrace, err := s.validator.Propose(ctx, block)
-	s.chainMu.Unlock()
+	decision, validatorTrace, err := s.validator.Propose(ctx, &block)
 
 	if err != nil {
 		return nil, telemetry.Merge("POA_BLOCK_SEAL", tr, validatorTrace),

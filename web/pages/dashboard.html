@@ -1,4 +1,4 @@
-<section class="mv-stack" x-data="{ moduleFilter: 'semua', ledgerMode: 'valid' }">
+<section class="mv-stack" x-data="{ moduleFilter: 'semua' }">
   <div class="mv-page-head mv-enter mv-enter-3">
     <div>
       <p class="mv-ui-eyebrow">Clinical workspace</p>
@@ -6,7 +6,7 @@
       <p class="mv-ui-subtitle">Ringkasan ruang kerja MedVault dan akses cepat seluruh modul.</p>
     </div>
     <div class="mv-page-actions">
-      <span class="mv-badge mv-badge-success" x-text="health ? 'API terhubung' : 'Memeriksa API...'"></span>
+      <span class="mv-badge" :class="healthBadgeClass" x-text="healthLabel"></span>
       <button type="button" class="mv-btn mv-btn-primary" @click="navigate('/patients')">Pasien baru</button>
     </div>
   </div>
@@ -74,29 +74,19 @@
         <button type="button" class="mv-btn mv-btn-mint mv-btn-sm" @click="loadAudit()">Verifikasi rantai</button>
       </div>
 
-      <div class="mv-segmented" role="group" aria-label="Status rantai" style="margin-bottom:8px;">
-        <button type="button" class="mv-segment" :class="ledgerMode === 'valid' ? 'is-active' : ''" @click="ledgerMode = 'valid'">Rantai valid</button>
-        <button type="button" class="mv-segment" :class="ledgerMode === 'tamper' ? 'is-active' : ''" @click="ledgerMode = 'tamper'">Simulasi tamper</button>
-      </div>
-
-      <div x-show="ledgerMode === 'valid'">
+      <div>
         <template x-for="b in blocks.slice(-3).reverse()" :key="b.current_hash">
           <div class="mv-block-row">
             <div>
               <p style="margin:0; font-weight:700;" x-text="'#' + b.block_index"></p>
-              <p class="mv-block-hash" style="margin:3px 0 0;" x-text="b.current_hash ? b.current_hash.slice(0, 4) + '…' + b.current_hash.slice(-4) : '-'"></p>
+              <p class="mv-block-hash" style="margin:3px 0 0;" x-text="b.current_hash ? b.current_hash.slice(0, 4) + '...' + b.current_hash.slice(-4) : '-'"></p>
             </div>
-            <span class="mv-badge mv-badge-success">Valid</span>
+            <span class="mv-badge" :class="!validation ? 'mv-badge-teal' : (b.block_index === validation.first_failure?.block_index ? 'mv-badge-danger' : 'mv-badge-success')" x-text="!validation ? 'Belum diperiksa' : (b.block_index === validation.first_failure?.block_index ? 'Tidak valid' : 'Valid')"></span>
           </div>
         </template>
         <template x-if="blocks.length === 0">
           <p class="mv-note" style="margin:0;">Belum ada blok audit. Tekan Verifikasi rantai untuk memuat ledger.</p>
         </template>
-      </div>
-
-      <div x-show="ledgerMode === 'tamper'" style="padding-top:12px;">
-        <p class="mv-ledger-sub">Simulasi manipulasi tersedia pada halaman Audit Ledger. Perubahan satu bit ciphertext akan memutus rantai.</p>
-        <button type="button" class="mv-btn mv-btn-mint mv-btn-sm" style="margin-top:12px;" @click="navigate('/audit')">Buka simulasi</button>
       </div>
     </div>
   </div>

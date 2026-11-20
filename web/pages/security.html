@@ -41,7 +41,7 @@
           <p class="mv-row-title">Biometrik dHash</p>
           <p class="mv-row-sub">Langkah 3 - cocok dengan data pendaftaran minimal 50%</p>
         </div>
-        <span class="mv-badge" :class="session && session.webcam_dhash_hex ? 'mv-badge-success' : 'mv-badge-danger'" x-text="session && session.webcam_dhash_hex ? 'Terdaftar' : 'Belum terdaftar'"></span>
+        <span class="mv-badge" :class="session && session.has_webcam_dhash ? 'mv-badge-success' : 'mv-badge-danger'" x-text="session && session.has_webcam_dhash ? 'Terdaftar' : 'Belum terdaftar'"></span>
       </div>
 
       <div class="mv-list-row">

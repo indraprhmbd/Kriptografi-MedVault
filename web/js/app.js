@@ -5,6 +5,8 @@
 // payload. WebCrypto Ed25519 support is required for the signing flow.
 
 const PKCS8_ED25519_PREFIX = "302e020100300506032b657004220420";
+const MAX_VAULT_FILE_BYTES = 64 * 1024 * 1024;
+const PENDING_STORAGE_KEY = "medvault.pending";
 
 function hexToBytes(hex) {
   const clean = (hex || "").trim();
@@ -114,6 +116,7 @@ window.medvault = function medvault() {
     // never flash on the sidebar during a full page navigation.
     sessionReady: false,
     health: null,
+    healthState: "unknown",
     dongle: null,
     dongleNote: "",
     // Registration step 2: "" (not chosen), "new" (generate a .medkey in the
@@ -214,6 +217,23 @@ window.medvault = function medvault() {
         dateStyle: "medium",
         timeStyle: "short",
       });
+    },
+
+    get healthLabel() {
+      if (this.healthState === "down") return "API tidak terjangkau";
+      if (this.healthState === "ok") return "API terhubung";
+      return "Memeriksa API...";
+    },
+
+    get healthBadgeClass() {
+      if (this.healthState === "down") return "mv-badge-danger";
+      if (this.healthState === "ok") return "mv-badge-success";
+      return "mv-badge-teal";
+    },
+
+    get currentTabLabel() {
+      const current = this.tabs.find((tab) => tab.id === this.route);
+      return current ? current.label : "Autentikasi";
     },
 
     // Presentation-only mood for the mascot. Authentication still flows through
@@ -522,6 +542,7 @@ window.medvault = function medvault() {
       } finally {
         this.sessionReady = true;
       }
+      if (this.session) this.restorePending();
 
       if (this.session && this.route === "gate") {
         window.location.replace("/dashboard");
@@ -582,13 +603,18 @@ window.medvault = function medvault() {
     },
 
     async checkHealth() {
+      this.healthState = "unknown";
+      this.health = null;
       try {
         const response = await fetch("/healthz", { credentials: "same-origin" });
-        if (!response.ok) return;
+        if (!response.ok) throw new Error(`health status ${response.status}`);
         const env = await response.json();
+        if (env.ok === false) throw new Error("health envelope reported failure");
         this.health = env.data || null;
+        this.healthState = "ok";
       } catch (_) {
-        // The banner stays empty when the API is unreachable.
+        this.health = null;
+        this.healthState = "down";
       }
     },
 
@@ -654,6 +680,66 @@ window.medvault = function medvault() {
       }
     },
 
+    isPngFile(file) {
+      if (!file) return false;
+      const name = String(file.name || "");
+      return /\.png$/i.test(name) || String(file.type || "") === "image/png";
+    },
+
+    setVaultFile(file) {
+      if (!file) return;
+      if (file.size > MAX_VAULT_FILE_BYTES) {
+        this.vaultFile = null;
+        this.notify("Berkas melebihi batas 64 MB", "error");
+        return;
+      }
+      this.vaultFile = file;
+    },
+
+    setStegoFile(file, target) {
+      if (!file) return;
+      if (!this.isPngFile(file)) {
+        this.notify("Berkas harus berformat PNG", "error");
+        return;
+      }
+      if (target === "extract") {
+        this.extractFile = file;
+      } else {
+        this.stegoFile = file;
+      }
+    },
+
+    onDragOver(event) {
+      if (event && typeof event.preventDefault === "function") event.preventDefault();
+      if (event && event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+      if (event && event.currentTarget) event.currentTarget.classList.add("is-dragover");
+    },
+
+    onDragLeave(event) {
+      if (event && typeof event.preventDefault === "function") event.preventDefault();
+      if (event && event.currentTarget) event.currentTarget.classList.remove("is-dragover");
+    },
+
+    onDrop(event, target) {
+      if (event && typeof event.preventDefault === "function") event.preventDefault();
+      if (event && event.currentTarget) event.currentTarget.classList.remove("is-dragover");
+      const files = event && event.dataTransfer ? event.dataTransfer.files : null;
+      const file = files && files[0];
+      if (!file) return;
+      if (target === "vault") {
+        this.setVaultFile(file);
+      } else {
+        this.setStegoFile(file, target);
+      }
+    },
+
+    async setPatientView(view) {
+      await this.run("Muat pasien", async () => {
+        this.patientView = view;
+        await this.loadPatients();
+      });
+    },
+
     async api(path, options = {}) {
       const request = {
         method: options.method || "GET",
@@ -697,6 +783,10 @@ window.medvault = function medvault() {
       if (response.status === 401) {
         this.session = null;
         this.sessionInfo = null;
+        if (this.route !== "gate" && !this._authRedirectPending) {
+          this._authRedirectPending = true;
+          window.location.replace("/login");
+        }
       }
       if (!response.ok || envelope.ok === false) {
         throw new Error(envelope.error || `status ${response.status}`);
@@ -927,7 +1017,9 @@ window.medvault = function medvault() {
           if (!this.registerForm.username.trim()) {
             this.registerForm.username = this.dongle.username;
           }
-          this.loginForm.username = this.dongle.username;
+          if (!this.loginForm.username.trim()) {
+            this.loginForm.username = this.dongle.username;
+          }
         }
         if (this.dongle.keyId) {
           this.registerForm.dongle_key_id = this.dongle.keyId;
@@ -935,6 +1027,12 @@ window.medvault = function medvault() {
         this.registerTouched.dongle = true;
 
         const publicHex = await this.derivePublicKeyHex(seed);
+        const declaredPublic = String(key.public_key_hex || "").trim().toLowerCase();
+        if (declaredPublic && declaredPublic !== publicHex.toLowerCase()) {
+          throw new Error(
+            "kunci publik pada berkas dongle tidak cocok dengan kunci privatnya"
+          );
+        }
         this.registerForm.dongle_pubkey_hex = publicHex;
         this.notify("Berkas dongle siap digunakan");
       });
@@ -1352,6 +1450,7 @@ window.medvault = function medvault() {
         this.telemetry = null;
         this.telemetrySource = null;
         this.telemetryAt = "";
+        this.clearPending();
         try {
           sessionStorage.removeItem("medvault.telemetry");
         } catch (_) {
@@ -1433,6 +1532,9 @@ window.medvault = function medvault() {
         });
 
         this.session = (env.data && env.data.user) || { username };
+        this.sessionInfo = (env.data && env.data.session) || null;
+        this.stopLoginFacePreview();
+        this.clearLoginFaceCapture();
         this.notify("Masuk dengan Windows Hello dan dongle");
         this.navigate("/dashboard");
       });
@@ -1500,7 +1602,7 @@ window.medvault = function medvault() {
         this.notify("Lengkapi nomor rekam medis, NIK, nama lengkap, dan tanggal lahir", "error");
         return;
       }
-      if (nik.length !== 16) {
+      if (!/^[0-9]{16}$/.test(nik)) {
         this.notify("NIK harus tepat 16 digit", "error");
         return;
       }
@@ -1537,6 +1639,9 @@ window.medvault = function medvault() {
         if (!this.recordForm.patient_id) {
           throw new Error("pilih pasien terlebih dahulu");
         }
+        if (!String(this.recordForm.diagnosis || "").trim()) {
+          throw new Error("isi diagnosis terlebih dahulu");
+        }
         const env = await this.api("/api/v1/records", {
           method: "POST",
           body: this.recordForm,
@@ -1546,12 +1651,14 @@ window.medvault = function medvault() {
           this.rememberRecord(data.record.id);
         }
         if (data.proposal) {
-          this.pending = {
-            token: data.proposal.proposal_token,
-            payload: data.proposal.tx_payload,
-            action: data.proposal.action_type,
-          };
+          this.rememberPending(data.proposal);
         }
+        this.recordForm = {
+          patient_id: this.recordForm.patient_id,
+          diagnosis: "",
+          prescription: "",
+          visit_status: this.recordForm.visit_status,
+        };
         this.notify(env.message || "Rekam medis terenkripsi");
       });
     },
@@ -1562,6 +1669,62 @@ window.medvault = function medvault() {
         const env = await this.api(`/api/v1/records/${this.inspectId}/inspect`);
         this.inspection = env.data;
       });
+    },
+
+    // Every module navigation is a full document load, so the signature step
+    // must survive a refresh. Mirror the proposal into sessionStorage and
+    // restore it once the session is known to be valid.
+    rememberPending(proposal) {
+      this.pending = {
+        token: proposal.proposal_token,
+        payload: proposal.tx_payload,
+        action: proposal.action_type,
+        expires_at: proposal.expires_at || "",
+      };
+      try {
+        sessionStorage.setItem(PENDING_STORAGE_KEY, JSON.stringify(this.pending));
+      } catch (_) {
+        // Storage may be disabled; the in-memory copy still applies.
+      }
+    },
+
+    clearPending() {
+      this.pending = null;
+      try {
+        sessionStorage.removeItem(PENDING_STORAGE_KEY);
+      } catch (_) {
+        // Ignore storage failures.
+      }
+    },
+
+    restorePending() {
+      try {
+        const raw = sessionStorage.getItem(PENDING_STORAGE_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (
+          !saved ||
+          typeof saved.token !== "string" ||
+          typeof saved.payload !== "string" ||
+          !saved.token ||
+          !saved.payload
+        ) {
+          this.clearPending();
+          return;
+        }
+        if (saved.expires_at && Date.parse(saved.expires_at) <= Date.now()) {
+          this.clearPending();
+          return;
+        }
+        this.pending = {
+          token: saved.token,
+          payload: saved.payload,
+          action: saved.action || "",
+          expires_at: saved.expires_at || "",
+        };
+      } catch (_) {
+        this.clearPending();
+      }
     },
 
     async sealPending() {
@@ -1576,7 +1739,7 @@ window.medvault = function medvault() {
           },
         });
         const block = env.data && env.data.block;
-        this.pending = null;
+        this.clearPending();
         await this.loadAudit();
         this.notify(
           block
@@ -1604,18 +1767,16 @@ window.medvault = function medvault() {
         );
         const data = env.data || {};
         if (data.proposal) {
-          this.pending = {
-            token: data.proposal.proposal_token,
-            payload: data.proposal.tx_payload,
-            action: data.proposal.action_type,
-          };
+          this.rememberPending(data.proposal);
         }
         this.vaultInfo = {
           original_name: (data.record || {}).lab_original_name,
-          ciphertext_bytes: 0,
+          plaintext_bytes: data.plaintext_bytes,
           plaintext_sha256: data.plaintext_sha256,
           header_preview_hex: data.ciphertext_preview,
         };
+        this.vaultFile = null;
+        if (this.$refs.vaultFileInput) this.$refs.vaultFileInput.value = "";
         this.notify(env.message || "Berkas tersegel");
       });
     },
@@ -1653,11 +1814,7 @@ window.medvault = function medvault() {
         const data = env.data || {};
         this.stegoResult = data;
         if (data.proposal) {
-          this.pending = {
-            token: data.proposal.proposal_token,
-            payload: data.proposal.tx_payload,
-            action: data.proposal.action_type,
-          };
+          this.rememberPending(data.proposal);
         }
         this.notify(env.message || "Watermark tersisip");
       });
