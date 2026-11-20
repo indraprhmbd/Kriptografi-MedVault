@@ -20,26 +20,37 @@
         </div>
       </div>
 
-      <div style="display:flex; flex-direction:column; gap:12px;">
+      <form @submit.prevent="createPatient()" novalidate style="display:flex; flex-direction:column; gap:12px;">
         <label class="mv-field">Nomor rekam medis
-          <input id="patient-mrn" x-model="patientForm.medical_record_number" class="mv-input" placeholder="contoh: RM-0006">
+          <input id="patient-mrn" x-model="patientForm.medical_record_number" @blur="patientTouched.medical_record_number = true" class="mv-input" placeholder="contoh: RM-0006" required>
         </label>
+        <p class="mv-field-error" x-show="patientTouched.medical_record_number && !patientForm.medical_record_number.trim()" x-text="'Nomor rekam medis wajib diisi'" style="display:none;"></p>
+
         <label class="mv-field">NIK 16 digit
-          <input x-model="patientForm.nik" maxlength="16" class="mv-input mv-mono" placeholder="3171 •••• •••• ••••">
+          <input x-model="patientForm.nik" @blur="patientTouched.nik = true" maxlength="16" inputmode="numeric" pattern="[0-9]{16}" class="mv-input mv-mono" placeholder="3171010101900001" required>
         </label>
+        <p class="mv-field-error" x-show="patientTouched.nik && !patientForm.nik.trim()" x-text="'NIK wajib diisi'" style="display:none;"></p>
+        <p class="mv-field-error" x-show="patientTouched.nik && patientForm.nik.trim() && !patientNikValid" x-text="'NIK harus tepat 16 digit angka tanpa spasi atau tanda baca'" style="display:none;"></p>
+        <p class="mv-note">Ketik 16 angka tanpa spasi atau tanda baca.</p>
+
         <label class="mv-field">Nama lengkap
-          <input x-model="patientForm.full_name" class="mv-input" placeholder="Nama sesuai KTP">
+          <input x-model="patientForm.full_name" @blur="patientTouched.full_name = true" class="mv-input" placeholder="Nama sesuai KTP" required>
         </label>
-        <label class="mv-field">Alamat
+        <p class="mv-field-error" x-show="patientTouched.full_name && !patientForm.full_name.trim()" x-text="'Nama lengkap wajib diisi'" style="display:none;"></p>
+
+        <label class="mv-field">Alamat <span class="mv-field-note">(opsional)</span>
           <input x-model="patientForm.address" class="mv-input" placeholder="Jalan, nomor, kota">
         </label>
-        <label class="mv-field">Tanggal lahir
-          <input type="date" x-model="patientForm.birth_date" class="mv-input" placeholder="DD / MM / YYYY">
-        </label>
-      </div>
 
-      <p class="mv-note">NIK, nama, dan alamat disegel AES-256-GCM dengan nama kolom sebagai AAD.</p>
-      <button type="button" class="mv-btn mv-btn-primary" style="width:100%; margin-top:14px;" :disabled="busy" @click="createPatient()">Daftarkan pasien</button>
+        <label class="mv-field">Tanggal lahir
+          <input type="date" x-model="patientForm.birth_date" @blur="patientTouched.birth_date = true" class="mv-input" required>
+        </label>
+        <p class="mv-field-error" x-show="patientTouched.birth_date && !patientForm.birth_date.trim()" x-text="'Tanggal lahir wajib diisi'" style="display:none;"></p>
+        <p class="mv-field-error" x-show="patientTouched.birth_date && patientForm.birth_date.trim() && !patientBirthDateValid" x-text="'Tanggal lahir harus berformat YYYY-MM-DD'" style="display:none;"></p>
+
+        <p class="mv-note">NIK, nama, dan alamat disegel AES-256-GCM dengan nama kolom sebagai AAD.</p>
+        <button type="submit" class="mv-btn mv-btn-primary" style="width:100%; margin-top:14px;" :disabled="busy">Daftarkan pasien</button>
+      </form>
     </div>
 
     <div class="mv-card">

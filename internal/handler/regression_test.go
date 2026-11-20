@@ -65,6 +65,38 @@ func TestCreatePatientValidatesSixteenDigitNIK(t *testing.T) {
 	}
 }
 
+func TestCreatePatientValidatesBirthDateFormat(t *testing.T) {
+	cases := []struct {
+		name      string
+		birthDate string
+		status    int
+	}{
+		{name: "slash format", birthDate: "01/01/1990", status: http.StatusBadRequest},
+		{name: "dashes reversed", birthDate: "01-01-1990", status: http.StatusBadRequest},
+		{name: "short month", birthDate: "1990-1-1", status: http.StatusBadRequest},
+		{name: "impossible month", birthDate: "1990-13-01", status: http.StatusBadRequest},
+		{name: "iso date", birthDate: "1990-01-01", status: http.StatusOK},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			api := newTestAPI(t)
+			api.login("dr_andi")
+
+			status, _, env := api.do(http.MethodPost, "/api/v1/patients", map[string]any{
+				"medical_record_number": "RM-REGRESSION-DOB",
+				"nik":                   "3273010101900001",
+				"full_name":             "Budi Santoso",
+				"address":               "Jl. Merdeka 10, Bandung",
+				"birth_date":            tc.birthDate,
+			})
+			if status != tc.status {
+				t.Fatalf("birth_date %q: status = %d, want %d, body %v", tc.birthDate, status, tc.status, env)
+			}
+		})
+	}
+}
+
 func TestCreatePatientTelemetryMatchesStoredCiphertext(t *testing.T) {
 	api := newTestAPI(t)
 	api.login("dr_andi")
