@@ -83,7 +83,7 @@
       <div x-show="pending" class="mv-alert mv-alert-success">
         <p class="mv-alert-title">Proposal blok menunggu tanda tangan dongle</p>
         <p class="mv-mono" style="margin:8px 0;" x-text="pending?.payload"></p>
-        <p class="mv-note">Muat berkas .medkey lewat tombol dongle di header.</p>
+        <p class="mv-note">Muat berkas .medkey lewat panel Dongle di navigasi samping.</p>
         <button type="button" class="mv-btn mv-btn-primary mv-btn-sm" style="margin-top:10px;" :disabled="busy || !dongle" @click="sealPending()">Tanda tangani</button>
       </div>
 

@@ -11,15 +11,15 @@
   </div>
 
   <div class="mv-grid-2 mv-enter mv-enter-4" style="grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);">
-    <div class="mv-card" style="background:var(--mv-ui-success-bg); border-color:var(--mv-ui-success-border);">
+    <div class="mv-card" :style="validation && !validation.valid ? 'background:var(--mv-ui-danger-bg); border-color:var(--mv-ui-danger-border);' : (validation ? 'background:var(--mv-ui-success-bg); border-color:var(--mv-ui-success-border);' : '')">
       <div class="mv-card-head">
         <div>
           <h3 class="mv-card-title">Status rantai</h3>
-          <p class="mv-card-sub" style="color:var(--mv-ui-success-ink);" x-text="validation && validation.valid ? 'Integritas rantai audit terverifikasi' : 'Integritas rantai audit belum terverifikasi'"></p>
+          <p class="mv-card-sub" :style="validation && !validation.valid ? 'color:var(--mv-ui-danger-ink);' : (validation ? 'color:var(--mv-ui-success-ink);' : '')" x-text="validation && validation.valid ? 'Integritas rantai audit terverifikasi' : (validation ? 'Integritas rantai audit terganggu' : 'Integritas rantai audit belum terverifikasi')"></p>
         </div>
-        <span class="mv-badge" :class="validation && !validation.valid ? 'mv-badge-danger' : 'mv-badge-success'" x-text="validation ? (validation.valid ? 'Rantai valid' : 'Rantai tidak valid') : 'Belum diperiksa'"></span>
+        <span class="mv-badge" :class="!validation ? 'mv-badge-teal' : (validation.valid ? 'mv-badge-success' : 'mv-badge-danger')" x-text="validation ? (validation.valid ? 'Rantai valid' : 'Rantai tidak valid') : 'Belum diperiksa'"></span>
       </div>
-      <p class="mv-note" style="color:var(--mv-ui-success-ink);" x-text="validation && !validation.valid ? 'Rantai tidak valid: ' + (validation.first_failure?.reason || '') : (validation ? validation.blocks_checked + ' blok · seluruh tanda tangan dokter dan validator valid.' : 'Belum ada hasil pemeriksaan. Tekan Verifikasi rantai untuk memeriksa integritas ledger.')"></p>
+      <p class="mv-note" :style="validation && !validation.valid ? 'color:var(--mv-ui-danger-ink);' : (validation ? 'color:var(--mv-ui-success-ink);' : '')" x-text="validation && !validation.valid ? 'Rantai tidak valid: ' + (validation.first_failure?.reason || '') : (validation ? validation.blocks_checked + ' blok · seluruh tanda tangan dokter dan validator valid.' : 'Belum ada hasil pemeriksaan. Tekan Verifikasi rantai untuk memeriksa integritas ledger.')"></p>
 
       <div class="mv-grid-4" style="margin-top:16px; grid-template-columns:repeat(3,minmax(0,1fr));">
         <div class="mv-metric" style="background:var(--mv-ui-surface);"><p class="mv-metric-label">Total blok</p><p class="mv-metric-value" x-text="validation?.blocks_checked ?? blocks.length"></p></div>

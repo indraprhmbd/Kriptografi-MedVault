@@ -3,10 +3,12 @@ package handler
 import (
 	"errors"
 	"fmt"
+	"io"
+	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"medvault/internal/crypto"
@@ -56,6 +58,11 @@ func (s *Server) handleVaultUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	if err := validateLabUploadSize(header); err != nil {
+		respondError(w, http.StatusBadRequest, err)
+		return
+	}
+
 	originalName := strings.TrimSpace(header.Filename)
 	if originalName == "" {
 		originalName = fmt.Sprintf("record_%d.bin", recordID)
@@ -70,7 +77,10 @@ func (s *Server) handleVaultUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	trace, plainSHA, plainBytes, err := s.vault.EncryptReader(recordID, file, temp)
+	// The multipart size is advisory, so cap the stream as well. Reading one
+	// byte past the cap is enough to reject an oversized file without keeping
+	// the whole upload in memory.
+	trace, plainSHA, plainBytes, err := s.vault.EncryptReader(recordID, io.LimitReader(file, MaxLabUploadBytes+1), temp)
 	closeErr := temp.Close()
 	if err != nil {
 		os.Remove(tempPath)
@@ -80,6 +90,12 @@ func (s *Server) handleVaultUpload(w http.ResponseWriter, r *http.Request) {
 	if closeErr != nil {
 		os.Remove(tempPath)
 		respondError(w, http.StatusInternalServerError, closeErr, trace)
+		return
+	}
+	if plainBytes > MaxLabUploadBytes {
+		os.Remove(tempPath)
+		respondError(w, http.StatusBadRequest,
+			badRequest("laboratory file exceeds the 64 MiB limit"), trace)
 		return
 	}
 	if err := os.Rename(tempPath, targetPath); err != nil {
@@ -159,26 +175,20 @@ func (s *Server) handleVaultDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	info, err := file.Stat()
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, err)
-		return
-	}
-
 	name := safeDownloadName(record.LabOriginalName, fmt.Sprintf("record_%d.bin", recordID))
 
 	h := w.Header()
 	h.Set("Content-Type", "application/octet-stream")
 	h.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", name))
-	h.Set("Content-Length", strconv.FormatInt(info.Size(), 10))
 	h.Set("Cache-Control", "no-store")
-	h.Set("X-MedVault-Record-ID", strconv.FormatInt(recordID, 10))
+	h.Set("X-MedVault-Record-ID", fmt.Sprintf("%d", recordID))
 	h.Set("X-MedVault-Plaintext-SHA256", record.LabFileSHA256)
 
-	// Decryption failure after headers are written can only be reported by
-	// truncating the body, which is detectable through the declared length.
+	// The ciphertext on disk is larger than the plaintext, so declaring
+	// info.Size() as Content-Length truncates every successful download.
+	// Let net/http use chunked encoding and log a late authentication failure.
 	if _, err := s.vault.DecryptReader(recordID, file, w); err != nil {
-		return
+		log.Printf("vault download record %d failed: %v", recordID, err)
 	}
 }
 
@@ -294,6 +304,19 @@ func safeDownloadName(name, fallback string) string {
 		return fallback
 	}
 	return out
+}
+
+// validateLabUploadSize checks the size reported by the multipart parser before
+// any ciphertext is written. A negative size means the parser could not report
+// one; the stream is still capped in handleVaultUpload.
+func validateLabUploadSize(header *multipart.FileHeader) error {
+	if header == nil {
+		return badRequest("multipart field file is required")
+	}
+	if header.Size > MaxLabUploadBytes {
+		return badRequest("laboratory file exceeds the 64 MiB limit")
+	}
+	return nil
 }
 
 // boolToFloat renders a boolean metric, because metrics are numeric.

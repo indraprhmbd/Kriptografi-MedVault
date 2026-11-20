@@ -36,7 +36,8 @@ type registerRequest struct {
 	FaceImageBase64 string `json:"face_image_base64"`
 }
 
-// userView is the safe projection of a user row.
+// userView is the safe projection of a user row. The webcam dHash is a
+// biometric credential, so only its presence is exposed to the browser.
 type userView struct {
 	ID                    int64  `json:"id"`
 	Username              string `json:"username"`
@@ -44,7 +45,7 @@ type userView struct {
 	Role                  string `json:"role"`
 	DongleKeyID           string `json:"dongle_key_id"`
 	DonglePubkeyHex       string `json:"dongle_pubkey_hex"`
-	WebcamDhashHex        string `json:"webcam_dhash_hex"`
+	HasWebcamDhash        bool   `json:"has_webcam_dhash"`
 	HasWebAuthnCredential bool   `json:"has_webauthn_credential"`
 	CreatedAt             string `json:"created_at"`
 }
@@ -753,7 +754,7 @@ func userViewFrom(user *repository.User, hasWebAuthn bool) userView {
 		Role:                  user.Role,
 		DongleKeyID:           user.DongleKeyID,
 		DonglePubkeyHex:       user.DongleEd25519PubkeyHex,
-		WebcamDhashHex:        user.WebcamDhashHex,
+		HasWebcamDhash:        user.WebcamDhashHex != "",
 		HasWebAuthnCredential: hasWebAuthn,
 		CreatedAt:             user.CreatedAt,
 	}

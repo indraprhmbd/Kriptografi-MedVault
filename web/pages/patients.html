@@ -49,8 +49,8 @@
           <p class="mv-card-sub" x-text="patients.length + ' pasien tampil · data dari API'"></p>
         </div>
         <div class="mv-segmented" role="group" aria-label="Tampilan data">
-          <button type="button" class="mv-segment" :class="patientView === 'decrypted' ? 'is-active' : ''" @click="patientView = 'decrypted'; loadPatients()">Plaintext</button>
-          <button type="button" class="mv-segment" :class="patientView === 'raw' ? 'is-active' : ''" @click="patientView = 'raw'; loadPatients()">Raw SQLite</button>
+          <button type="button" class="mv-segment" :class="patientView === 'decrypted' ? 'is-active' : ''" :disabled="busy" @click="setPatientView('decrypted')">Plaintext</button>
+          <button type="button" class="mv-segment" :class="patientView === 'raw' ? 'is-active' : ''" :disabled="busy" @click="setPatientView('raw')">Raw SQLite</button>
         </div>
       </div>
 
@@ -60,9 +60,9 @@
             <tr>
               <th>ID</th>
               <th>No. RM</th>
-              <th x-text="patientView === 'raw' ? 'Kolom tersimpan' : 'NIK'"></th>
-              <th x-text="patientView === 'raw' ? 'Ciphertext' : 'Nama'"></th>
-              <th x-text="patientView === 'raw' ? '' : 'Alamat'"></th>
+              <th x-text="patientView === 'raw' ? 'NIK terenkripsi' : 'NIK'"></th>
+              <th x-text="patientView === 'raw' ? 'Nama terenkripsi' : 'Nama'"></th>
+              <th x-text="patientView === 'raw' ? 'Alamat terenkripsi' : 'Alamat'"></th>
             </tr>
           </thead>
           <tbody>
@@ -98,14 +98,14 @@
       <div x-show="patientView === 'raw'" style="margin-top:16px; padding:16px; border-radius:16px; background:var(--mv-ui-dark-card); color:var(--mv-ui-accent-mint);">
         <p style="margin:0 0 10px; font-size:11px; font-weight:700; letter-spacing:.06em; color:var(--mv-ui-accent-bright);">Tampilan raw SQLite · terenkripsi</p>
         <dl class="mv-kv" style="color:var(--mv-ui-accent-mint);">
-          <dt style="color:var(--mv-ui-ink-soft);">nik_enc</dt>
+          <dt style="color:var(--mv-ui-ink-soft);">NIK terenkripsi</dt>
           <dd class="mv-mono" x-text="(patients[0] && patients[0].columns && patients[0].columns.nik_enc) || '-'"></dd>
-          <dt style="color:var(--mv-ui-ink-soft);">nama_enc</dt>
+          <dt style="color:var(--mv-ui-ink-soft);">Nama terenkripsi</dt>
           <dd class="mv-mono" x-text="(patients[0] && patients[0].columns && patients[0].columns.full_name_enc) || '-'"></dd>
-          <dt style="color:var(--mv-ui-ink-soft);">alamat_enc</dt>
+          <dt style="color:var(--mv-ui-ink-soft);">Alamat terenkripsi</dt>
           <dd class="mv-mono" x-text="(patients[0] && patients[0].columns && patients[0].columns.address_enc) || '-'"></dd>
           <dt style="color:var(--mv-ui-ink-soft);">AAD</dt>
-          <dd class="mv-mono">"patients.nik" · "patients.nama" · "patients.alamat"</dd>
+          <dd class="mv-mono">"patients.nik" · "patients.full_name" · "patients.address"</dd>
         </dl>
       </div>
     </div>

@@ -90,8 +90,14 @@ func (s *Server) handleStegoEmbed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	targetPath := filepath.Join(s.cfg.StegoDir, fmt.Sprintf("record_%d.png", recordID))
-	if err := os.WriteFile(targetPath, result.PNG, 0o600); err != nil {
+	tempPath := targetPath + ".tmp"
+	if err := os.WriteFile(tempPath, result.PNG, 0o600); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Errorf("write stego image: %w", err))
+		return
+	}
+	if err := os.Rename(tempPath, targetPath); err != nil {
+		os.Remove(tempPath)
+		respondError(w, http.StatusInternalServerError, fmt.Errorf("finalise stego image: %w", err))
 		return
 	}
 

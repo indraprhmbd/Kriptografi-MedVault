@@ -24,8 +24,8 @@
         <input x-model.number="stegoRecordId" type="number" min="1" class="mv-input" placeholder="contoh: 4">
       </label>
 
-      <input id="stego-file" type="file" accept="image/png" class="mv-sr-only" @change="stegoFile = $event.target.files[0]">
-      <label for="stego-file" class="mv-dropzone">
+      <input id="stego-file" type="file" accept="image/png" class="mv-sr-only" @change="setStegoFile($event.target.files[0], 'embed')">
+      <label for="stego-file" class="mv-dropzone" @dragover="onDragOver($event)" @dragleave="onDragLeave($event)" @drop="onDrop($event, 'embed')">
         <span class="mv-dropzone-title" x-text="stegoFile ? stegoFile.name : 'Tarik berkas PNG ke sini atau pilih berkas'"></span>
         <span class="mv-dropzone-sub">Payload ditulis pada kanal RGB · alpha tidak diubah</span>
       </label>
@@ -34,7 +34,7 @@
 
       <div x-show="stegoResult" style="margin-top:16px;">
         <div style="display:flex; gap:24px; font-size:12px; font-weight:600; color:var(--mv-ui-ink-muted);">
-          <span>Citra asli</span><span>Berwatermark</span>
+          <span>Pratinjau citra berwatermark</span>
         </div>
         <div class="mv-metric-grid" style="margin-top:8px;">
           <div class="mv-metric"><p class="mv-metric-label">PSNR</p><p class="mv-metric-value" x-text="stegoResult && typeof stegoResult.psnr_db === 'number' ? stegoResult.psnr_db.toFixed(1).replace('.', ',') + ' dB' : '-'"></p></div>
@@ -47,7 +47,7 @@
 
       <div x-show="pending && pending.action === 'EMBED_STEGO'" class="mv-alert mv-alert-success" style="margin-top:16px;">
         <p class="mv-alert-title">Blok EMBED_STEGO menunggu tanda tangan</p>
-        <p class="mv-note">Muat berkas .medkey lewat tombol dongle di header.</p>
+        <p class="mv-note">Muat berkas .medkey lewat panel Dongle di navigasi samping.</p>
         <button type="button" class="mv-btn mv-btn-primary mv-btn-sm" style="margin-top:10px;" :disabled="busy || !dongle" @click="sealPending()">Tanda tangani</button>
       </div>
     </div>
@@ -60,9 +60,9 @@
         </div>
       </div>
 
-      <input id="stego-extract" type="file" accept="image/png" class="mv-sr-only" @change="extractFile = $event.target.files[0]">
-      <label for="stego-extract" class="mv-dropzone">
-        <span class="mv-dropzone-title">Pilih citra PNG untuk diperiksa</span>
+      <input id="stego-extract" type="file" accept="image/png" class="mv-sr-only" @change="setStegoFile($event.target.files[0], 'extract')">
+      <label for="stego-extract" class="mv-dropzone" @dragover="onDragOver($event)" @dragleave="onDragLeave($event)" @drop="onDrop($event, 'extract')">
+        <span class="mv-dropzone-title" x-text="extractFile ? extractFile.name : 'Pilih citra PNG untuk diperiksa'"></span>
         <span class="mv-dropzone-sub">Tarik berkas atau klik untuk memilih</span>
       </label>
       <button type="button" class="mv-btn mv-btn-ghost" style="margin-top:14px;" :disabled="busy || !session || !extractFile" @click="extractStego()">Ekstrak payload</button>
