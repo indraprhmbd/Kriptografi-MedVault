@@ -190,6 +190,7 @@ window.medvault = function medvault() {
     dongleEjectedAt: "",
     dongleLastChecked: "",
     _dongleWatchdogTimer: null,
+    _dongleConsecutiveMisses: 0,
     // Registration step 2: "" (not chosen), "new" (generate a .medkey in the
     // browser) or "existing" (read a .medkey issued earlier).
     dongleMode: "",
@@ -1182,14 +1183,16 @@ window.medvault = function medvault() {
 
     async verifyDonglePresence() {
       if (!this.dongleFileHandle) {
-        return !this.dongleSupported;
+        return { alive: true, reason: "no_handle" };
       }
       try {
         if (typeof this.dongleFileHandle.queryPermission === "function") {
           const perm = await this.dongleFileHandle.queryPermission({ mode: "read" });
           if (perm !== "granted") {
+            // Permission ungranted or requires re-prompt after reload:
+            // Standby state, not a physical removal.
             this.dongleConnected = false;
-            return false;
+            return { alive: true, reason: "permission_standby" };
           }
         }
         const file = await this.dongleFileHandle.getFile();
@@ -1197,16 +1200,25 @@ window.medvault = function medvault() {
         await slice.arrayBuffer();
         this.dongleConnected = true;
         this.dongleLastChecked = new Date().toISOString();
-        return true;
-      } catch (_) {
+        this._dongleConsecutiveMisses = 0;
+        return { alive: true, reason: "ok" };
+      } catch (err) {
+        const errName = err && err.name;
+        // Physical USB detachment on OS produces NotFoundError or NotReadableError
+        if (errName === "NotFoundError" || errName === "NotReadableError") {
+          this.dongleConnected = false;
+          return { alive: false, reason: "hardware_unmounted", error: err };
+        }
+        // Other transient I/O or permission aborts: keep standby, do not eject
         this.dongleConnected = false;
-        return false;
+        return { alive: true, reason: "io_transient", error: err };
       }
     },
 
     startDongleWatchdog() {
       this.stopDongleWatchdog();
       if (!this.dongleSupported) return;
+      this._dongleConsecutiveMisses = 0;
 
       void this.verifyDonglePresence();
 
@@ -1216,9 +1228,15 @@ window.medvault = function medvault() {
           return;
         }
         if (this.dongleFileHandle) {
-          const isAlive = await this.verifyDonglePresence();
-          if (!isAlive && this.session && !this.dongleEjected) {
-            await this.handleDongleEjection();
+          const status = await this.verifyDonglePresence();
+          if (!status.alive && status.reason === "hardware_unmounted") {
+            this._dongleConsecutiveMisses += 1;
+            // Require 2 consecutive misses (6 seconds) to filter out OS momentary re-enumeration
+            if (this._dongleConsecutiveMisses >= 2 && this.session && !this.dongleEjected) {
+              await this.handleDongleEjection();
+            }
+          } else {
+            this._dongleConsecutiveMisses = 0;
           }
         }
       }, 3000);
@@ -1229,6 +1247,7 @@ window.medvault = function medvault() {
         window.clearInterval(this._dongleWatchdogTimer);
         this._dongleWatchdogTimer = null;
       }
+      this._dongleConsecutiveMisses = 0;
     },
 
     async handleDongleEjection() {
@@ -1295,8 +1314,8 @@ window.medvault = function medvault() {
         throw new Error("USB Dongle belum terdeteksi, muat berkas .medkey dulu");
       }
       if (this.dongleFileHandle) {
-        const isPresent = await this.verifyDonglePresence();
-        if (!isPresent) {
+        const status = await this.verifyDonglePresence();
+        if (!status.alive && status.reason === "hardware_unmounted") {
           await this.handleDongleEjection();
           throw new Error("USB Dongle tidak terdeteksi pada drive komputer, operasi dibatalkan");
         }
