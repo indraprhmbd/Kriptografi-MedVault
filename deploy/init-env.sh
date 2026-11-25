@@ -9,11 +9,19 @@ set -euo pipefail
 
 BASE="${MEDVAULT_BASE:-/home/medvault}"
 ENV_FILE="$BASE/.env"
+DB_FILE="$BASE/storage/medvault.db"
 RPID="${1:-localhost}"
 ORIGIN="${2:-http://localhost:8095}"
 
 if [[ -s "$ENV_FILE" && "${FORCE:-0}" != "1" ]]; then
   echo "$ENV_FILE already exists and is not empty. Set FORCE=1 to overwrite." >&2
+  exit 1
+fi
+
+if [[ -s "$DB_FILE" && "${ALLOW_DB_KEY_ROTATION:-0}" != "1" ]]; then
+  echo "Refusing key rotation: $DB_FILE exists and contains data." >&2
+  echo "Rotating key material will permanently corrupt existing encrypted records." >&2
+  echo "Set ALLOW_DB_KEY_ROTATION=1 if you intentionally wish to rotate keys and wipe or orphan data." >&2
   exit 1
 fi
 
