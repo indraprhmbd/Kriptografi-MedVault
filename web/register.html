@@ -315,14 +315,14 @@
 
                 <!-- Mode: pakai dongle yang sudah ada -->
                 <div x-show="dongleMode === 'existing'" x-cloak class="mt-3">
-                  <label class="mv-auth-secondary cursor-pointer">
-                    <input x-ref="registerDongleInput" type="file" class="sr-only" accept=".medkey,application/json"
-                           @change="loadDongle($event)">
+                  <div class="mv-auth-secondary cursor-pointer" @click="pickDongle()">
+                    <input x-ref="registerDongleInput" data-mv-dongle-input type="file" class="sr-only" accept=".medkey,application/json"
+                           @change="loadDongle($event)" @click.stop>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
                       <use href="#mv-icon-upload"></use>
                     </svg>
                     <span x-text="dongle ? 'Ganti berkas .medkey' : 'Pilih berkas .medkey'"></span>
-                  </label>
+                  </div>
                 </div>
               </div>
 
