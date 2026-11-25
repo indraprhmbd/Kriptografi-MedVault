@@ -224,6 +224,19 @@
     .mv-drawer-pre { padding:14px; border-radius:16px; background:var(--mv-ui-dark-card); color:var(--mv-ui-accent-mint); font-family:var(--mv-ui-font-mono); font-size:12px; line-height:1.5; white-space:pre-wrap; word-break:break-all; }
     .mv-toast { position:fixed; bottom:24px; left:50%; z-index:50; width:min(90vw,560px); transform:translateX(-50%); padding:14px 16px; box-shadow:0 18px 40px -18px rgba(4,48,44,.5); font-size:13px; }
 
+    /* Hardware USB Dongle Live Status & Watchdog Ejection Modal */
+    .mv-dongle-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:600; cursor:pointer; text-decoration:none; transition:opacity .15s ease; }
+    .mv-dongle-badge:hover { opacity:.85; }
+    .mv-dongle-badge.is-online { background:#ecfdf3; color:#166534; border:1px solid #bbf7d0; }
+    .mv-dongle-badge.is-offline { background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; }
+    .mv-dongle-badge.is-compat { background:#f1f8f6; color:#5b716d; border:1px solid #dbe7e3; }
+    .mv-dongle-pulse { width:7px; height:7px; border-radius:50%; background:currentColor; }
+    .mv-dongle-badge.is-online .mv-dongle-pulse { box-shadow:0 0 0 2px rgba(22,101,52,.2); animation:mv-pulse 2s infinite; }
+    @keyframes mv-pulse { 0%, 100% { opacity:1; } 50% { opacity:.4; } }
+
+    .mv-modal-backdrop { position:fixed; inset:0; z-index:60; background:rgba(4,48,44,.75); backdrop-filter:blur(4px); display:grid; place-items:center; padding:16px; }
+    .mv-modal-box { width:min(100%,480px); background:var(--mv-ui-surface); border:1px solid var(--mv-ui-border); border-radius:24px; padding:24px; box-shadow:0 24px 64px -20px rgba(4,48,44,.6); }
+
     @media (max-width:1023px) {
       .mv-shell { flex-direction:column; gap:16px; padding:16px; }
       .mv-sidebar { position:static; width:100%; height:auto; min-height:0; flex:none; padding:16px; border-radius:24px; }
@@ -747,11 +760,14 @@
       </button>
     </nav>
 
-    <label class="mv-dongle mv-enter-5 mv-enter">
-      <input type="file" accept=".medkey,application/json" class="mv-sr-only" @change="loadDongle($event)">
-      <span x-text="dongle ? 'USB Dongle terhubung' : 'USB Dongle belum dimuat'"></span>
-      <small x-text="dongle ? 'Key ID ' + dongle.keyId + ' · siap digunakan' : 'Pilih berkas .medkey dari USB Anda'"></small>
-    </label>
+    <div class="mv-dongle mv-enter-5 mv-enter" @click="pickDongle()">
+      <input type="file" accept=".medkey,application/json" class="mv-sr-only" data-mv-dongle-input @change="loadDongle($event)" @click.stop>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+        <span x-text="dongle ? 'USB Dongle terhubung' : 'USB Dongle belum dimuat'"></span>
+        <span class="mv-dongle-pulse" :style="dongleConnected ? 'background:#99f6e4' : (dongle ? 'background:#fef08a' : 'background:#9fc4bd')"></span>
+      </div>
+      <small x-text="dongle ? ('Key ID ' + (dongle.keyId || '-') + (dongleConnected ? ' · live' : ' · manual')) : 'Klik untuk hubungkan .medkey'"></small>
+    </div>
     <button type="button" class="mv-sidebar-logout" @click="logout()">Keluar</button>
   </aside>
 
@@ -762,6 +778,15 @@
         <input type="search" aria-label="Cari pasien, rekam medis, atau blok audit" placeholder="Cari pasien, rekam medis, atau blok audit…">
       </div>
       <div class="mv-topbar-right">
+        <!-- Live Hardware USB Dongle Status Badge -->
+        <button type="button" class="mv-dongle-badge"
+                :class="dongleConnected ? 'is-online' : (dongleSupported ? (dongle ? 'is-compat' : 'is-offline') : 'is-compat')"
+                @click="pickDongle()"
+                :title="dongleConnected ? 'Hardware USB Dongle aktif dan dipantau (3s watchdog)' : (dongleSupported ? 'USB Dongle belum terpasang via File System API' : 'Browser mode kompatibilitas')">
+          <span class="mv-dongle-pulse"></span>
+          <span x-text="dongleConnected ? 'USB Dongle: Terhubung' : (dongle ? 'USB Dongle: Standby' : 'USB Dongle: Lepas')"></span>
+        </button>
+
         <button type="button" class="mv-btn mv-btn-ghost mv-btn-sm" @click="telemetryOpen = !telemetryOpen">Glass-Box</button>
         <button type="button" class="mv-icon-btn" aria-label="Notifikasi">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg>
@@ -810,6 +835,36 @@
   <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
     <p x-text="toast.message" style="margin:0;"></p>
     <button type="button" style="border:0; background:transparent; cursor:pointer; color:inherit; font-size:12px; font-weight:700;" @click="toast.message = ''">Tutup</button>
+  </div>
+</div>
+
+<!-- Hardware USB Dongle Ejection Modal -->
+<div x-show="dongleEjected" x-cloak class="mv-modal-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="dongle-ejected-title">
+  <div class="mv-modal-box">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+      <div style="width:44px; height:44px; border-radius:12px; background:#fff1f2; color:#e11d48; display:grid; place-items:center; flex-shrink:0;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+      </div>
+      <div>
+        <h3 id="dongle-ejected-title" style="margin:0; font-size:18px; font-weight:700; color:var(--mv-ui-ink);">Hardware USB Dicabut!</h3>
+        <p style="margin:2px 0 0; font-size:12px; color:var(--mv-ui-ink-muted);" x-text="'Terdeteksi pada pukul ' + (dongleEjectedAt || '-')"></p>
+      </div>
+    </div>
+    <div style="font-size:13px; line-height:1.6; color:var(--mv-ui-ink-muted); margin-bottom:20px;">
+      <p style="margin:0 0 8px;">Kunci USB Dongle fisik telah dilepas dari port USB komputer ini.</p>
+      <p style="margin:0; padding:10px 12px; border-radius:10px; background:#f8fafc; border:1px solid #e2e8f0; font-size:12px;">
+        Sesuai protokol keamanan MedVault Zero-Trust, memori kunci privat telah dihapus secara instan dan sesi login dokter telah dihentikan secara otomatis.
+      </p>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button type="button" class="mv-btn mv-btn-primary" style="width:100%;" @click="acknowledgeDongleEjection()">
+        Kembali ke Halaman Masuk
+      </button>
+    </div>
   </div>
 </div>
 

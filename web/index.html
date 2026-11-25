@@ -218,7 +218,7 @@
                        x-text="dongle ? (dongle.keyId ? 'Dongle ' + dongle.keyId + ' siap digunakan.' : 'Dongle siap digunakan.') : 'Pastikan USB sudah tertancap, lalu pilih berkas .medkey dari perangkat Anda.'"></p>
                   </div>
                 </div>
-                <button type="button" class="mv-auth-inline mt-3" @click="$refs.dongleInput.click()" :disabled="busy">
+                <button type="button" class="mv-auth-inline mt-3" @click="pickDongle()" :disabled="busy">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
                     <use href="#mv-icon-refresh"></use>
                   </svg>
@@ -226,13 +226,13 @@
                 </button>
               </div>
 
-              <label class="mv-auth-secondary cursor-pointer">
-                <input x-ref="dongleInput" type="file" class="sr-only" accept=".medkey,application/json" @change="loadDongle($event)">
+              <div class="mv-auth-secondary cursor-pointer" @click="pickDongle()">
+                <input x-ref="dongleInput" data-mv-dongle-input type="file" class="sr-only" accept=".medkey,application/json" @change="loadDongle($event)" @click.stop>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
                   <use href="#mv-icon-upload"></use>
                 </svg>
                 <span x-text="dongle ? 'Ganti berkas .medkey' : 'Pilih berkas .medkey'"></span>
-              </label>
+              </div>
 
               <div class="grid gap-3 sm:grid-cols-2">
                 <button type="button" class="mv-auth-secondary" @click="loginStep = 1" :disabled="busy">

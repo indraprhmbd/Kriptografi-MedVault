@@ -74,6 +74,69 @@ function readWebAuthnOptions(payload) {
   return payload.publicKey;
 }
 
+const DONGLE_IDB_NAME = "medvault_hardware";
+const DONGLE_IDB_STORE = "dongle_handle";
+
+function openDongleDB() {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined" || !window.indexedDB) {
+      resolve(null);
+      return;
+    }
+    try {
+      const req = window.indexedDB.open(DONGLE_IDB_NAME, 1);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(DONGLE_IDB_STORE)) {
+          db.createObjectStore(DONGLE_IDB_STORE);
+        }
+      };
+      req.onsuccess = (e) => resolve(e.target.result);
+      req.onerror = () => resolve(null);
+    } catch (_) {
+      resolve(null);
+    }
+  });
+}
+
+async function idbSaveDongleHandle(handle) {
+  if (!handle) return;
+  try {
+    const db = await openDongleDB();
+    if (!db) return;
+    const tx = db.transaction(DONGLE_IDB_STORE, "readwrite");
+    tx.objectStore(DONGLE_IDB_STORE).put(handle, "active_handle");
+  } catch (_) {}
+}
+
+async function idbGetDongleHandle() {
+  try {
+    const db = await openDongleDB();
+    if (!db) return null;
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction(DONGLE_IDB_STORE, "readonly");
+        const req = tx.objectStore(DONGLE_IDB_STORE).get("active_handle");
+        req.onsuccess = (e) => resolve(e.target.result || null);
+        req.onerror = () => resolve(null);
+      } catch (_) {
+        resolve(null);
+      }
+    });
+  } catch (_) {
+    return null;
+  }
+}
+
+async function idbClearDongleHandle() {
+  try {
+    const db = await openDongleDB();
+    if (!db) return;
+    const tx = db.transaction(DONGLE_IDB_STORE, "readwrite");
+    tx.objectStore(DONGLE_IDB_STORE).delete("active_handle");
+  } catch (_) {}
+}
+
 window.medvault = function medvault() {
   return {
     tabs: [
@@ -120,6 +183,13 @@ window.medvault = function medvault() {
     healthState: "unknown",
     dongle: null,
     dongleNote: "",
+    dongleFileHandle: null,
+    dongleConnected: false,
+    dongleSupported: typeof window !== "undefined" && typeof window.showOpenFilePicker === "function",
+    dongleEjected: false,
+    dongleEjectedAt: "",
+    dongleLastChecked: "",
+    _dongleWatchdogTimer: null,
     // Registration step 2: "" (not chosen), "new" (generate a .medkey in the
     // browser) or "existing" (read a .medkey issued earlier).
     dongleMode: "",
@@ -552,6 +622,7 @@ window.medvault = function medvault() {
         window.addEventListener("beforeunload", () => {
           this.stopFacePreview();
           this.stopLoginFacePreview();
+          this.stopDongleWatchdog();
         });
       }
       this.restoreRememberedRecord();
@@ -648,10 +719,18 @@ window.medvault = function medvault() {
         this.sessionInfo = data.session || null;
         if (this.session) {
           this.loginForm.username = this.session.username;
+          if (!this.dongleFileHandle) {
+            const handle = await idbGetDongleHandle();
+            if (handle) {
+              this.dongleFileHandle = handle;
+            }
+          }
+          this.startDongleWatchdog();
         }
       } catch (_) {
         this.session = null;
         this.sessionInfo = null;
+        this.stopDongleWatchdog();
       }
     },
 
@@ -996,6 +1075,10 @@ window.medvault = function medvault() {
           }
           this.newDongle.savedAs = handle.name;
           this.newDongle.saveMethod = "picker";
+          this.dongleFileHandle = handle;
+          this.dongleConnected = true;
+          this.dongleEjected = false;
+          await idbSaveDongleHandle(handle);
         } else {
           const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
           const link = document.createElement("a");
@@ -1015,10 +1098,7 @@ window.medvault = function medvault() {
     },
 
 
-    async loadDongle(event) {
-      const file = event.target.files && event.target.files[0];
-      if (!file) return;
-
+    async processDongleFile(file, handle = null) {
       await this.run("Baca dongle", async () => {
         const text = await file.text();
         const key = JSON.parse(text);
@@ -1032,8 +1112,15 @@ window.medvault = function medvault() {
           keyId: key.key_id || "",
           seedHex: seed,
         };
-        this.dongleNote =
-          "Kunci privat tetap di memori tab ini. Tutup tab untuk menghapusnya.";
+        this.dongleFileHandle = handle;
+        this.dongleConnected = Boolean(handle);
+        this.dongleEjected = false;
+        if (handle) {
+          await idbSaveDongleHandle(handle);
+        }
+        this.dongleNote = handle
+          ? "USB Dongle fisik terhubung dan dipantau secara real-time."
+          : "Kunci privat tetap di memori tab ini. Tutup tab untuk menghapusnya.";
 
         if (this.dongle.username) {
           if (!this.registerForm.username.trim()) {
@@ -1058,7 +1145,124 @@ window.medvault = function medvault() {
         this.registerForm.dongle_pubkey_hex = publicHex;
         this.notify("Berkas dongle siap digunakan");
       });
+    },
+
+    async pickDongle() {
+      if (typeof window.showOpenFilePicker === "function") {
+        try {
+          const [handle] = await window.showOpenFilePicker({
+            multiple: false,
+            types: [
+              {
+                description: "Kunci USB Dongle MedVault (*.medkey)",
+                accept: { "application/json": [".medkey", ".json"] },
+              },
+            ],
+          });
+          if (!handle) return;
+          const file = await handle.getFile();
+          await this.processDongleFile(file, handle);
+        } catch (error) {
+          if (error && error.name === "AbortError") return;
+          this.notify("Gagal membuka USB Dongle: " + (error.message || error), "error");
+        }
+      } else {
+        const input = document.querySelector("input[data-mv-dongle-input]") ||
+                      (this.$refs && (this.$refs.dongleInput || this.$refs.registerDongleInput));
+        if (input) input.click();
+      }
+    },
+
+    async loadDongle(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      await this.processDongleFile(file, null);
       event.target.value = "";
+    },
+
+    async verifyDonglePresence() {
+      if (!this.dongleFileHandle) {
+        return !this.dongleSupported;
+      }
+      try {
+        if (typeof this.dongleFileHandle.queryPermission === "function") {
+          const perm = await this.dongleFileHandle.queryPermission({ mode: "read" });
+          if (perm !== "granted") {
+            this.dongleConnected = false;
+            return false;
+          }
+        }
+        const file = await this.dongleFileHandle.getFile();
+        const slice = file.slice(0, 1);
+        await slice.arrayBuffer();
+        this.dongleConnected = true;
+        this.dongleLastChecked = new Date().toISOString();
+        return true;
+      } catch (_) {
+        this.dongleConnected = false;
+        return false;
+      }
+    },
+
+    startDongleWatchdog() {
+      this.stopDongleWatchdog();
+      if (!this.dongleSupported) return;
+
+      void this.verifyDonglePresence();
+
+      this._dongleWatchdogTimer = window.setInterval(async () => {
+        if (!this.session) {
+          this.stopDongleWatchdog();
+          return;
+        }
+        if (this.dongleFileHandle) {
+          const isAlive = await this.verifyDonglePresence();
+          if (!isAlive && this.session && !this.dongleEjected) {
+            await this.handleDongleEjection();
+          }
+        }
+      }, 3000);
+    },
+
+    stopDongleWatchdog() {
+      if (this._dongleWatchdogTimer) {
+        window.clearInterval(this._dongleWatchdogTimer);
+        this._dongleWatchdogTimer = null;
+      }
+    },
+
+    async handleDongleEjection() {
+      this.dongleEjected = true;
+      this.dongleEjectedAt = new Date().toLocaleTimeString("id-ID");
+      this.dongleConnected = false;
+
+      if (this.dongle) {
+        this.dongle.seedHex = "";
+        this.dongle = null;
+      }
+      this.clearPending();
+      await idbClearDongleHandle();
+
+      try {
+        await fetch("/api/v1/auth/logout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+        });
+      } catch (_) {}
+
+      this.session = null;
+      this.sessionInfo = null;
+      this.patients = [];
+      this.blocks = [];
+      this.stopDongleWatchdog();
+      this.notify("Peringatan: USB Dongle dicabut! Sesi kerja dikunci.", "error");
+    },
+
+    acknowledgeDongleEjection() {
+      this.dongleEjected = false;
+      this.dongleFileHandle = null;
+      this.navigate("/login");
     },
 
     // Signing keys stay non-extractable. Public key derivation is the only
@@ -1089,6 +1293,13 @@ window.medvault = function medvault() {
     async signPayload(payload) {
       if (!this.dongle) {
         throw new Error("USB Dongle belum terdeteksi, muat berkas .medkey dulu");
+      }
+      if (this.dongleFileHandle) {
+        const isPresent = await this.verifyDonglePresence();
+        if (!isPresent) {
+          await this.handleDongleEjection();
+          throw new Error("USB Dongle tidak terdeteksi pada drive komputer, operasi dibatalkan");
+        }
       }
       const key = await this.importSeed(this.dongle.seedHex);
       const signature = await crypto.subtle.sign(
@@ -1455,6 +1666,7 @@ window.medvault = function medvault() {
         this.session = (env.data && env.data.user) || { username };
         this.sessionInfo = (env.data && env.data.session) || null;
         this.loginStep = 1;
+        this.startDongleWatchdog();
         this.notify(env.message || "Sesi aktif. Selamat bekerja.");
         this.navigate("/dashboard");
       });
@@ -1462,6 +1674,12 @@ window.medvault = function medvault() {
 
     async logout() {
       await this.run("Keluar", async () => {
+        this.stopDongleWatchdog();
+        this.dongleFileHandle = null;
+        this.dongleConnected = false;
+        this.dongleEjected = false;
+        await idbClearDongleHandle();
+
         await this.api("/api/v1/auth/logout", { method: "POST", body: {} });
         this.session = null;
         this.sessionInfo = null;
