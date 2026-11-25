@@ -1,105 +1,48 @@
-# 0003 - Pemetaan Frame Figma ke Halaman Web
+# 0003 - Figma Frame to Web UI Mapping (19 Nov 2026)
 
-Tanggal: 19 Nov 2026
 Status: Active
-Sumber: file Figma `MedVault - Redesign Dashboard UI`, file key `Wt4wwa2QJOIPVWbhesTjgX`.
+Source: Figma `MedVault - Redesign Dashboard UI` (`Wt4wwa2QJOIPVWbhesTjgX`).
 
-## Tujuan
+## Shared Shell (`web/layout.html`)
 
-Menentukan frame Figma mana yang menjadi halaman mana, bagian apa saja yang harus ada di tiap fragmen `web/pages/`, data apa yang dipakai, dan endpoint API mana yang dipanggil. Dokumen ini tidak mengubah perilaku aplikasi.
-
-## Shell bersama
-
-Elemen yang berulang di delapan frame modul dipetakan ke `web/layout.html`.
-
-| Elemen Figma | Lokasi saat ini | Catatan |
+| Element | Location | Implementation Notes |
 | :--- | :--- | :--- |
-| Brand `MV`, `MedVault`, `Secure Medical Records` | Sidebar `layout.html` | Logo sudah memakai `/assets/maskot.svg`. Tidak ada ikon lain yang perlu diekspor. |
-| Sidebar delapan nav item | Sidebar kiri `layout.html` | Delapan item navigasi memakai ikon SVG lokal. Status aktif diambil dari `route`. |
-| Profil `dr. Andi`, `dr_andi@medvault.id` | Kartu profil di sidebar | Data diambil dari `session`; saat sesi belum siap tampil `Memuat sesi...`. |
-| Kartu `USB Dongle terhubung`, `Key ID 7F3A` | Kartu dongle di sidebar | Data diambil dari `session.dongle_key_id`; tidak ada Key ID contoh yang ditulis mati. |
-| Badge `Glass-Box` | Topbar dan drawer telemetry | Membuka Glass-Box Inspector yang sudah ada. |
-| Tombol `Keluar` | Tombol `logout()` di sidebar | Sudah ada. |
-| Footer `MedVault Go - demo ...` | Footer `layout.html` | Teks sudah sama dengan Figma. |
-| Maskot melayang 8 px, loop 6000 ms | `.mv-mascot`, `@keyframes mv-float` | Sudah ada dan sudah mengikuti `prefers-reduced-motion`. |
+| Brand Header | Sidebar | `/assets/maskot.svg` with `MedVault - Secure Medical Records`. |
+| Navigation Items | Sidebar | 8 navigation items with inline SVG icons. Active state bound to `route`. |
+| User Profile | Sidebar card | Bound to `session` (`full_name`, `role`). Shows `Memuat sesi...` while loading. |
+| Dongle Card | Sidebar card | Bound to `session.dongle_key_id`. No hardcoded dummy keys. |
+| Glass-Box Badge | Topbar & Drawer | Toggles Glass-Box Inspector drawer. |
+| Logout Button | Sidebar bottom | Calls `logout()`. |
+| Mascot Animation | Floating mascot | 8 px vertical float, 6s loop; disabled under `prefers-reduced-motion`. |
 
-## Pemetaan frame
+## Frame Mapping
 
-| Frame Figma | ID | Route | File fragmen | Data utama | Endpoint |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| Dashboard / Desktop 1440 | `2:2` | `/dashboard` | `web/pages/dashboard.html` | `patients`, `blocks`, `validation`, `session`, `health` | `GET /api/v1/patients`, `GET /api/v1/audit/blocks` |
-| Modul / Pasien | `6:2` | `/patients` | `web/pages/patients.html` | `patients`, `patientForm`, `patientView` | `POST /api/v1/patients`, `GET /api/v1/patients?view=` |
-| Modul / Rekam Medis | `6:238` | `/records` | `web/pages/records.html` | `recordForm`, `inspectId`, `inspection`, `pending` | `POST /api/v1/records`, `GET /api/v1/records/{id}/inspect` |
-| Modul / Brankas File | `6:483` | `/vault` | `web/pages/vault.html` | `vaultRecordId`, `vaultFile`, `vaultInfo` | `POST /api/v1/vault/{record_id}/upload`, `GET /api/v1/vault/{record_id}/download` |
-| Modul / Steganografi | `9:2` | `/steganography` | `web/pages/steganography.html` | `stegoRecordId`, `stegoResult`, `extracted` | `POST /api/v1/stego/{record_id}/embed`, `POST /api/v1/stego/extract` |
-| Modul / Audit Ledger | `9:208` | `/audit` | `web/pages/audit.html` | `blocks`, `validation`, `tamperRecordId` | `GET /api/v1/audit/blocks`, `POST /api/v1/audit/simulate-tamper`, `POST /api/v1/audit/restore-tamper` |
-| Modul / Telemetry | `9:501` | `/telemetry` | `web/pages/telemetry.html` | `telemetry`, `telemetrySource`, `telemetryAt`, `telemetryPretty` | Tidak ada. Merender trace terakhir dari `sessionStorage`. |
-| Modul / Keamanan | `9:664` | `/security` | `web/pages/security.html` | `session`, `sessionInfo`, `health` | `GET /healthz`, `GET /api/v1/auth/me` |
-| Motion & Interaction Spec | `3:2` | tidak ada | `web/assets/tokens.css`, `web/layout.html` | Tidak ada data | Tidak ada. Menjadi durasi, easing, dan aturan reduced motion. |
+| Figma Frame | Frame ID | Route | Fragment File | Primary State / API Endpoints |
+| :--- | :--- | :--- | :--- | :--- |
+| Dashboard / Desktop 1440 | `2:2` | `/dashboard` | `web/pages/dashboard.html` | `patients`, `blocks`, `validation` via `GET /api/v1/patients`, `GET /api/v1/audit/blocks` |
+| Modul / Pasien | `6:2` | `/patients` | `web/pages/patients.html` | `patientForm`, `patients`, `patientView` via `POST /api/v1/patients`, `GET /api/v1/patients?view=` |
+| Modul / Rekam Medis | `6:238` | `/records` | `web/pages/records.html` | `recordForm`, `inspectId`, `pending` via `POST /api/v1/records`, `GET /api/v1/records/{id}/inspect` |
+| Modul / Brankas File | `6:483` | `/vault` | `web/pages/vault.html` | `vaultRecordId`, `vaultInfo` via `POST /api/v1/vault/{id}/upload`, `GET /api/v1/vault/{id}/download` |
+| Modul / Steganografi | `9:2` | `/steganography` | `web/pages/steganography.html` | `stegoRecordId`, `stegoResult` via `POST /api/v1/stego/{id}/embed`, `POST /api/v1/stego/extract` |
+| Modul / Audit Ledger | `9:208` | `/audit` | `web/pages/audit.html` | `blocks`, `validation` via `GET /api/v1/audit/blocks`, `/simulate-tamper`, `/restore-tamper` |
+| Modul / Telemetry | `9:501` | `/telemetry` | `web/pages/telemetry.html` | `telemetry`, `telemetrySource` via `sessionStorage` (no direct API) |
+| Modul / Keamanan | `9:664` | `/security` | `web/pages/security.html` | `sessionInfo`, `health` via `GET /healthz`, `GET /api/v1/auth/me` |
+| Motion & Interaction | `3:2` | n/a | `web/assets/tokens.css` | Timing curves, stagger rules, and reduced motion overrides. |
 
-Pemetaan route ini sudah sesuai dengan `pages` di `web/embed.go`, sehingga tidak perlu menambah route baru.
+## Page Requirements
 
-## Bagian per halaman
+- **Dashboard:** Workspace greeting, API status badge, 4 stat cards, quick access selector, ledger live status panel with re-verify action.
+- **Patients:** View toggle (Plaintext / Raw SQLite), registration form with 16-digit NIK validation, decrypted table, raw database column inspection.
+- **Records:** Clinical entry form, 4-step glass-box inspection panel, pending signature proposal alert with dongle sign button.
+- **Vault:** Lab upload dropzone, 50 MB limit, 64 KiB chunking indicator, encryption results panel (ciphertext preview, SHA-256, chunk count, key fingerprint).
+- **Stego:** Watermark embed panel (PSNR dB, MSE, capacity bits, HMAC tag), extraction dropzone with recovery status banner.
+- **Audit:** Visual chain graph, chain verification summary (dual-signature check, index continuity, live record state), simulate/restore tamper actions.
+- **Telemetry:** Execution metadata (route, method, elapsed time), raw JSON tree, step-by-step breakdown table.
+- **Security:** 4 authentication factor gates (password, USB dongle, webcam dHash, WebAuthn), service health breakdown, session termination.
 
-### Dashboard
-- Eyebrow `Clinical workspace`, judul `Selamat datang` diikuti nama sesi bila tersedia
-- Badge `API terhubung`, tombol `Pasien baru`
-- Empat stat card: Pasien terdaftar, Blok audit, Validasi ledger, Sesi aktif
-- Kartu `Akses cepat modul` dengan segmented `Semua / Kriptografi / Audit` dan lima baris modul
-- Panel kanan `Status Ledger` dengan blok nyata dari ledger, badge status, segmented `Rantai valid / Simulasi tamper`, tombol `Verifikasi rantai`
+## Assets & Interpretation Rules
 
-### Pasien
-- Toggle `Plaintext / Raw SQLite`
-- Form `Registrasi Pasien` dengan lima input
-- Catatan AAD nama kolom
-- Tabel `Daftar Pasien` dengan lima kolom
-- Panel raw SQLite di bawah tabel
-
-### Rekam Medis
-- Form `Rekam Medis Baru` dengan pasien, diagnosis, resep, status kunjungan
-- Panel `Inspeksi Rekam Medis` dengan empat tahap bernomor
-- Blok proposal menunggu tanda tangan dan tombol `Tanda tangani`
-- Catatan bahwa daftar rekam belum tersedia lewat API dan inspeksi memakai ID rekam
-
-### Brankas File
-- Form unggah dengan ID rekam medis dan dropzone
-- Batas 50 MB dan penjelasan potongan 64 KiB, tanpa progres palsu
-- Panel `Hasil enkripsi` dengan ciphertext, SHA-256, header, fingerprint kunci dari `vaultInfo`
-- Catatan bahwa daftar berkas per rekam belum tersedia lewat API
-
-### Steganografi
-- Panel sisipkan dengan ID rekam medis dan metrik PSNR, MSE, kapasitas, tag HMAC dari `stegoResult`
-- Panel ekstraksi dengan dropzone, state sukses, dan pesan gagal dari `toast`
-- Payload ringkas berisi nomor RM, pasien, dokter, ringkasan, waktu
-
-### Audit Ledger
-- Panel status rantai dan tiga metrik dari `validation` dan `blocks`
-- Panel simulasi manipulasi dengan tombol merah dan tombol pulihkan
-- Rantai visual dari blok ledger yang dimuat
-- Tabel blok dengan enam kolom dan empty state
-
-### Telemetry
-- Badge sumber permintaan, modul, durasi, dan waktu dari trace nyata
-- Panel JSON `_telemetry`
-- Ringkasan `module`, `duration_us`, jumlah langkah, metrik, dan peringatan
-- Tabel langkah trace dari `steps`
-
-### Keamanan
-- Empat gerbang autentikasi dengan status dari `session`
-- Panel `Kondisi layanan` dari payload `/healthz`
-- Panel `Sesi aktif` dengan waktu dari `sessionInfo` dan tombol keluar
-
-## Aset
-
-Sesuai arahan terbaru, tidak ada ekspor ikon dari Figma. Satu-satunya aset branding yang dipakai adalah `web/assets/maskot.svg`, yang sudah dirujuk di `web/layout.html` dan ikut ter-embed. Tombol dan ikon lain memakai teks atau karakter CSS yang sudah ada.
-
-## Catatan interpretasi
-
-1. Figma Dashboard menulis `Valid`, tetapi aplikasi menampilkan `Belum diperiksa` sampai respons validasi ledger benar-benar diterima. Kejujuran state lebih penting daripada kecocokan teks.
-2. Nama blok ledger di Figma adalah `EMBED_STEGO`, bukan `EVENT_STEGO`.
-3. Jumlah validator aktif di Figma adalah `3`. Halaman audit tidak menampilkan angka itu karena API belum menyediakan daftar validator; yang ditampilkan adalah jumlah blok yang dimuat.
-4. Threshold dHash di Figma tertulis `minimal 50%`. Deployment memakai `MEDVAULT_DHASH_MAX_DISTANCE=32` dari 64 bit, yang setara 50 persen.
-
-## Validasi
-
-Pemetaan ini tidak menambah route atau mengubah handler. Jalankan `go test ./web/...` untuk memastikan `embed.FS`, daftar route, dan versi aset masih valid.
+1. Single brand asset: `web/assets/maskot.svg` (embedded). No external icon or font downloads.
+2. Honest UI states: display `Belum diperiksa` until ledger validation response is received. Never render fake `Valid` badges.
+3. Ledger block identifier is `EMBED_STEGO` (not `EVENT_STEGO`).
+4. Webcam dHash threshold: `MEDVAULT_DHASH_MAX_DISTANCE=32` of 64 bits (corresponds to 50% match requirement in Figma).

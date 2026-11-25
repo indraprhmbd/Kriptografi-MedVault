@@ -1,22 +1,18 @@
-# 0002 - Kontrak Field Telemetry
+# 0002 - Telemetry Payload Contract (19 Nov 2026)
 
-Tanggal: 19 Nov 2026
 Status: Active
-Sumber: frame Figma `Modul / Telemetry` (`9:501`) dan `context/005-api-contracts-and-ui-integration.md` bagian 1.
+Source: Figma `Modul / Telemetry` (`9:501`) and `context/005-api-contracts-and-ui-integration.md`.
 
-## Tujuan
+## Purpose & Principles
 
-Menetapkan satu bentuk objek `_telemetry` yang dipakai semua handler. Tanpa kontrak ini, tiap modul bisa mengirim nama field yang berbeda dan halaman Telemetry tidak bisa merender respons terakhir secara konsisten.
+Enforces a uniform `_telemetry` object across all handlers:
+1. Mandatory on every API response executing crypto, stego, biometrics, or ledger logic.
+2. English keys per AGENTS.md; Indonesian labels in UI only.
+3. No secrets: keys, seeds, and passwords are strictly forbidden. Surface only fingerprints, nonces, tags, and truncated previews.
+4. `duration_us`: integer microseconds for the total backend operation.
+5. In summary badges use short keys `nonce` and `tag`; inside `steps` use `nonce_hex` and `poly1305_tag_hex`.
 
-## Prinsip
-
-1. Objek `_telemetry` wajib ada di setiap respons API yang menjalankan kriptografi, steganografi, biometrik, atau ledger.
-2. Nama field memakai bahasa Inggris sesuai AGENTS.md. Label UI tetap bahasa Indonesia.
-3. Kunci rahasia, seed, dan kata sandi tidak boleh masuk telemetry. Yang boleh muncul hanya fingerprint, nonce, tag, dan preview yang sudah dipotong.
-4. `duration_us` adalah bilangan bulat mikrodetik untuk seluruh operasi. Kalau rincian per tahap dibutuhkan, backend harus menambahkannya sebagai metric atau field baru yang benar-benar diisi; UI tidak boleh mengarang nilai cadangan.
-5. Figma memakai nama pendek `nonce` dan `tag` untuk tampilan. Kontrak ini memakai nama itu di ringkasan, sementara detail di dalam `steps` tetap memakai `nonce_hex` dan `poly1305_tag_hex` seperti context/005.
-
-## Bentuk kanonik
+## Canonical Shape
 
 ```json
 {
@@ -67,46 +63,34 @@ Menetapkan satu bentuk objek `_telemetry` yang dipakai semua handler. Tanpa kont
 }
 ```
 
-## Daftar field
+## Field Specifications
 
-| Field | Tipe | Wajib | Aturan |
+| Field | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `module` | string | Ya | Nama modul uppercase, misalnya `SUPER_ENCRYPTION_V1`. |
-| `duration_us` | number | Ya | Bilangan bulat mikrodetik. |
-| `algorithm` | string | Ya | Nama algoritma utama yang tampil di badge UI. |
-| `nonce` | string | Jika aplikabel | Hex. Boleh dipotong di UI, tetapi API mengirim nilai lengkap. |
-| `tag` | string | Jika aplikabel | Hex tag autentikasi Poly1305 atau HMAC. |
-| `key_fingerprint` | string | Jika aplikabel | Hex uppercase, misalnya `7F3A91C20BD4`. Bukan kunci. |
-| `aad` | string | Jika aplikabel | Konteks autentikasi, misalnya `RM-0004` atau `patients.nik`. |
-| `vigenere_out` | string | Modul records | Preview hasil Extended Vigenere. |
-| `transposition_out` | string | Modul records | Preview hasil Columnar Transposition. |
-| `timings_ms` | object | Ya | Rincian durasi tiap tahap. Angka desimal. |
-| `steps` | array | Ya | Minimal satu elemen sesuai context/005. |
+| `module` | string | Yes | Uppercase module identifier (e.g. `SUPER_ENCRYPTION_V1`). |
+| `duration_us` | number | Yes | Total execution time in integer microseconds. |
+| `algorithm` | string | Yes | Primary algorithm name for UI badges. |
+| `nonce` | string | Optional | Hex nonce (full value in API; UI may truncate). |
+| `tag` | string | Optional | Hex authentication tag (Poly1305 or HMAC). |
+| `key_fingerprint` | string | Optional | Uppercase hex identifier (e.g. `7F3A91C20BD4`). |
+| `aad` | string | Optional | Bound authentication context (e.g. `RM-0004`). |
+| `vigenere_out` | string | Optional | Extended Vigenere intermediate preview. |
+| `transposition_out`| string | Optional | Columnar Transposition intermediate preview. |
+| `timings_ms` | object | Optional | Micro-benchmarks for pipeline sub-stages. |
+| `steps` | array | Yes | Array of numbered transform steps per context/005. |
 
-Field tambahan per modul diizinkan selama tidak mengandung material rahasia. Semua field tambahan memakai bahasa Inggris dan snake_case.
+## Module Telemetry Requirements
 
-## Kebutuhan per modul
-
-| Modul | Nilai `module` | `algorithm` | Field tambahan yang diharapkan |
+| Module | `module` ID | `algorithm` | Expected Fields |
 | :--- | :--- | :--- | :--- |
-| Pasien | `PATIENT_COLUMN_ENCRYPTION_V1` | `AES-256-GCM` | `aad` berisi nama kolom, `nonce`, `tag`, `key_fingerprint`, preview `nik_enc`, `nama_enc`, `alamat_enc` |
-| Rekam Medis | `SUPER_ENCRYPTION_V1` | `XChaCha20-Poly1305` | `vigenere_out`, `transposition_out`, `aad` berisi nomor RM, `key_fingerprint`, `steps` tiga tahap |
-| Brankas File | `LAB_VAULT_CHACHA20_V1` | `ChaCha20-Poly1305` | `chunk_size_bytes`, `chunks_total`, `chunks_verified`, `sha256_plaintext`, `key_fingerprint`, `nonce` dasar |
-| Steganografi | `LSB_HMAC_STEGO_V1` | `HMAC-SHA256` | `psnr_db`, `mse`, `capacity_bytes`, `tag`, `bit_planes`, `alpha_untouched` |
-| Audit Ledger | `POA_LEDGER_V1` | `Ed25519 + SHA-256` | `chain_valid`, `block_index`, `previous_hash`, `current_hash`, `doctor_signature`, `validator_signature` |
-| Autentikasi | `MFA_DONGLE_V1` | `Ed25519` | `key_id`, `dhash_fingerprint`, `hamming_distance`, `webauthn_verified` |
-| Telemetry | tidak menghasilkan telemetry baru | tidak ada | Halaman ini hanya merender `_telemetry` dari respons terakhir yang disimpan di store Alpine. |
+| Patients | `PATIENT_COLUMN_ENCRYPTION_V1` | `AES-256-GCM` | `aad` (column name), `nonce`, `tag`, `key_fingerprint`, column previews |
+| Records | `SUPER_ENCRYPTION_V1` | `XChaCha20-Poly1305` | `vigenere_out`, `transposition_out`, `aad` (MRN), `key_fingerprint`, 3-step trace |
+| Vault | `LAB_VAULT_CHACHA20_V1` | `ChaCha20-Poly1305` | `chunk_size_bytes`, `chunks_total`, `sha256_plaintext`, `key_fingerprint`, base `nonce` |
+| Stego | `LSB_HMAC_STEGO_V1` | `HMAC-SHA256` | `psnr_db`, `mse`, `capacity_bytes`, `tag`, `bit_planes`, `alpha_untouched` |
+| Ledger | `POA_LEDGER_V1` | `Ed25519 + SHA-256` | `chain_valid`, `block_index`, `previous_hash`, `current_hash`, signatures |
+| Auth | `MFA_DONGLE_V1` | `Ed25519` | `key_id`, `dhash_fingerprint`, `hamming_distance`, `webauthn_verified` |
+| Telemetry | n/a | n/a | Renders latest trace stored in Alpine session memory. |
 
-## Pemetaan ke UI
-
-Halaman `/telemetry` merender `telemetryPretty` dari `web/js/app.js`. Nilai itu berasal dari properti `telemetry` yang diisi setiap kali handler API selesai. Karena itu handler harus menaruh seluruh objek `_telemetry`, bukan hanya field ringkasan. Drawer Glass-Box di layout memakai sumber yang sama.
-
-Karena setiap modul adalah dokumen terpisah, trace terakhir juga disalin ke `sessionStorage` dan dipulihkan saat halaman dimuat. Metode dan path permintaan disimpan bersama trace supaya badge sumber respons berasal dari permintaan nyata, bukan teks contoh.
-
-UI hanya menampilkan field yang ada di payload: `module`, `duration_us`, `steps`, `metrics`, dan `warnings`. Field yang tidak tersedia ditampilkan sebagai `-`. Tidak ada badge `200 OK`, durasi, nonce, tag, atau JSON contoh yang ditulis mati di HTML.
-
-## Validasi
-
-1. Pastikan setiap handler mengembalikan `ok`, `message`, `data`, dan `_telemetry`.
-2. Pastikan `duration_us` konsisten dengan waktu eksekusi nyata. Jangan menambahkan `timings_ms` di UI sebelum backend benar-benar mengirimkannya.
-3. Pastikan tidak ada field bernama `key`, `seed`, `password`, atau `private_key` di dalam telemetry.
+## UI & Storage Rules
+- `/telemetry` page and Glass-Box Drawer display real data from `sessionStorage` (populated on every API call).
+- Missing telemetry fields render as `-`. Hardcoded placeholders are strictly forbidden.
