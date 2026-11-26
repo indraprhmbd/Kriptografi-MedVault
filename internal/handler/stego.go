@@ -203,6 +203,10 @@ func (s *Server) handleStegoImage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", info.Size()))
+	if r.URL.Query().Get("download") == "1" {
+		filename := fmt.Sprintf("medvault-watermarked-record-%d.png", recordID)
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	}
 	http.ServeContent(w, r, filepath.Base(record.StegoImagePath), info.ModTime(), file)
 }
 

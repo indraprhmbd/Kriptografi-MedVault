@@ -70,18 +70,16 @@
           </span>
           <span class="min-w-0">
             <span class="mv-brand-title block truncate text-lg font-bold leading-tight tracking-tight">MedVault</span>
-            <span class="mv-brand-sub block truncate text-xs font-medium">Secure Medical Records</span>
+            <span class="mv-brand-sub block truncate text-xs font-medium">Rekam medis aman</span>
           </span>
         </a>
         <a href="/login" class="mv-gate-badge shrink-0 rounded-full px-3 py-2 text-xs font-semibold">Masuk</a>
       </div>
 
-      <div class="mx-auto flex w-full max-w-[480px] flex-1 items-center py-8 sm:py-10">
-        <div class="mv-auth-card w-full p-8 sm:p-10" aria-labelledby="register-title">
-          <div class="mb-6">
-            <p class="mv-eyebrow text-sm font-semibold">Langkah <span x-text="registerStep"></span> dari 4</p>
-            <h2 id="register-title" class="mv-title mt-2 text-2xl font-bold tracking-tight sm:text-3xl">Daftar sebagai dokter</h2>
-            <p class="mv-muted mt-2 text-sm leading-relaxed" x-text="registerStepSubtitle"></p>
+      <div class="mx-auto flex w-full max-w-[480px] flex-1 items-center py-4 sm:py-6">
+        <div class="mv-auth-card w-full p-5 sm:p-6 lg:p-7" aria-labelledby="register-title">
+          <div class="mb-4">
+            <h2 id="register-title" class="mv-title text-2xl font-bold tracking-tight sm:text-3xl">Daftar dokter</h2>
           </div>
 
           <div x-show="authFeedback" x-cloak class="mv-auth-alert mb-6 flex items-start gap-3 rounded-2xl px-4 py-3" role="alert" aria-live="polite">
@@ -97,7 +95,7 @@
             </button>
           </div>
 
-          <ol class="mb-7 flex items-start gap-1.5" aria-label="Tahap pendaftaran">
+          <ol class="mb-4 flex items-start gap-1.5" aria-label="Tahap pendaftaran">
             <li class="mv-step" :class="registerStep === 1 ? 'active' : registerStep > 1 ? 'done' : ''"
                 :aria-current="registerStep === 1 ? 'step' : null">
               <span class="mv-step-dot">1</span>
@@ -125,7 +123,7 @@
 
           <div class="mv-step-stage relative">
             <!-- Step 1: account credentials -->
-            <form x-show="registerStep === 1" class="space-y-5" @submit.prevent="nextRegisterStep()"
+            <form x-show="registerStep === 1" class="space-y-3.5" @submit.prevent="nextRegisterStep()"
                   x-transition:enter="mv-pane-enter"
                   x-transition:enter-start="mv-pane-enter-start"
                   x-transition:enter-end="mv-pane-enter-end"
@@ -202,7 +200,7 @@
                   </div>
                   <p class="mv-strength-label" x-text="'Kekuatan: ' + registerPasswordStrengthLabel"></p>
                 </div>
-                <p id="register-password-help" class="mv-muted mt-1.5 text-xs">Minimal 12 karakter. Gunakan kombinasi yang mudah Anda ingat.</p>
+                <p id="register-password-help" class="mv-muted mt-1.5 text-xs">Minimal 12 karakter. Hindari kata sandi yang mudah ditebak.</p>
                 <p id="register-password-error" class="mv-field-error" x-show="showRegisterPasswordError"
                    x-text="registerPasswordError"></p>
               </div>
@@ -237,7 +235,7 @@
             </form>
 
             <!-- Step 2: USB dongle -->
-            <form x-show="registerStep === 2" x-cloak class="space-y-5" @submit.prevent="nextRegisterStep()"
+            <form x-show="registerStep === 2" x-cloak class="space-y-3.5" @submit.prevent="nextRegisterStep()"
                   x-transition:enter="mv-pane-enter"
                   x-transition:enter-start="mv-pane-enter-start"
                   x-transition:enter-end="mv-pane-enter-end"
@@ -335,7 +333,7 @@
                        aria-describedby="register-dongle-help register-dongle-error"
                        @blur="registerTouched.dongle = true" required>
                 <p id="register-dongle-help" class="mv-muted mt-1.5 text-xs"
-                   x-text="dongleMode === 'new' ? 'Dibuat otomatis bersama kunci. Kunci privat tetap di browser dan USB Anda, tidak dikirim ke server.' : 'Terisi otomatis saat berkas .medkey dipilih. Kunci privat tetap di browser.'"></p>
+                   x-text="dongleMode === 'new' ? 'ID dibuat otomatis. Kunci privat tidak dikirim ke server.' : 'ID terbaca dari berkas .medkey. Kunci privat tetap di browser.'"></p>
                 <p id="register-dongle-error" class="mv-field-error" x-show="showRegisterDongleError"
                    x-text="registerDongleError"></p>
               </div>
@@ -360,7 +358,7 @@
             </form>
 
             <!-- Step 3: webcam biometric -->
-            <form x-show="registerStep === 3" x-cloak class="space-y-5" @submit.prevent="submitRegistration()"
+            <form x-show="registerStep === 3" x-cloak class="space-y-3.5" @submit.prevent="submitRegistration()"
                   x-transition:enter="mv-pane-enter"
                   x-transition:enter-start="mv-pane-enter-start"
                   x-transition:enter-end="mv-pane-enter-end"
@@ -380,7 +378,6 @@
                     </svg>
                   </span>
                   <p class="mv-strong text-sm font-bold">Kamera belum aktif</p>
-                  <p class="mv-muted text-xs leading-relaxed">Nyalakan kamera untuk melihat pratinjau wajah.</p>
                 </div>
                 <span class="mv-camera-frame" aria-hidden="true"></span>
               </div>
@@ -410,14 +407,12 @@
                   <div class="min-w-0 flex-1">
                     <p class="mv-strong text-sm font-bold"
                        x-text="registerBiometricValid ? 'Wajah berhasil dipindai' : 'Wajah belum dipindai'"></p>
-                    <p class="mv-muted mt-1 text-xs leading-relaxed"
-                       x-text="registerBiometricValid ? 'Verifikasi wajah sudah siap untuk pendaftaran.' : 'Duduk di depan kamera dengan cahaya yang cukup, lalu ambil verifikasi wajah.'"></p>
                   </div>
                 </div>
               </div>
 
               <p class="mv-field-error" x-show="showRegisterBiometricError" x-text="registerBiometricError"></p>
-              <p class="mv-muted text-xs leading-relaxed">Kamera hanya dipakai untuk menghitung sidik wajah numerik. Gambar wajah tidak dikirim ke server.</p>
+              <p class="mv-muted text-xs leading-relaxed">Kamera membuat pola wajah untuk verifikasi. Foto tidak dikirim ke server.</p>
 
               <div class="grid gap-3 sm:grid-cols-2">
                 <button type="button" class="mv-auth-secondary" @click="prevRegisterStep()" :disabled="busy">
@@ -447,18 +442,17 @@
                     <use href="#mv-icon-check"></use>
                   </svg>
                 </span>
-                <h3 id="register-done-title" class="mt-4 text-xl font-bold tracking-tight">Akun dokter sudah dibuat</h3>
+                <h3 id="register-done-title" class="mt-4 text-xl font-bold tracking-tight">Pendaftaran selesai</h3>
                 <p class="mv-muted mt-2 text-sm leading-relaxed">
-                  Akun <strong class="mv-strong" x-text="registerForm.username"></strong>
-                  untuk <strong class="mv-strong" x-text="registerForm.full_name"></strong>
-                  sudah terdaftar dan siap dipakai.
+                  Akun <strong class="mv-strong" x-text="registerForm.username"></strong> milik
+                  <strong class="mv-strong" x-text="registerForm.full_name"></strong> siap digunakan.
                 </p>
                 <p class="mv-muted mt-3 text-sm leading-relaxed">
-                  Masuk dengan kata sandi, USB Dongle, dan verifikasi wajah yang tadi Anda daftarkan.
+                  Untuk masuk, siapkan kata sandi, USB Dongle, dan verifikasi wajah.
                 </p>
                 <p class="mv-muted mt-3 text-sm leading-relaxed" x-show="dongleMode === 'new'" x-cloak>
-                  Simpan USB yang berisi berkas <strong class="mv-strong" x-text="newDongle.savedAs || newDongleFileName"></strong>
-                  baik-baik. Berkas ini dibutuhkan setiap kali masuk dan tidak bisa dibuat ulang untuk akun yang sama.
+                  Simpan berkas <strong class="mv-strong" x-text="newDongle.savedAs || newDongleFileName"></strong> di USB.
+                  Berkas ini diperlukan setiap kali masuk dan tidak dapat dipulihkan jika hilang.
                 </p>
               </div>
 
@@ -480,9 +474,7 @@
         </div>
       </div>
 
-      <p class="mv-auth-footer mx-auto w-full max-w-[480px] pb-2 text-center text-xs leading-relaxed">
-        Data medis Anda dilindungi dan hanya dibuka dengan izin Anda.
-      </p>
+
     </div>
 
     <!-- Mascot and headline column -->

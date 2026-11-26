@@ -77,21 +77,19 @@
           </span>
           <span class="min-w-0">
             <span class="mv-brand-title block truncate text-lg font-bold leading-tight tracking-tight">MedVault</span>
-            <span class="mv-brand-sub block truncate text-xs font-medium">Secure Medical Records</span>
+            <span class="mv-brand-sub block truncate text-xs font-medium">Rekam medis aman</span>
           </span>
         </a>
         <button type="button" class="mv-gate-badge shrink-0 rounded-full px-3 py-2 text-xs font-semibold"
-                @click="telemetryOpen = true" aria-label="Buka panel telemetri Glass-Box">
-          Glass-Box
+                @click="telemetryOpen = true" aria-label="Buka detail proses">
+          Detail proses
         </button>
       </div>
 
-      <div class="mx-auto flex w-full max-w-[440px] flex-1 items-center py-8 sm:py-10">
-        <div class="mv-auth-card w-full p-8 sm:p-10" aria-labelledby="auth-greeting">
-          <div class="mb-7">
-            <p class="mv-eyebrow text-sm font-semibold">Senang bertemu lagi</p>
-            <h2 id="auth-greeting" class="mv-title mt-2 text-2xl font-bold tracking-tight sm:text-3xl">Selamat datang kembali</h2>
-            <p class="mv-muted mt-2 text-sm leading-relaxed">Masuk untuk membuka rekam medis pasien Anda dengan tenang dan aman.</p>
+      <div class="mx-auto flex w-full max-w-[440px] flex-1 items-center py-4 sm:py-6">
+        <div class="mv-auth-card w-full p-5 sm:p-6 lg:p-7" aria-labelledby="auth-greeting">
+          <div class="mb-4">
+            <h2 id="auth-greeting" class="mv-title text-2xl font-bold tracking-tight sm:text-3xl">Masuk ke MedVault</h2>
           </div>
 
           <div x-show="authFeedback" x-cloak class="mv-auth-alert mb-6 flex items-start gap-3 rounded-2xl px-4 py-3" role="alert" aria-live="polite">
@@ -107,7 +105,7 @@
             </button>
           </div>
 
-          <ol class="mb-7 flex items-start gap-1.5" aria-label="Tahap verifikasi">
+          <ol class="mb-4 flex items-start gap-1.5" aria-label="Tahap verifikasi">
             <li class="mv-step" :class="loginStep === 1 ? 'active' : loginStep > 1 ? 'done' : ''"
                 :aria-current="loginStep === 1 ? 'step' : null">
               <span class="mv-step-dot">1</span>
@@ -129,7 +127,7 @@
 
           <div class="mv-step-stage relative">
             <!-- Step 1: password credentials -->
-            <form x-show="loginStep === 1" class="space-y-5" @submit.prevent="nextLoginStep()"
+            <form x-show="loginStep === 1" class="space-y-3.5" @submit.prevent="nextLoginStep()"
                   x-transition:enter="mv-pane-enter"
                   x-transition:enter-start="mv-pane-enter-start"
                   x-transition:enter-end="mv-pane-enter-end"
@@ -195,7 +193,7 @@
             </form>
 
             <!-- Step 2: USB dongle -->
-            <form x-show="loginStep === 2" x-cloak class="space-y-5" @submit.prevent="nextLoginStep()"
+            <form x-show="loginStep === 2" x-cloak class="space-y-3.5" @submit.prevent="nextLoginStep()"
                   x-transition:enter="mv-pane-enter"
                   x-transition:enter-start="mv-pane-enter-start"
                   x-transition:enter-end="mv-pane-enter-end"
@@ -213,17 +211,9 @@
                     </svg>
                   </span>
                   <div class="min-w-0 flex-1">
-                    <p class="mv-strong text-sm font-bold" x-text="dongle ? 'USB Dongle terdeteksi' : 'USB Dongle belum terdeteksi'"></p>
-                    <p class="mv-muted mt-1 text-xs leading-relaxed"
-                       x-text="dongle ? (dongle.keyId ? 'Dongle ' + dongle.keyId + ' siap digunakan.' : 'Dongle siap digunakan.') : 'Pastikan USB sudah tertancap, lalu pilih berkas .medkey dari perangkat Anda.'"></p>
+                    <p class="mv-strong text-sm font-bold" x-text="dongle ? 'USB Dongle terdeteksi: ' + (dongle.keyId || 'siap digunakan') : 'Pilih berkas .medkey'"></p>
                   </div>
                 </div>
-                <button type="button" class="mv-auth-inline mt-3" @click="pickDongle()" :disabled="busy">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
-                    <use href="#mv-icon-refresh"></use>
-                  </svg>
-                  Coba lagi
-                </button>
               </div>
 
               <div class="mv-auth-secondary cursor-pointer" @click="pickDongle()">
@@ -246,7 +236,7 @@
             </form>
 
             <!-- Step 3: biometrics -->
-            <form x-show="loginStep === 3" x-cloak class="space-y-5" @submit.prevent="login()"
+            <form x-show="loginStep === 3" x-cloak class="space-y-3.5" @submit.prevent="login()"
                   x-transition:enter="mv-pane-enter"
                   x-transition:enter-start="mv-pane-enter-start"
                   x-transition:enter-end="mv-pane-enter-end"
@@ -266,7 +256,7 @@
                     </svg>
                   </span>
                   <p class="mv-strong text-sm font-bold">Kamera belum aktif</p>
-                  <p class="mv-muted text-xs leading-relaxed">Nyalakan kamera untuk melihat pratinjau wajah.</p>
+
                 </div>
                 <span class="mv-camera-frame" aria-hidden="true"></span>
               </div>
@@ -295,13 +285,12 @@
                   </span>
                   <div class="min-w-0 flex-1">
                     <p class="mv-strong text-sm font-bold" x-text="loginFaceCaptured ? 'Wajah berhasil dipindai' : 'Wajah belum dipindai'"></p>
-                    <p class="mv-muted mt-1 text-xs leading-relaxed"
-                       x-text="loginFaceCaptured ? 'Wajah siap dicocokkan. Tekan Selesaikan login untuk masuk.' : 'Duduk di depan kamera dengan cahaya yang cukup, lalu ambil verifikasi wajah.'"></p>
+
                   </div>
                 </div>
               </div>
 
-              <p class="mv-muted text-xs leading-relaxed">Wajah akan dicocokkan dengan data pendaftaran minimal 50%. Gambar wajah tidak dikirim ke server.</p>
+              <p class="mv-muted text-xs leading-relaxed">Wajah harus cocok minimal 50%. Foto tidak dikirim ke server.</p>
 
               <div class="grid gap-3 sm:grid-cols-2">
                 <button type="button" class="mv-auth-secondary" @click="backFromLoginFace()" :disabled="busy">
@@ -329,9 +318,7 @@
         </div>
       </div>
 
-      <p class="mv-auth-footer mx-auto w-full max-w-[440px] pb-2 text-center text-xs leading-relaxed">
-        Data medis Anda dilindungi dan hanya dibuka dengan izin Anda.
-      </p>
+
     </div>
 
     <!-- Mascot and headline column -->

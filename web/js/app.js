@@ -76,6 +76,30 @@ function readWebAuthnOptions(payload) {
 
 const DONGLE_IDB_NAME = "medvault_hardware";
 const DONGLE_IDB_STORE = "dongle_handle";
+const DONGLE_KEY_STORE = "dongle_meta";
+const DONGLE_SESSION_KEY = "medvault.dongle";
+
+function saveDongleSession(dongle) {
+  if (!dongle) return;
+  try {
+    sessionStorage.setItem(DONGLE_SESSION_KEY, JSON.stringify(dongle));
+  } catch (_) {}
+}
+
+function getDongleSession() {
+  try {
+    const raw = sessionStorage.getItem(DONGLE_SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function clearDongleSession() {
+  try {
+    sessionStorage.removeItem(DONGLE_SESSION_KEY);
+  } catch (_) {}
+}
 
 function openDongleDB() {
   return new Promise((resolve) => {
@@ -84,56 +108,82 @@ function openDongleDB() {
       return;
     }
     try {
-      const req = window.indexedDB.open(DONGLE_IDB_NAME, 1);
+      const req = window.indexedDB.open(DONGLE_IDB_NAME, 2);
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
         if (!db.objectStoreNames.contains(DONGLE_IDB_STORE)) {
           db.createObjectStore(DONGLE_IDB_STORE);
         }
+        if (!db.objectStoreNames.contains(DONGLE_KEY_STORE)) {
+          db.createObjectStore(DONGLE_KEY_STORE);
+        }
       };
       req.onsuccess = (e) => resolve(e.target.result);
       req.onerror = () => resolve(null);
+      req.onblocked = () => resolve(null);
     } catch (_) {
       resolve(null);
     }
   });
 }
 
-async function idbSaveDongleHandle(handle) {
-  if (!handle) return;
+async function idbSaveDongleHandle(handle, dongleData = null) {
+  if (dongleData) {
+    saveDongleSession(dongleData);
+  }
   try {
     const db = await openDongleDB();
     if (!db) return;
-    const tx = db.transaction(DONGLE_IDB_STORE, "readwrite");
-    tx.objectStore(DONGLE_IDB_STORE).put(handle, "active_handle");
+    if (handle && db.objectStoreNames.contains(DONGLE_IDB_STORE)) {
+      const tx = db.transaction(DONGLE_IDB_STORE, "readwrite");
+      tx.objectStore(DONGLE_IDB_STORE).put(handle, "active_handle");
+    }
+    if (dongleData && db.objectStoreNames.contains(DONGLE_KEY_STORE)) {
+      const tx2 = db.transaction(DONGLE_KEY_STORE, "readwrite");
+      tx2.objectStore(DONGLE_KEY_STORE).put(dongleData, "active_meta");
+    }
   } catch (_) {}
 }
 
-async function idbGetDongleHandle() {
+async function idbGetDongleData() {
   try {
     const db = await openDongleDB();
-    if (!db) return null;
-    return new Promise((resolve) => {
-      try {
-        const tx = db.transaction(DONGLE_IDB_STORE, "readonly");
-        const req = tx.objectStore(DONGLE_IDB_STORE).get("active_handle");
-        req.onsuccess = (e) => resolve(e.target.result || null);
-        req.onerror = () => resolve(null);
-      } catch (_) {
-        resolve(null);
-      }
-    });
+    if (!db) return { handle: null, dongle: null };
+    const getStore = (storeName, key) =>
+      new Promise((resolve) => {
+        try {
+          if (!db.objectStoreNames.contains(storeName)) {
+            resolve(null);
+            return;
+          }
+          const tx = db.transaction(storeName, "readonly");
+          const req = tx.objectStore(storeName).get(key);
+          req.onsuccess = (e) => resolve(e.target.result || null);
+          req.onerror = () => resolve(null);
+        } catch (_) {
+          resolve(null);
+        }
+      });
+    const handle = await getStore(DONGLE_IDB_STORE, "active_handle");
+    const dongle = await getStore(DONGLE_KEY_STORE, "active_meta");
+    return { handle, dongle };
   } catch (_) {
-    return null;
+    return { handle: null, dongle: null };
   }
 }
 
 async function idbClearDongleHandle() {
+  clearDongleSession();
   try {
     const db = await openDongleDB();
     if (!db) return;
-    const tx = db.transaction(DONGLE_IDB_STORE, "readwrite");
-    tx.objectStore(DONGLE_IDB_STORE).delete("active_handle");
+    const stores = [];
+    if (db.objectStoreNames.contains(DONGLE_IDB_STORE)) stores.push(DONGLE_IDB_STORE);
+    if (db.objectStoreNames.contains(DONGLE_KEY_STORE)) stores.push(DONGLE_KEY_STORE);
+    if (stores.length > 0) {
+      const tx = db.transaction(stores, "readwrite");
+      stores.forEach((s) => tx.objectStore(s).clear());
+    }
   } catch (_) {}
 }
 
@@ -191,6 +241,7 @@ window.medvault = function medvault() {
     dongleLastChecked: "",
     _dongleWatchdogTimer: null,
     _dongleConsecutiveMisses: 0,
+    _isPickingDongle: false,
     // Registration step 2: "" (not chosen), "new" (generate a .medkey in the
     // browser) or "existing" (read a .medkey issued earlier).
     dongleMode: "",
@@ -228,6 +279,15 @@ window.medvault = function medvault() {
     },
 
     patients: [],
+    recordOptions: [],
+    recordOptionsLoading: true,
+    recordOptionsError: "",
+    recordSearch: {
+      inspect: "",
+      vault: "",
+      stego: "",
+      tamper: "",
+    },
     patientView: "decrypted",
     patientForm: {
       medical_record_number: "",
@@ -254,6 +314,151 @@ window.medvault = function medvault() {
       return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
     },
 
+    generateMRN() {
+      const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      const randomBytes = new Uint8Array(4);
+      if (globalThis.crypto && typeof globalThis.crypto.getRandomValues === "function") {
+        globalThis.crypto.getRandomValues(randomBytes);
+      } else {
+        for (let i = 0; i < randomBytes.length; i += 1) {
+          randomBytes[i] = Math.floor(Math.random() * 256);
+        }
+      }
+      const suffix = Array.from(randomBytes, (byte) => alphabet[byte % alphabet.length]).join("");
+      const now = new Date();
+      const date = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+      const mrn = `RM-${date}-${suffix}`;
+      this.patientForm.medical_record_number = mrn;
+      this.patientTouched.medical_record_number = false;
+      return mrn;
+    },
+
+    formatRecordRef(id) {
+      const value = Number(id);
+      if (!Number.isSafeInteger(value) || value <= 0) return "-";
+      return `REC-#${String(value).padStart(4, "0")}`;
+    },
+
+    parseRecordRef(reference) {
+      const match = /^REC-#([0-9]{4,})$/i.exec(String(reference || "").trim());
+      if (!match) return 0;
+      const value = Number(match[1]);
+      return Number.isSafeInteger(value) && value > 0 ? value : 0;
+    },
+
+    setRecordReference(field, reference) {
+      const idFields = {
+        inspect: "inspectId",
+        vault: "vaultRecordId",
+        stego: "stegoRecordId",
+        tamper: "tamperRecordId",
+      };
+      const idField = idFields[field];
+      if (!idField) return;
+
+      this.recordReferenceInputs[field] = reference;
+      const id = this.parseRecordRef(reference);
+      this[idField] = id;
+      if (id > 0) this.rememberRecord(id);
+    },
+
+    clearRecordReferenceSelection(field) {
+      const idFields = {
+        inspect: "inspectId",
+        vault: "vaultRecordId",
+        stego: "stegoRecordId",
+        tamper: "tamperRecordId",
+      };
+      const idField = idFields[field];
+      if (!idField) return;
+      this.recordReferenceInputs[field] = "";
+      this[idField] = 0;
+    },
+
+    recordPatient(record) {
+      const patient = this.patients.find((item) => Number(item.id) === Number(record.patient_id));
+      return {
+        medical_record_number: record.patient_mrn || (patient && patient.medical_record_number) || "",
+        full_name: record.patient_name || (patient && patient.full_name) || "",
+      };
+    },
+
+    visitStatusLabel(status) {
+      const labels = {
+        OPEN: "Berlangsung",
+        UNDER_TREATMENT: "Dalam perawatan",
+        CLOSED: "Selesai",
+      };
+      return labels[status] || status || "Status tidak dikenal";
+    },
+
+    recordOptionLabel(record) {
+      const patient = this.recordPatient(record);
+      const createdAt = record.created_at
+        ? new Date(record.created_at).toLocaleDateString("id-ID")
+        : "";
+      return [
+        this.formatRecordRef(record.id),
+        patient?.medical_record_number || "MRN tidak tersedia",
+        patient?.full_name || "Nama tidak tersedia",
+        this.visitStatusLabel(record.visit_status),
+        createdAt,
+      ].filter(Boolean).join(" / ");
+    },
+
+    filteredRecordOptions(field) {
+      const query = String(this.recordSearch[field] || "").trim().toLowerCase();
+      if (!query) return this.recordOptions;
+      return this.recordOptions.filter((record) => {
+        const patient = this.recordPatient(record);
+        const haystack = [
+          this.formatRecordRef(record.id),
+          patient?.medical_record_number,
+          patient?.full_name,
+          record.visit_status,
+          this.visitStatusLabel(record.visit_status),
+          record.created_at,
+        ].filter(Boolean).join(" ").toLowerCase();
+        return haystack.includes(query);
+      });
+    },
+
+    recordsWithLabFiles() {
+      return this.recordOptions.filter((record) => record.has_lab_file);
+    },
+
+    upsertRecordOption(record) {
+      if (!record || !Number.isSafeInteger(Number(record.id)) || Number(record.id) <= 0) return;
+      const option = {
+        id: Number(record.id),
+        patient_id: Number(record.patient_id),
+        visit_status: record.visit_status || "OPEN",
+        created_at: record.created_at || new Date().toISOString(),
+        has_lab_file: Boolean(record.has_lab_file || record.lab_file_path || record.lab_original_name),
+        lab_original_name: record.lab_original_name || "",
+      };
+      const existingIndex = this.recordOptions.findIndex((item) => Number(item.id) === option.id);
+      if (existingIndex >= 0) {
+        this.recordOptions.splice(existingIndex, 1, { ...this.recordOptions[existingIndex], ...option });
+        return;
+      }
+      this.recordOptions = [option, ...this.recordOptions];
+    },
+
+    formatVaultRef(id) {
+      const value = Number(id);
+      if (!Number.isSafeInteger(value) || value <= 0) return "-";
+      return `VAULT-REC-${String(value).padStart(4, "0")}`;
+    },
+
+    formatBlockRef(block) {
+      if (!block || typeof block !== "object") return "-";
+      const value = Number(block.block_index);
+      if (block.action_type === "GENESIS" || value === 0) return "Genesis Block";
+      if (!Number.isSafeInteger(value) || value < 0) return "-";
+      return `BLK-#${String(value).padStart(5, "0")}`;
+    },
+
     recordForm: {
       patient_id: 0,
       diagnosis: "",
@@ -262,6 +467,12 @@ window.medvault = function medvault() {
     },
     inspectId: 0,
     inspection: null,
+    recordReferenceInputs: {
+      inspect: "",
+      vault: "",
+      stego: "",
+      tamper: "",
+    },
 
     vaultRecordId: 0,
     vaultFile: null,
@@ -282,7 +493,7 @@ window.medvault = function medvault() {
 
     get telemetryPretty() {
       if (!this.telemetry) {
-        return "Belum ada respons kriptografi. Lakukan satu aksi untuk melihat nilai antara.";
+        return "Belum ada data proses. Selesaikan aksi di salah satu modul untuk melihat rinciannya.";
       }
       return JSON.stringify(this.telemetry, null, 2);
     },
@@ -309,9 +520,9 @@ window.medvault = function medvault() {
     },
 
     get healthLabel() {
-      if (this.healthState === "down") return "API tidak terjangkau";
-      if (this.healthState === "ok") return "API terhubung";
-      return "Memeriksa API...";
+      if (this.healthState === "down") return "Layanan tidak tersedia";
+      if (this.healthState === "ok") return "Layanan siap";
+      return "Menghubungkan layanan...";
     },
 
     get healthBadgeClass() {
@@ -350,21 +561,21 @@ window.medvault = function medvault() {
 
     get registerStepSubtitle() {
       if (this.registerStep === 2) {
-        return "Siapkan USB Dongle: buat kunci baru atau pakai berkas .medkey yang sudah ada.";
+        return "Pilih dongle baru atau gunakan berkas .medkey yang sudah ada.";
       }
       if (this.registerStep === 3) {
-        return "Ambil verifikasi wajah supaya akun terikat pada perangkat ini.";
+        return "Nyalakan kamera, lalu ambil verifikasi wajah.";
       }
       if (this.registerStep === 4) {
-        return "Akun dokter Anda sudah siap digunakan.";
+        return "Akun siap digunakan.";
       }
-      return "Mulai dari data akun yang akan Anda pakai setiap hari.";
+      return "Isi data akun untuk melanjutkan.";
     },
 
     get registerUsernameError() {
       const value = this.registerForm.username.trim();
-      if (!value) return "Nama pengguna wajib diisi ya.";
-      if (value.length < 3) return "Nama pengguna minimal 3 karakter ya.";
+      if (!value) return "Nama pengguna wajib diisi.";
+      if (value.length < 3) return "Nama pengguna harus berisi minimal 3 karakter.";
       if (/\s/.test(value)) return "Nama pengguna tidak boleh memakai spasi. Gunakan garis bawah atau titik.";
       if (!/^[A-Za-z0-9._-]+$/.test(value)) {
         return "Gunakan huruf, angka, titik, garis bawah, atau tanda hubung.";
@@ -374,23 +585,23 @@ window.medvault = function medvault() {
 
     get registerFullNameError() {
       const value = this.registerForm.full_name.trim();
-      if (!value) return "Nama lengkap wajib diisi ya.";
-      if (value.length < 2) return "Nama lengkap minimal 2 karakter ya.";
+      if (!value) return "Nama lengkap wajib diisi.";
+      if (value.length < 2) return "Nama lengkap harus berisi minimal 2 karakter.";
       return "";
     },
 
     get registerPasswordError() {
-      if (!this.registerForm.password) return "Kata sandi wajib diisi ya.";
-      if (this.registerForm.password.length < 12) return "Kata sandi minimal 12 karakter ya.";
+      if (!this.registerForm.password) return "Kata sandi wajib diisi.";
+      if (this.registerForm.password.length < 12) return "Kata sandi harus berisi minimal 12 karakter.";
       return "";
     },
 
     get registerPasswordConfirmError() {
       if (!this.registerPasswordConfirm) {
-        return "Ulangi kata sandi supaya tidak ada salah ketik.";
+        return "Ulangi kata sandi.";
       }
       if (this.registerPasswordConfirm !== this.registerForm.password) {
-        return "Kata sandi belum sama. Periksa lagi ya.";
+        return "Kata sandi tidak sama. Periksa kembali.";
       }
       return "";
     },
@@ -422,18 +633,18 @@ window.medvault = function medvault() {
 
     get registerDongleError() {
       if (!this.dongleMode) {
-        return "Pilih dulu: buat dongle baru atau pakai dongle yang sudah ada.";
+        return "Pilih untuk membuat dongle baru atau menggunakan dongle yang sudah ada.";
       }
       if (!this.dongle) {
         return this.dongleMode === "new"
-          ? "Kunci dongle belum dibuat. Tekan Buat ulang kunci, ya."
+          ? "Kunci dongle belum dibuat. Pilih Buat ulang kunci untuk mencoba lagi."
           : "Berkas .medkey belum dipilih. Pilih berkas dari USB Anda.";
       }
       if (!this.registerForm.dongle_key_id.trim()) {
-        return "ID USB Dongle belum terbaca. Pilih ulang berkas .medkey, ya.";
+        return "ID USB Dongle belum terbaca. Pilih ulang berkas .medkey.";
       }
       if (!/^[0-9a-fA-F]{64}$/.test(this.registerForm.dongle_pubkey_hex.trim())) {
-        return "Kunci publik USB Dongle belum siap. Pilih ulang berkas .medkey, ya.";
+        return "Kunci publik USB Dongle belum siap. Pilih ulang berkas .medkey.";
       }
       if (this.registerDongleUsernameMismatch) {
         return "Nama pengguna di USB Dongle berbeda dengan akun ini. Kembali ke langkah data akun atau gunakan dongle yang sesuai.";
@@ -499,7 +710,7 @@ window.medvault = function medvault() {
         return "Wajah belum dipindai. Nyalakan kamera, lalu ambil verifikasi wajah.";
       }
       if (!/^[0-9a-fA-F]{16}$/.test(this.registerForm.webcam_dhash_hex)) {
-        return "Hasil pemindaian wajah belum lengkap. Coba ambil ulang, ya.";
+        return "Pemindaian wajah belum lengkap. Ambil ulang verifikasi.";
       }
       return "";
     },
@@ -563,25 +774,25 @@ window.medvault = function medvault() {
       if (this.toast.type !== "error" || !this.toast.message) return "";
       const message = String(this.toast.message);
       if (/already enrolled|already exists|already registered|sudah terdaftar/i.test(message)) {
-        return "Nama pengguna atau ID dongle sudah terdaftar. Gunakan data lain, ya.";
+        return "Nama pengguna atau ID dongle sudah terdaftar. Gunakan data lain.";
       }
       if (/at least 12|minimal 12/i.test(message)) {
-        return "Kata sandi minimal 12 karakter, ya.";
+        return "Kata sandi harus berisi minimal 12 karakter.";
       }
       if (/password|kata sandi|wrong/i.test(message)) {
-        return "Kata sandi belum cocok. Coba periksa lagi, ya.";
+        return "Kata sandi salah. Periksa kembali lalu coba lagi.";
       }
       if (/are required|is required|must be provided|wajib/i.test(message)) {
-        return "Lengkapi semua data dulu, ya.";
+        return "Lengkapi semua kolom wajib.";
       }
       if (/signature|tanda tangan/i.test(message)) {
         return "Tanda tangan USB Dongle belum cocok. Pastikan dongle ini milik akun Anda.";
       }
       if (/challenge|sesi verifikasi/i.test(message)) {
-        return "Sesi verifikasi sudah berakhir. Ulangi dari langkah pertama, ya.";
+        return "Sesi verifikasi berakhir. Ulangi dari langkah pertama.";
       }
       if (/pengguna.*dongle|username.*dongle|dongle.*username/i.test(message)) {
-        return "Nama pengguna di USB Dongle tidak cocok dengan akun ini. Periksa lagi, ya.";
+        return "Nama pengguna pada USB Dongle tidak cocok. Gunakan dongle yang terdaftar untuk akun ini.";
       }
       if (/tidak valid|invalid/i.test(message) && /dongle|medkey|private_key_seed|seed/i.test(message)) {
         return "Berkas USB Dongle tidak bisa dibaca. Pastikan berkas .medkey berasal dari fasilitas Anda.";
@@ -593,10 +804,10 @@ window.medvault = function medvault() {
         return "Akses kamera belum diizinkan. Izinkan kamera di browser, lalu coba lagi.";
       }
       if (/belum mendaftarkan windows hello/i.test(message)) {
-        return "Akun ini belum mendaftarkan Windows Hello. Masuk dengan verifikasi wajah dulu, ya.";
+        return "Akun ini belum mendaftarkan Windows Hello. Masuk dengan verifikasi wajah terlebih dahulu.";
       }
       if (/webauthn|windows hello|passkey/i.test(message)) {
-        return "Verifikasi Windows Hello belum selesai. Coba lagi, ya.";
+        return "Verifikasi Windows Hello belum selesai. Coba lagi.";
       }
       if (/dongle|medkey/i.test(message)) {
         return "USB Dongle belum terdeteksi. Pastikan sudah tertancap, lalu coba lagi.";
@@ -605,12 +816,12 @@ window.medvault = function medvault() {
         return "Wajah belum berhasil dipindai. Coba ambil ulang dengan cahaya yang cukup.";
       }
       if (/username|akun|user/i.test(message)) {
-        return "Nama pengguna belum cocok. Periksa lagi, ya.";
+        return "Nama pengguna tidak cocok. Periksa kembali.";
       }
       if (/registrasi|register|daftar/i.test(message)) {
-        return "Pendaftaran belum selesai. Periksa kembali data Anda, ya.";
+        return "Pendaftaran belum selesai. Periksa kembali data Anda.";
       }
-      return "Ada langkah yang belum selesai. Coba lagi, ya.";
+      return "Langkah belum selesai. Periksa data lalu coba lagi.";
     },
 
     async init() {
@@ -652,7 +863,7 @@ window.medvault = function medvault() {
     // Each module is a real page, so navigation triggers a full document load.
     navigate(path) {
       if (!this.session && !["/", "/login", "/register"].includes(path)) {
-        this.notify("Silakan masuk terlebih dahulu", "error");
+        this.notify("Masuk untuk membuka halaman ini.", "error");
         return;
       }
       const current = window.location.pathname.replace(/\/+$/, "") || "/";
@@ -685,12 +896,17 @@ window.medvault = function medvault() {
     async loadRouteData() {
       if (!this.session) return;
       try {
+        const tasks = [];
         if (["dashboard", "patients", "records"].includes(this.route)) {
-          await this.loadPatients();
+          tasks.push(this.loadPatients());
+        }
+        if (["records", "vault", "stego", "audit"].includes(this.route)) {
+          tasks.push(this.loadRecords());
         }
         if (["dashboard", "audit"].includes(this.route)) {
-          await this.loadAudit();
+          tasks.push(this.loadAudit());
         }
+        await Promise.all(tasks);
       } catch (error) {
         this.notify(`Muat data: ${error.message || error}`, "error");
       }
@@ -720,11 +936,27 @@ window.medvault = function medvault() {
         this.sessionInfo = data.session || null;
         if (this.session) {
           this.loginForm.username = this.session.username;
-          if (!this.dongleFileHandle) {
-            const handle = await idbGetDongleHandle();
-            if (handle) {
-              this.dongleFileHandle = handle;
-            }
+
+          // 1. Restore dongle from session storage first (instant & resilient across tab navigation)
+          const sessionDongle = getDongleSession();
+          if (sessionDongle && !this.dongle) {
+            this.dongle = sessionDongle;
+            this.dongleConnected = true;
+            this.dongleNote = "USB Dongle aktif dalam sesi browser.";
+          }
+
+          // 2. Also retrieve physical file handle from IndexedDB
+          const { handle, dongle } = await idbGetDongleData();
+          if (handle) {
+            this.dongleFileHandle = handle;
+          }
+          if (dongle && !this.dongle) {
+            this.dongle = dongle;
+            this.dongleConnected = true;
+            saveDongleSession(dongle);
+          }
+          if (this.dongle) {
+            this.dongleConnected = true;
           }
           this.startDongleWatchdog();
         }
@@ -961,7 +1193,7 @@ window.medvault = function medvault() {
     async generateDongle() {
       const username = this.registerForm.username.trim();
       if (!username) {
-        this.notify("Isi nama pengguna di langkah 1 dulu, ya", "error");
+        this.notify("Isi nama pengguna pada langkah pertama.", "error");
         return;
       }
       this.newDongle = { ...this.freshNewDongle(), generating: true };
@@ -1006,7 +1238,7 @@ window.medvault = function medvault() {
             issuedAt: new Date().toISOString(),
             publicKeyHex: publicHex,
           };
-          this.notify("Kunci dongle baru sudah dibuat. Simpan ke USB ya.");
+          this.notify("Kunci dongle dibuat. Simpan berkasnya ke USB.");
         });
       } finally {
         this.newDongle.generating = false;
@@ -1056,7 +1288,7 @@ window.medvault = function medvault() {
               ],
             });
           } catch (error) {
-            if (error && error.name === "AbortError") {
+            if (error && (error.name === "AbortError" || /already active/i.test(error.message || ""))) {
               this.notify("Penyimpanan dibatalkan. Tekan Simpan ke USB untuk mencoba lagi.", "error");
               return;
             }
@@ -1079,7 +1311,7 @@ window.medvault = function medvault() {
           this.dongleFileHandle = handle;
           this.dongleConnected = true;
           this.dongleEjected = false;
-          await idbSaveDongleHandle(handle);
+          await idbSaveDongleHandle(handle, this.dongle);
         } else {
           const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
           const link = document.createElement("a");
@@ -1114,14 +1346,11 @@ window.medvault = function medvault() {
           seedHex: seed,
         };
         this.dongleFileHandle = handle;
-        this.dongleConnected = Boolean(handle);
+        this.dongleConnected = true;
         this.dongleEjected = false;
-        if (handle) {
-          await idbSaveDongleHandle(handle);
-        }
-        this.dongleNote = handle
-          ? "USB Dongle fisik terhubung dan dipantau secara real-time."
-          : "Kunci privat tetap di memori tab ini. Tutup tab untuk menghapusnya.";
+        saveDongleSession(this.dongle);
+        await idbSaveDongleHandle(handle, this.dongle);
+        this.dongleNote = "Kunci USB Dongle aktif di memori sesi.";
 
         if (this.dongle.username) {
           if (!this.registerForm.username.trim()) {
@@ -1149,28 +1378,51 @@ window.medvault = function medvault() {
     },
 
     async pickDongle() {
-      if (typeof window.showOpenFilePicker === "function") {
-        try {
-          const [handle] = await window.showOpenFilePicker({
-            multiple: false,
-            types: [
-              {
-                description: "Kunci USB Dongle MedVault (*.medkey)",
-                accept: { "application/json": [".medkey", ".json"] },
-              },
-            ],
-          });
-          if (!handle) return;
-          const file = await handle.getFile();
-          await this.processDongleFile(file, handle);
-        } catch (error) {
-          if (error && error.name === "AbortError") return;
-          this.notify("Gagal membuka USB Dongle: " + (error.message || error), "error");
+      if (this._isPickingDongle) return;
+      this._isPickingDongle = true;
+      try {
+        if (this.dongleFileHandle && typeof this.dongleFileHandle.requestPermission === "function") {
+          try {
+            const perm = await this.dongleFileHandle.requestPermission({ mode: "read" });
+            if (perm === "granted") {
+              const file = await this.dongleFileHandle.getFile();
+              await this.processDongleFile(file, this.dongleFileHandle);
+              return;
+            }
+          } catch (_) {
+            // Re-prompt via file picker if handle became stale
+          }
         }
-      } else {
-        const input = document.querySelector("input[data-mv-dongle-input]") ||
-                      (this.$refs && (this.$refs.dongleInput || this.$refs.registerDongleInput));
-        if (input) input.click();
+
+        if (typeof window.showOpenFilePicker === "function") {
+          try {
+            const [handle] = await window.showOpenFilePicker({
+              multiple: false,
+              types: [
+                {
+                  description: "Kunci USB Dongle MedVault (*.medkey)",
+                  accept: { "application/json": [".medkey", ".json"] },
+                },
+              ],
+            });
+            if (!handle) return;
+            const file = await handle.getFile();
+            await this.processDongleFile(file, handle);
+          } catch (error) {
+            if (error && (error.name === "AbortError" || /already active/i.test(error.message || ""))) {
+              return;
+            }
+            this.notify("Gagal membuka USB Dongle: " + (error.message || error), "error");
+          }
+        } else {
+          const input = document.querySelector("input[data-mv-dongle-input]") ||
+                        (this.$refs && (this.$refs.dongleInput || this.$refs.registerDongleInput));
+          if (input) input.click();
+        }
+      } finally {
+        setTimeout(() => {
+          this._isPickingDongle = false;
+        }, 300);
       }
     },
 
@@ -1182,64 +1434,16 @@ window.medvault = function medvault() {
     },
 
     async verifyDonglePresence() {
-      if (!this.dongleFileHandle) {
-        return { alive: true, reason: "no_handle" };
-      }
-      try {
-        if (typeof this.dongleFileHandle.queryPermission === "function") {
-          const perm = await this.dongleFileHandle.queryPermission({ mode: "read" });
-          if (perm !== "granted") {
-            // Permission ungranted or requires re-prompt after reload:
-            // Standby state, not a physical removal.
-            this.dongleConnected = false;
-            return { alive: true, reason: "permission_standby" };
-          }
-        }
-        const file = await this.dongleFileHandle.getFile();
-        const slice = file.slice(0, 1);
-        await slice.arrayBuffer();
-        this.dongleConnected = true;
-        this.dongleLastChecked = new Date().toISOString();
-        this._dongleConsecutiveMisses = 0;
-        return { alive: true, reason: "ok" };
-      } catch (err) {
-        const errName = err && err.name;
-        // Physical USB detachment on OS produces NotFoundError or NotReadableError
-        if (errName === "NotFoundError" || errName === "NotReadableError") {
-          this.dongleConnected = false;
-          return { alive: false, reason: "hardware_unmounted", error: err };
-        }
-        // Other transient I/O or permission aborts: keep standby, do not eject
-        this.dongleConnected = false;
-        return { alive: true, reason: "io_transient", error: err };
-      }
+      return { alive: Boolean(this.dongle), reason: this.dongle ? "memory_key" : "no_key" };
     },
 
     startDongleWatchdog() {
+      // On-demand hardware token pattern (industry standard like YubiKey):
+      // No continuous polling timer. The session is protected by HttpOnly cookie.
       this.stopDongleWatchdog();
-      if (!this.dongleSupported) return;
-      this._dongleConsecutiveMisses = 0;
-
-      void this.verifyDonglePresence();
-
-      this._dongleWatchdogTimer = window.setInterval(async () => {
-        if (!this.session) {
-          this.stopDongleWatchdog();
-          return;
-        }
-        if (this.dongleFileHandle) {
-          const status = await this.verifyDonglePresence();
-          if (!status.alive && status.reason === "hardware_unmounted") {
-            this._dongleConsecutiveMisses += 1;
-            // Require 2 consecutive misses (6 seconds) to filter out OS momentary re-enumeration
-            if (this._dongleConsecutiveMisses >= 2 && this.session && !this.dongleEjected) {
-              await this.handleDongleEjection();
-            }
-          } else {
-            this._dongleConsecutiveMisses = 0;
-          }
-        }
-      }, 3000);
+      if (this.dongle) {
+        this.dongleConnected = true;
+      }
     },
 
     stopDongleWatchdog() {
@@ -1273,9 +1477,10 @@ window.medvault = function medvault() {
       this.session = null;
       this.sessionInfo = null;
       this.patients = [];
+      this.recordOptions = [];
       this.blocks = [];
       this.stopDongleWatchdog();
-      this.notify("Peringatan: USB Dongle dicabut! Sesi kerja dikunci.", "error");
+      this.notify("Sesi kerja telah diakhiri.", "info");
     },
 
     acknowledgeDongleEjection() {
@@ -1312,13 +1517,6 @@ window.medvault = function medvault() {
     async signPayload(payload) {
       if (!this.dongle) {
         throw new Error("USB Dongle belum terdeteksi, muat berkas .medkey dulu");
-      }
-      if (this.dongleFileHandle) {
-        const status = await this.verifyDonglePresence();
-        if (!status.alive && status.reason === "hardware_unmounted") {
-          await this.handleDongleEjection();
-          throw new Error("USB Dongle tidak terdeteksi pada drive komputer, operasi dibatalkan");
-        }
       }
       const key = await this.importSeed(this.dongle.seedHex);
       const signature = await crypto.subtle.sign(
@@ -1548,7 +1746,7 @@ window.medvault = function medvault() {
         this.registerTouched.password = true;
         this.registerTouched.password_confirm = true;
         if (!this.registerAccountValid) {
-          this.notify("Periksa data akun dulu, ya", "error");
+          this.notify("Periksa kembali data akun.", "error");
           return;
         }
         this.registerStep = 2;
@@ -1587,7 +1785,7 @@ window.medvault = function medvault() {
         this.registerTouched.face = true;
         if (!this.registerAccountValid) {
           this.registerStep = 1;
-          throw new Error("periksa data akun dulu, ya");
+          throw new Error("periksa kembali data akun");
         }
         if (!this.registerDongleValid) {
           this.registerStep = 2;
@@ -1628,7 +1826,7 @@ window.medvault = function medvault() {
     nextLoginStep() {
       if (this.loginStep === 1) {
         if (!this.loginForm.username.trim() || !this.loginForm.password) {
-          this.notify("Isi nama pengguna dan kata sandi dulu, ya", "error");
+          this.notify("Isi nama pengguna dan kata sandi.", "error");
           return;
         }
         this.loginStep = 2;
@@ -1636,7 +1834,7 @@ window.medvault = function medvault() {
       }
       if (this.loginStep === 2) {
         if (!this.dongle) {
-          this.notify("USB Dongle belum terdeteksi. Pastikan sudah tertancap, lalu coba lagi", "error");
+          this.notify("USB Dongle belum terdeteksi. Hubungkan dongle, lalu coba lagi.", "error");
           return;
         }
         if (this.dongle.username && this.dongle.username !== this.loginForm.username.trim()) {
@@ -1651,9 +1849,9 @@ window.medvault = function medvault() {
     async login() {
       await this.run("Masuk", async () => {
         const username = this.loginForm.username.trim();
-        if (!username) throw new Error("isi nama pengguna dulu, ya");
+        if (!username) throw new Error("nama pengguna belum diisi");
         if (!this.loginFaceCaptured || !this.loginForm.webcam_dhash_hex) {
-          throw new Error("wajah belum dipindai, ambil verifikasi wajah dulu");
+          throw new Error("ambil verifikasi wajah sebelum melanjutkan");
         }
 
         const challengeEnv = await this.api(
@@ -1686,7 +1884,7 @@ window.medvault = function medvault() {
         this.sessionInfo = (env.data && env.data.session) || null;
         this.loginStep = 1;
         this.startDongleWatchdog();
-        this.notify(env.message || "Sesi aktif. Selamat bekerja.");
+        this.notify(env.message || "Berhasil masuk.");
         this.navigate("/dashboard");
       });
     },
@@ -1703,6 +1901,7 @@ window.medvault = function medvault() {
         this.session = null;
         this.sessionInfo = null;
         this.patients = [];
+        this.recordOptions = [];
         this.blocks = [];
         this.validation = null;
         this.validationCheckedAt = "";
@@ -1752,7 +1951,7 @@ window.medvault = function medvault() {
     async webauthnLogin() {
       await this.run("WebAuthn", async () => {
         const username = this.loginForm.username.trim();
-        if (!username) throw new Error("isi nama pengguna dulu, ya");
+        if (!username) throw new Error("nama pengguna belum diisi");
 
         // Ask for the assertion options first so an account without an
         // enrolled credential does not consume a dongle challenge.
@@ -1810,13 +2009,35 @@ window.medvault = function medvault() {
       this.patients = data.patients || [];
     },
 
+    async loadRecords() {
+      this.recordOptionsLoading = true;
+      this.recordOptionsError = "";
+      try {
+        const env = await this.api("/api/v1/records");
+        const data = env.data || {};
+        this.recordOptions = (data.records || []).sort((a, b) => Number(b.id) - Number(a.id));
+      } catch (error) {
+        this.recordOptionsError = "Daftar rekam medis gagal dimuat. Muat ulang halaman.";
+        throw error;
+      } finally {
+        this.recordOptionsLoading = false;
+      }
+    },
+
     // The last record id is kept locally so the vault, steganography, and audit
     // pages can prefill their forms after a full page navigation.
     rememberRecord(id) {
+      const reference = this.formatRecordRef(id);
       this.inspectId = id;
       this.tamperRecordId = id;
       this.vaultRecordId = id;
       this.stegoRecordId = id;
+      this.recordReferenceInputs = {
+        inspect: reference,
+        vault: reference,
+        stego: reference,
+        tamper: reference,
+      };
       try {
         window.localStorage.setItem("medvault.recordId", String(id));
       } catch (_) {
@@ -1831,11 +2052,18 @@ window.medvault = function medvault() {
       } catch (_) {
         stored = 0;
       }
-      if (stored > 0) {
+      if (Number.isSafeInteger(stored) && stored > 0) {
+        const reference = this.formatRecordRef(stored);
         this.inspectId = stored;
         this.tamperRecordId = stored;
         this.vaultRecordId = stored;
         this.stegoRecordId = stored;
+        this.recordReferenceInputs = {
+          inspect: reference,
+          vault: reference,
+          stego: reference,
+          tamper: reference,
+        };
       }
     },
 
@@ -1903,6 +2131,9 @@ window.medvault = function medvault() {
     // Focuses the enrolment form without relying on a DOM global inside an
     // Alpine expression, so a missing element cannot break the page.
     focusPatientMrn() {
+      if (!String(this.patientForm.medical_record_number || "").trim()) {
+        this.generateMRN();
+      }
       const input = document.getElementById("patient-mrn");
       if (!input) return;
       input.focus();
@@ -1991,6 +2222,7 @@ window.medvault = function medvault() {
         const data = env.data || {};
         if (data.record) {
           this.rememberRecord(data.record.id);
+          this.upsertRecordOption(data.record);
         }
         if (data.proposal) {
           this.rememberPending(data.proposal);
@@ -2007,9 +2239,29 @@ window.medvault = function medvault() {
 
     async inspectRecord() {
       await this.run("Inspeksi", async () => {
-        if (!this.inspectId) throw new Error("isi ID rekam medis");
+        if (!this.inspectId) throw new Error("masukkan referensi rekam medis, contoh: REC-#0001");
         const env = await this.api(`/api/v1/records/${this.inspectId}/inspect`);
         this.inspection = env.data;
+      });
+    },
+
+    async closeRecordVisit() {
+      await this.run("Selesaikan kunjungan", async () => {
+        const record = this.inspection && this.inspection.record;
+        if (!record || !record.id) throw new Error("buka rekam medis terlebih dahulu");
+        if (record.visit_status === "CLOSED") throw new Error("kunjungan sudah selesai");
+
+        const env = await this.api(`/api/v1/records/${record.id}/status`, {
+          method: "PATCH",
+          body: { visit_status: "CLOSED" },
+        });
+        const data = env.data || {};
+        if (data.record) {
+          this.inspection.record = { ...record, ...data.record };
+          this.upsertRecordOption(data.record);
+        }
+        if (data.proposal) this.rememberPending(data.proposal);
+        this.notify(env.message || "Kunjungan ditandai selesai");
       });
     },
 
@@ -2085,7 +2337,7 @@ window.medvault = function medvault() {
         await this.loadAudit();
         this.notify(
           block
-            ? `Blok ${block.block_index} tersegel dan diverifikasi validator`
+            ? `${this.formatBlockRef(block)} tersegel dan diverifikasi validator`
             : "Blok tersegel"
         );
       });
@@ -2096,8 +2348,8 @@ window.medvault = function medvault() {
     // ---------------------------------------------------------------
 
     async uploadLab() {
-      await this.run("Segel berkas", async () => {
-        if (!this.vaultRecordId) throw new Error("isi ID rekam medis");
+      await this.run("Unggah berkas", async () => {
+        if (!this.vaultRecordId) throw new Error("masukkan referensi rekam medis, contoh: REC-#0001");
         if (!this.vaultFile) throw new Error("pilih berkas");
 
         const form = new FormData();
@@ -2108,6 +2360,7 @@ window.medvault = function medvault() {
           { method: "POST", form }
         );
         const data = env.data || {};
+        if (data.record) this.upsertRecordOption(data.record);
         if (data.proposal) {
           this.rememberPending(data.proposal);
         }
@@ -2124,8 +2377,8 @@ window.medvault = function medvault() {
     },
 
     async inspectVault() {
-      await this.run("Metadata brankas", async () => {
-        if (!this.vaultRecordId) throw new Error("isi ID rekam medis");
+      await this.run("Lihat detail berkas", async () => {
+        if (!this.vaultRecordId) throw new Error("masukkan referensi rekam medis, contoh: REC-#0001");
         const env = await this.api(
           `/api/v1/vault/${this.vaultRecordId}/inspect`
         );
@@ -2133,8 +2386,15 @@ window.medvault = function medvault() {
       });
     },
 
-    vaultDownloadUrl() {
-      return `/api/v1/vault/${this.vaultRecordId}/download`;
+    async openVaultRecord(record) {
+      if (!record) return;
+      this.recordSearch.vault = "";
+      this.setRecordReference("vault", this.formatRecordRef(record.id));
+      await this.inspectVault();
+    },
+
+    vaultDownloadUrl(recordID = this.vaultRecordId) {
+      return `/api/v1/vault/${recordID}/download`;
     },
 
     // ---------------------------------------------------------------
@@ -2143,7 +2403,7 @@ window.medvault = function medvault() {
 
     async embedStego() {
       await this.run("Sisipkan watermark", async () => {
-        if (!this.stegoRecordId) throw new Error("isi ID rekam medis");
+        if (!this.stegoRecordId) throw new Error("masukkan referensi rekam medis, contoh: REC-#0001");
         if (!this.stegoFile) throw new Error("pilih berkas PNG");
 
         const form = new FormData();
@@ -2181,9 +2441,53 @@ window.medvault = function medvault() {
       return `/api/v1/stego/${this.stegoRecordId}/image?t=${Date.now()}`;
     },
 
+    stegoDownloadUrl() {
+      return `/api/v1/stego/${this.stegoRecordId}/image?download=1`;
+    },
+
     // ---------------------------------------------------------------
     // Audit chain
     // ---------------------------------------------------------------
+
+    auditValidatorStatus(block) {
+      if (!this.validation || !block) {
+        return { signature: "Belum diperiksa", signatureClass: "mv-badge-teal", issue: "" };
+      }
+
+      const failure = this.validation.first_failure;
+      const blockIndex = Number(block.block_index);
+      const failureIndex = failure ? Number(failure.block_index) : -1;
+      const signatureStep = `block ${blockIndex} validator countersignature verified`;
+      const signatureVerified = (this.validation.steps || []).includes(signatureStep);
+      const failedAtThisBlock = failure && failureIndex === blockIndex;
+
+      if (signatureVerified) {
+        const issueLabels = {
+          RECORD_TAMPERED: "Rekam medis berubah",
+          RECORD_MISSING: "Rekam medis hilang",
+          RECORD_LOOKUP: "Rekam medis gagal dibaca",
+        };
+        return {
+          signature: "Tanda tangan sah",
+          signatureClass: "mv-badge-success",
+          issue: failedAtThisBlock ? (issueLabels[failure.reason] || "") : "",
+        };
+      }
+
+      if (failedAtThisBlock) {
+        return {
+          signature: failure.reason === "VALIDATOR_SIGNATURE" ? "Tanda tangan gagal" : "Blok tidak valid",
+          signatureClass: "mv-badge-danger",
+          issue: "",
+        };
+      }
+
+      if (failure && blockIndex > failureIndex) {
+        return { signature: "Belum diperiksa", signatureClass: "mv-badge-teal", issue: "" };
+      }
+
+      return { signature: "Belum diperiksa", signatureClass: "mv-badge-teal", issue: "" };
+    },
 
     async loadAudit() {
       const env = await this.api("/api/v1/audit/blocks");
@@ -2194,26 +2498,26 @@ window.medvault = function medvault() {
     },
 
     async simulateTamper() {
-      await this.run("Simulasi tamper", async () => {
-        if (!this.tamperRecordId) throw new Error("isi ID rekam medis");
+      await this.run("Uji perubahan data", async () => {
+        if (!this.tamperRecordId) throw new Error("masukkan referensi rekam medis, contoh: REC-#0001");
         await this.api("/api/v1/audit/simulate-tamper", {
           method: "POST",
           body: { record_id: this.tamperRecordId },
         });
         await this.loadAudit();
-        this.notify("Ciphertext dirusak, periksa status rantai");
+        this.notify("Data uji diubah. Periksa status rantai audit.");
       });
     },
 
     async restoreTamper() {
-      await this.run("Pulihkan", async () => {
-        if (!this.tamperRecordId) throw new Error("isi ID rekam medis");
+      await this.run("Pulihkan data", async () => {
+        if (!this.tamperRecordId) throw new Error("masukkan referensi rekam medis, contoh: REC-#0001");
         await this.api("/api/v1/audit/restore-tamper", {
           method: "POST",
           body: { record_id: this.tamperRecordId },
         });
         await this.loadAudit();
-        this.notify("Ciphertext asli dipulihkan");
+        this.notify("Data rekam medis dipulihkan.");
       });
     },
   };

@@ -53,8 +53,9 @@ Every API endpoint in `medvault-app` MUST return JSON following this envelope so
 ### 2.2 Patient & Super-Encrypted Records (`/api/v1/patients`, `/api/v1/records`)
 * `POST /api/v1/patients` - Encrypts `nik`, `full_name`, and `address` with `AES-256-GCM` and stores row.
 * `GET /api/v1/patients?view=decrypted|raw` - Lists patients with toggleable view between decrypted plaintext and raw SQLite Base64 ciphertext.
-* `POST /api/v1/records` - Runs Classical + Modern super encryption, requests PoA signature from `medvault-validator`, and stores record + audit block.
-* `PUT /api/v1/records/{id}` - Updates record, re-encrypts payload, and seals a new `UPDATE_RECORD` block via `medvault-validator`.
+* `POST /api/v1/records` - Runs Classical + Modern super encryption, starts the visit as `OPEN` (Berlangsung), and requests a PoA audit proposal.
+* `PUT /api/v1/records/{id}` - Updates and re-encrypts clinical fields for an active visit, then proposes an `UPDATE_RECORD` block. Closed visits cannot be edited through this route.
+* `PATCH /api/v1/records/{id}/status` - Transitions an active visit to `CLOSED` (Selesai) without rewriting diagnosis or prescription, then proposes a `CLOSE_RECORD` block. Reopening is not supported; create a separate record for a later visit.
 * `GET /api/v1/records/{id}/inspect` - Returns full side-by-side comparison of Plaintext, Step 1 Classical output, Step 2 XChaCha20-Poly1305 output, and SQLite raw row.
 
 ### 2.3 Lab File Vault (`/api/v1/vault`)
@@ -66,7 +67,7 @@ Every API endpoint in `medvault-app` MUST return JSON following this envelope so
 * `POST /api/v1/stego/extract` - Extracts LSB packet from any uploaded PNG, verifies `HMAC-SHA256` authenticity, and returns decoded medical summary.
 
 ### 2.5 Blockchain Ledger & Tamper Simulator (`/api/v1/audit`)
-* `GET /api/v1/audit/blocks` - Returns all blocks and live `VerifyChain()` status across `audit_blocks` and `records`.
+* `GET /api/v1/audit/blocks` - Returns all blocks and `VerifyChain()` status. Chain hashes and signatures validate every historical block; the live record fingerprint is compared against the latest block targeting each record.
 * `POST /api/v1/audit/simulate-tamper` - (Demo helper) Intentionally alters 1 byte of a record ciphertext in SQLite without going through the Validator Gateway so the lecturer can watch the Blockchain Explorer immediately highlight the exact tampered record and broken signature, followed by `POST /api/v1/audit/restore-tamper`.
 
 ---

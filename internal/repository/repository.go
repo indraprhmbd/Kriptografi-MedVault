@@ -477,6 +477,13 @@ func (r *RecordRepository) Update(ctx context.Context, id int64, diagnosisEnc, p
 		diagnosisEnc, prescriptionEnc, visitStatus, stateHash, nowRFC3339(), id)
 }
 
+// SetVisitStatus changes only the visit lifecycle state and its sealed fingerprint.
+func (r *RecordRepository) SetVisitStatus(ctx context.Context, id int64, visitStatus, stateHash string) error {
+	return r.update(ctx, id,
+		`UPDATE records SET visit_status = ?, record_state_hash = ?, updated_at = ? WHERE id = ?`,
+		visitStatus, stateHash, nowRFC3339(), id)
+}
+
 // SetLabFile records the sealed laboratory attachment metadata.
 func (r *RecordRepository) SetLabFile(ctx context.Context, id int64, path, originalName, sha256Hex string) error {
 	return r.update(ctx, id,

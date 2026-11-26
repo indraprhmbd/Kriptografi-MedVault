@@ -385,6 +385,73 @@ func TestRecordCreateReturnsProposalAndSeals(t *testing.T) {
 	}
 }
 
+func TestRecordCanBeClosedWithoutRewritingClinicalContent(t *testing.T) {
+	api := newTestAPI(t)
+	api.login("dr_andi")
+
+	patientID := api.createPatient("RM-2026-STATUS")
+	recordID, token, payload := api.createRecord(patientID, "")
+	api.seal(token, payload)
+
+	before, err := api.store.Records.Get(context.Background(), recordID)
+	if err != nil {
+		t.Fatalf("load record before close: %v", err)
+	}
+
+	status, _, env := api.do(http.MethodPatch,
+		fmt.Sprintf("/api/v1/records/%d/status", recordID),
+		map[string]any{"visit_status": "CLOSED"})
+	if status != http.StatusOK {
+		t.Fatalf("close record: status %d body %v", status, env)
+	}
+	data, _ := env["data"].(map[string]any)
+	record, _ := data["record"].(map[string]any)
+	proposal, _ := data["proposal"].(map[string]any)
+	token, _ = proposal["proposal_token"].(string)
+	payload, _ = proposal["tx_payload"].(string)
+	if record["visit_status"] != "CLOSED" || token == "" || payload == "" {
+		t.Fatalf("close response missing new status or audit proposal: %v", env["data"])
+	}
+
+	after, err := api.store.Records.Get(context.Background(), recordID)
+	if err != nil {
+		t.Fatalf("load record after close: %v", err)
+	}
+	if after.VisitStatus != "CLOSED" || after.DiagnosisSuperEnc != before.DiagnosisSuperEnc ||
+		after.PrescriptionSuperEnc != before.PrescriptionSuperEnc {
+		t.Fatal("closing a visit must change its status without re-encrypting clinical fields")
+	}
+	if after.RecordStateHash == before.RecordStateHash {
+		t.Fatal("closing a visit must produce a new record state hash")
+	}
+	api.seal(token, payload)
+
+	status, _, env = api.do(http.MethodPatch,
+		fmt.Sprintf("/api/v1/records/%d/status", recordID),
+		map[string]any{"visit_status": "OPEN"})
+	if status != http.StatusConflict {
+		t.Fatalf("reopen closed record: status %d body %v", status, env)
+	}
+
+	status, _, env = api.do(http.MethodGet, "/api/v1/audit/blocks", nil)
+	if status != http.StatusOK {
+		t.Fatalf("verify status transition audit: status %d body %v", status, env)
+	}
+	data, _ = env["data"].(map[string]any)
+	validation, _ := data["validation"].(map[string]any)
+	if validation["valid"] != true {
+		t.Fatalf("status transition must preserve a valid audit chain: %v", validation)
+	}
+	blocks, _ := data["blocks"].([]any)
+	if len(blocks) != 3 {
+		t.Fatalf("expected genesis, create, and close blocks, got %d", len(blocks))
+	}
+	latest, _ := blocks[2].(map[string]any)
+	if latest["action_type"] != ledger.ActionCloseRecord {
+		t.Fatalf("latest audit action = %v, want %s", latest["action_type"], ledger.ActionCloseRecord)
+	}
+}
+
 func TestSealWithWrongDongleSignatureIsRejected(t *testing.T) {
 	api := newTestAPI(t)
 	api.login("dr_andi")
@@ -488,6 +555,9 @@ func TestVaultUploadDownloadRoundTrip(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("download: status %d body %s", rec.Code, rec.Body.String())
 	}
+	if got := rec.Header().Get("Content-Disposition"); !strings.Contains(got, "attachment;") || !strings.Contains(got, "hasil-lab.txt") {
+		t.Fatalf("vault download content disposition = %q", got)
+	}
 	if !bytes.Equal(rec.Body.Bytes(), plaintext) {
 		t.Fatalf("vault round trip mismatch: got %d bytes want %d bytes",
 			rec.Body.Len(), len(plaintext))
@@ -555,6 +625,26 @@ func TestStegoEmbedAndExtract(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("stego image: status %d body %s", rec.Code, rec.Body.String())
 	}
+	if got := rec.Header().Get("Content-Type"); !strings.HasPrefix(got, "image/png") {
+		t.Fatalf("stego preview content type = %q, want image/png", got)
+	}
+	if got := rec.Header().Get("Content-Disposition"); strings.Contains(got, "attachment") {
+		t.Fatalf("stego preview must remain inline, got Content-Disposition %q", got)
+	}
+
+	downloadReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/stego/%d/image?download=1", recordID), nil)
+	downloadReq.AddCookie(api.cookie)
+	downloadRec := httptest.NewRecorder()
+	api.http.ServeHTTP(downloadRec, downloadReq)
+	if downloadRec.Code != http.StatusOK {
+		t.Fatalf("stego download: status %d body %s", downloadRec.Code, downloadRec.Body.String())
+	}
+	if got := downloadRec.Header().Get("Content-Disposition"); !strings.Contains(got, "attachment;") || !strings.Contains(got, fmt.Sprintf("record-%d.png", recordID)) {
+		t.Fatalf("stego download content disposition = %q", got)
+	}
+	if !bytes.HasPrefix(downloadRec.Body.Bytes(), []byte("\x89PNG\r\n\x1a\n")) {
+		t.Fatal("stego download is not a PNG")
+	}
 
 	var extractBody bytes.Buffer
 	w := multipart.NewWriter(&extractBody)
@@ -610,5 +700,127 @@ func TestInspectRecordDecryptsBothLayers(t *testing.T) {
 	intermediates, _ := data["classical_intermediates"].(map[string]any)
 	if intermediates["diagnosis"] == "" {
 		t.Fatalf("inspect must expose the classical intermediate: %v", data)
+	}
+}
+
+func TestRecordCreateAndInspectHandleLargeText(t *testing.T) {
+	api := newTestAPI(t)
+	api.login("dr_andi")
+
+	patientID := api.createPatient("RM-2026-LARGE")
+	diagnosis := strings.Repeat("Perkembangan layanan kesehatan nasional berlangsung bertahap, caf\u00e9.\n", 14_000)
+	prescription := strings.Repeat("Tindak lanjut: evaluasi kondisi, dokumentasi hasil, dan jadwal kontrol.\n", 10_000)
+	if len(diagnosis)+len(prescription) <= 1<<20 {
+		t.Fatal("test content must exceed the previous 1 MiB request limit")
+	}
+
+	status, _, env := api.do(http.MethodPost, "/api/v1/records", map[string]any{
+		"patient_id":   patientID,
+		"diagnosis":    diagnosis,
+		"prescription": prescription,
+		"visit_status": "OPEN",
+	})
+	if status != http.StatusOK {
+		t.Fatalf("create large record: status %d, message %v", status, env["message"])
+	}
+	data, _ := env["data"].(map[string]any)
+	record, _ := data["record"].(map[string]any)
+	id, _ := record["id"].(float64)
+	proposal, _ := data["proposal"].(map[string]any)
+	token, _ := proposal["proposal_token"].(string)
+	payload, _ := proposal["tx_payload"].(string)
+	if id == 0 || token == "" || payload == "" {
+		t.Fatalf("large record response missing record or proposal: %v", env["data"])
+	}
+	api.seal(token, payload)
+
+	diagnosis += "\nPembaruan catatan untuk menguji penggantian teks berukuran besar."
+	prescription += "\nJadwal tindak lanjut diperbarui setelah evaluasi terbaru."
+	status, _, env = api.do(http.MethodPut,
+		fmt.Sprintf("/api/v1/records/%d", int64(id)), map[string]any{
+			"diagnosis":    diagnosis,
+			"prescription": prescription,
+			"visit_status": "OPEN",
+		})
+	if status != http.StatusOK {
+		t.Fatalf("update large record: status %d, message %v", status, env["message"])
+	}
+	data, _ = env["data"].(map[string]any)
+	proposal, _ = data["proposal"].(map[string]any)
+	token, _ = proposal["proposal_token"].(string)
+	payload, _ = proposal["tx_payload"].(string)
+	if token == "" || payload == "" {
+		t.Fatalf("large update response missing proposal: %v", env["data"])
+	}
+	api.seal(token, payload)
+
+	status, _, env = api.do(http.MethodGet,
+		fmt.Sprintf("/api/v1/records/%d/inspect", int64(id)), nil)
+	if status != http.StatusOK {
+		t.Fatalf("inspect large record: status %d, message %v", status, env["message"])
+	}
+	data, _ = env["data"].(map[string]any)
+	record, _ = data["record"].(map[string]any)
+	if got, _ := record["diagnosis_plaintext"].(string); got != diagnosis {
+		t.Fatalf("large diagnosis did not round trip: got %d bytes, want %d", len(got), len(diagnosis))
+	}
+	if got, _ := record["prescription_plaintext"].(string); got != prescription {
+		t.Fatalf("large prescription did not round trip: got %d bytes, want %d", len(got), len(prescription))
+	}
+}
+
+func TestListRecordsReturnsSelectorSummaries(t *testing.T) {
+	api := newTestAPI(t)
+	if status, _, _ := api.do(http.MethodGet, "/api/v1/records", nil); status != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated list status = %d, want %d", status, http.StatusUnauthorized)
+	}
+
+	api.login("dr_andi")
+	patientID := api.createPatient("RM-2026-0001")
+	recordID, _, _ := api.createRecord(patientID, "")
+
+	status, _, env := api.do(http.MethodGet, "/api/v1/records", nil)
+	if status != http.StatusOK {
+		t.Fatalf("list records: status %d body %v", status, env)
+	}
+	data, _ := env["data"].(map[string]any)
+	records, _ := data["records"].([]any)
+	if len(records) != 1 {
+		t.Fatalf("record choices = %d, want 1: %v", len(records), data["records"])
+	}
+	choice, _ := records[0].(map[string]any)
+	if choice["id"] != float64(recordID) || choice["patient_id"] != float64(patientID) {
+		t.Fatalf("record choice identifiers mismatch: %v", choice)
+	}
+	if choice["visit_status"] != "OPEN" || choice["created_at"] == "" {
+		t.Fatalf("record choice missing summary fields: %v", choice)
+	}
+	if choice["patient_mrn"] != "RM-2026-0001" || choice["patient_name"] != "Budi Santoso" {
+		t.Fatalf("record choice missing patient search fields: %v", choice)
+	}
+	if choice["has_lab_file"] != false {
+		t.Fatalf("record without a lab file must not be listed as an attachment: %v", choice)
+	}
+	if err := api.store.Records.SetLabFile(context.Background(), recordID, "/vault/record_1.enc", "hasil-lab.pdf", strings.Repeat("a", 64)); err != nil {
+		t.Fatalf("set lab file: %v", err)
+	}
+	status, _, env = api.do(http.MethodGet, "/api/v1/records", nil)
+	if status != http.StatusOK {
+		t.Fatalf("list records after lab upload: status %d body %v", status, env)
+	}
+	data, _ = env["data"].(map[string]any)
+	records, _ = data["records"].([]any)
+	choice, _ = records[0].(map[string]any)
+	if choice["has_lab_file"] != true || choice["lab_original_name"] != "hasil-lab.pdf" {
+		t.Fatalf("record lab file summary missing: %v", choice)
+	}
+	for _, sensitiveField := range []string{
+		"diagnosis_plaintext", "prescription_plaintext", "diagnosis_ciphertext",
+		"prescription_ciphertext", "diagnosis_super_enc", "prescription_super_enc",
+		"nik", "address", "birth_date", "lab_file_path",
+	} {
+		if _, ok := choice[sensitiveField]; ok {
+			t.Errorf("record choice exposes %q", sensitiveField)
+		}
 	}
 }

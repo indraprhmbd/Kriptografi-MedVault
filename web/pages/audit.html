@@ -1,9 +1,7 @@
 <section class="mv-stack">
   <div class="mv-page-head mv-enter mv-enter-3">
     <div>
-      <p class="mv-ui-eyebrow">Proof-of-Authority</p>
-      <h2 class="mv-ui-title">Audit Ledger PoA</h2>
-      <p class="mv-ui-subtitle">Telusuri blok audit, verifikasi tanda tangan dongle, dan simulasikan manipulasi data.</p>
+      <h2 class="mv-ui-title">Audit dan integritas data</h2>
     </div>
     <div class="mv-page-actions">
       <button type="button" class="mv-btn mv-btn-primary" :disabled="busy" @click="loadAudit()">Verifikasi rantai</button>
@@ -14,38 +12,51 @@
     <div class="mv-card" :style="validation && !validation.valid ? 'background:var(--mv-ui-danger-bg); border-color:var(--mv-ui-danger-border);' : (validation ? 'background:var(--mv-ui-success-bg); border-color:var(--mv-ui-success-border);' : '')">
       <div class="mv-card-head">
         <div>
-          <h3 class="mv-card-title">Status rantai</h3>
-          <p class="mv-card-sub" :style="validation && !validation.valid ? 'color:var(--mv-ui-danger-ink);' : (validation ? 'color:var(--mv-ui-success-ink);' : '')" x-text="validation && validation.valid ? 'Integritas rantai audit terverifikasi' : (validation ? 'Integritas rantai audit terganggu' : 'Integritas rantai audit belum terverifikasi')"></p>
+          <h3 class="mv-card-title">Status rantai audit</h3>
         </div>
         <span class="mv-badge" :class="!validation ? 'mv-badge-teal' : (validation.valid ? 'mv-badge-success' : 'mv-badge-danger')" x-text="validation ? (validation.valid ? 'Rantai valid' : 'Rantai tidak valid') : 'Belum diperiksa'"></span>
       </div>
-      <p class="mv-note" :style="validation && !validation.valid ? 'color:var(--mv-ui-danger-ink);' : (validation ? 'color:var(--mv-ui-success-ink);' : '')" x-text="validation && !validation.valid ? 'Rantai tidak valid: ' + (validation.first_failure?.reason || '') : (validation ? validation.blocks_checked + ' blok · seluruh tanda tangan dokter dan validator valid.' : 'Belum ada hasil pemeriksaan. Tekan Verifikasi rantai untuk memeriksa integritas ledger.')"></p>
+      <p class="mv-note" :style="validation && !validation.valid ? 'color:var(--mv-ui-danger-ink);' : (validation ? 'color:var(--mv-ui-success-ink);' : '')" x-text="validation && !validation.valid ? 'Rantai tidak valid: ' + (validation.first_failure?.reason || '') : (validation ? validation.blocks_checked + ' blok terverifikasi.' : 'Pilih Verifikasi rantai untuk memeriksa data.')"></p>
 
       <div class="mv-grid-4" style="margin-top:16px; grid-template-columns:repeat(3,minmax(0,1fr));">
         <div class="mv-metric" style="background:var(--mv-ui-surface);"><p class="mv-metric-label">Total blok</p><p class="mv-metric-value" x-text="validation?.blocks_checked ?? blocks.length"></p></div>
         <div class="mv-metric" style="background:var(--mv-ui-surface);"><p class="mv-metric-label">Blok ditampilkan</p><p class="mv-metric-value" x-text="blocks.length"></p></div>
         <div class="mv-metric" style="background:var(--mv-ui-surface);"><p class="mv-metric-label">Blok tidak valid</p><p class="mv-metric-value" x-text="validation ? (validation.valid ? 0 : 1) : '-'"></p></div>
       </div>
-      <p class="mv-note" x-text="'Hasil pemeriksaan terakhir: ' + validationCheckedLabel"></p>
+      <p class="mv-note" x-text="'Diperiksa: ' + validationCheckedLabel"></p>
     </div>
 
     <div class="mv-card">
       <div class="mv-card-head">
         <div>
-          <h3 class="mv-card-title">Simulasi manipulasi</h3>
-          <p class="mv-card-sub">Rusak satu rekam terenkripsi di SQLite, lalu lihat rantai berubah merah.</p>
+          <h3 class="mv-card-title">Simulasi perubahan data</h3>
         </div>
       </div>
-      <label class="mv-field">ID rekam medis untuk simulasi
-        <input x-model.number="tamperRecordId" type="number" min="1" class="mv-input" placeholder="contoh: 4">
-      </label>
+      <div class="mv-record-picker" style="margin-bottom:14px;">
+        <label class="mv-field" for="audit-record-search">Cari rekam medis
+          <input id="audit-record-search" x-model="recordSearch.tamper" @input="clearRecordReferenceSelection('tamper')" type="search" class="mv-input" placeholder="Nama, nomor RM, atau referensi" autocomplete="off">
+        </label>
+        <label class="mv-field" for="audit-record-select">Pilih rekam medis yang akan diuji
+          <select id="audit-record-select" x-model="recordReferenceInputs.tamper" @change="setRecordReference('tamper', $event.target.value)" class="mv-select" :disabled="recordOptionsLoading || !filteredRecordOptions('tamper').length">
+            <option value="">Pilih rekam medis</option>
+            <template x-for="record in filteredRecordOptions('tamper')" :key="record.id">
+              <option :value="formatRecordRef(record.id)" x-text="recordOptionLabel(record)"></option>
+            </template>
+          </select>
+        </label>
+        <p x-show="recordOptionsLoading" class="mv-field-note">Memuat daftar rekam medis.</p>
+        <p x-show="!recordOptionsLoading && recordOptionsError" class="mv-field-note" x-text="recordOptionsError"></p>
+        <p x-show="!recordOptionsLoading && !recordOptionsError && !recordOptions.length" class="mv-field-note">Belum ada rekam medis.</p>
+        <p x-show="!recordOptionsLoading && !recordOptionsError && recordOptions.length && !filteredRecordOptions('tamper').length" class="mv-field-note">Tidak ada hasil. Ubah kata kunci.</p>
+      </div>
+      <p class="mv-note">Aksi ini mengubah data untuk pengujian. Pulihkan data setelah selesai.</p>
       <div class="mv-actions" style="margin-top:14px;">
-        <button type="button" class="mv-btn mv-btn-danger" :disabled="busy || !tamperRecordId" @click="simulateTamper()">Simulasikan manipulasi</button>
-        <button type="button" class="mv-btn mv-btn-ghost" :disabled="busy || !tamperRecordId" @click="restoreTamper()">Pulihkan</button>
+        <button type="button" class="mv-btn mv-btn-danger" :disabled="busy || !tamperRecordId" @click="simulateTamper()">Uji perubahan data</button>
+        <button type="button" class="mv-btn mv-btn-ghost" :disabled="busy || !tamperRecordId" @click="restoreTamper()">Pulihkan data</button>
       </div>
       <div x-show="validation && !validation.valid" class="mv-alert mv-alert-danger" style="margin-top:16px;">
-        <p class="mv-alert-title">Peringatan: Manipulasi data terdeteksi!</p>
-        <p class="mv-note" x-text="validation && validation.first_failure ? ('Blok #' + validation.first_failure.block_index + ': ' + (validation.first_failure.reason || 'tidak cocok') + (validation.first_failure.detail ? ' (' + validation.first_failure.detail + ')' : '')) : 'Ledger menandai setidaknya satu blok tidak valid.'"></p>
+        <p class="mv-alert-title">Perubahan data terdeteksi</p>
+        <p class="mv-note" x-text="validation && validation.first_failure ? (formatBlockRef(validation.first_failure) + ': ' + (validation.first_failure.reason || 'tidak cocok') + (validation.first_failure.detail ? ' (' + validation.first_failure.detail + ')' : '')) : 'Ledger menandai setidaknya satu blok tidak valid.'"></p>
       </div>
     </div>
   </div>
@@ -53,15 +64,14 @@
   <div class="mv-card mv-enter mv-enter-5">
     <div class="mv-card-head">
       <div>
-        <h3 class="mv-card-title">Rantai Audit PoA</h3>
-        <p class="mv-card-sub">Setiap blok memuat tanda tangan dongle dokter dan countersignature validator gateway.</p>
+        <h3 class="mv-card-title">Rantai audit</h3>
       </div>
     </div>
 
     <div class="mv-chain">
       <template x-for="(b, i) in blocks.slice(-4)" :key="b.block_index">
         <div class="mv-chain-node" :class="i === blocks.slice(-4).length - 1 ? 'is-head' : ''">
-          <p class="mv-chain-index" x-text="'Blok #' + b.block_index"></p>
+          <p class="mv-chain-index" x-text="formatBlockRef(b)"></p>
           <p class="mv-chain-action" x-text="b.action_type"></p>
         </div>
       </template>
@@ -70,16 +80,21 @@
 
     <div class="mv-table-wrap" style="margin-top:16px;">
       <table class="mv-table">
-        <thead><tr><th>Index</th><th>Aksi</th><th>Aktor</th><th>Record</th><th>Current hash</th><th>Validator</th></tr></thead>
+        <thead><tr><th>Tinggi blok</th><th>Aksi</th><th>Aktor</th><th>Rekam medis</th><th>Hash blok</th><th>Validator / rekam medis</th></tr></thead>
         <tbody>
           <template x-for="b in blocks" :key="b.block_index">
             <tr>
-              <td class="mv-row-title" x-text="b.block_index"></td>
+              <td><span class="mv-badge mv-badge-teal mv-mono" x-text="formatBlockRef(b)"></span></td>
               <td x-text="b.action_type"></td>
               <td x-text="b.actor_username"></td>
-              <td class="mv-mono" x-text="b.target_record_id ?? '-'"></td>
+              <td><span class="mv-badge mv-mono" x-text="formatRecordRef(b.target_record_id)"></span></td>
               <td class="mv-mono" x-text="b.current_hash ? b.current_hash.slice(0, 8) + '…' + b.current_hash.slice(-4) : '-'"></td>
-              <td><span class="mv-badge" :class="b.validator_signature_hex ? 'mv-badge-success' : 'mv-badge-danger'" x-text="b.validator_signature_hex ? 'Valid' : 'Belum'"></span></td>
+              <td>
+                <div class="mv-actions">
+                  <span class="mv-badge" :class="auditValidatorStatus(b).signatureClass" x-text="auditValidatorStatus(b).signature"></span>
+                  <span x-show="auditValidatorStatus(b).issue" class="mv-badge mv-badge-danger" x-text="auditValidatorStatus(b).issue"></span>
+                </div>
+              </td>
             </tr>
           </template>
           <tr x-show="blocks.length === 0"><td colspan="6" style="text-align:center; color:var(--mv-ui-ink-muted);">Belum ada data blok audit</td></tr>

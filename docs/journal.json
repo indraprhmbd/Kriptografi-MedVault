@@ -372,6 +372,255 @@
         "Add the Cloudflare Zero Trust public hostname pointing at 127.0.0.1:8095 and verify through the tunnel",
         "Document deploy/smoke.ps1 and deploy/e2e.go in the medvault-vps-runbook skill"
       ]
+    },
+    {
+      "id": "2026-11-26-01",
+      "date": "2026-11-26",
+      "phase": "ui-structured-identifiers",
+      "summary": "Documented and implemented searchable record selection across the record, vault, steganography, and audit modules.",
+      "decisions": [
+        {
+          "id": "DEC-UI-01",
+          "topic": "Record selector endpoint",
+          "decision": "Add authenticated GET /api/v1/records returning minimal record and patient labels, without clinical payloads or unrelated patient identifiers.",
+          "rationale": "The existing repository can list every record, while the current API had no complete source for a searchable selector. A dedicated summary avoids relying on incomplete audit blocks."
+        },
+        {
+          "id": "DEC-UI-02",
+          "topic": "Search and selection controls",
+          "decision": "Use a search input paired with a native select, while preserving the existing numeric Alpine state and API request contracts.",
+          "rationale": "Native selection supports keyboard operation and familiar platform behavior; formatted references and patient labels keep raw database IDs out of the visible UI."
+        }
+      ],
+      "verified": [
+        {
+          "item": "Full Go test suite",
+          "method": "go test ./...",
+          "result": "All packages pass, including authenticated record-list summary coverage and embedded page selector checks."
+        },
+        {
+          "item": "Frontend syntax",
+          "method": "node --check web/js/app.js",
+          "result": "Pass."
+        },
+        {
+          "item": "Whitespace and diagnostics",
+          "method": "git diff --check and project diagnostics",
+          "result": "No diff errors; diagnostics report no errors or warnings. Git reports LF-to-CRLF normalization warnings for touched Go files."
+        }
+      ],
+      "artifacts": [
+        "docs/0004-searchable-record-selector-26-nov-2026.md",
+        "docs/README-docs.md",
+        "internal/handler/records.go",
+        "internal/handler/server.go",
+        "internal/handler/handler_test.go",
+        "web/js/app.js",
+        "web/layout.html",
+        "web/pages/records.html",
+        "web/pages/vault.html",
+        "web/pages/steganography.html",
+        "web/pages/audit.html",
+        "web/embed_test.go"
+      ],
+      "next": []
+    },
+    {
+      "id": "2026-11-26-02",
+      "date": "2026-11-26",
+      "phase": "documentation",
+      "summary": "Authored comprehensive presentation briefing and slide deck blueprint in docs/0005, detailing the architecture, the 6 cryptographic pillars, the 10-minute demo script, anticipated defense Q&A, and the technical rationale for rewriting Legacy Python and Electron desktop to Go and core web MPA.",
+      "decisions": [
+        {
+          "id": "DEC-DOC-01",
+          "topic": "Presentation handover and slide structure",
+          "decision": "Drafted a 13-slide blueprint in Indonesian with deep technical rationale, explicit performance metrics from 165 Go tests, and side-by-side comparison between Legacy Python/Electron and MedVault Go.",
+          "rationale": "Teammates need concise yet deep slides that communicate why architectural transitions were made and how each cryptographic step is verified without relying on vague claims."
+        },
+        {
+          "id": "DEC-DOC-02",
+          "topic": "Rewrite rationale documentation",
+          "decision": "Documented 7 technical axes: RAM footprint, native runtime/CGO dependencies, client deployment friction, browser cryptographic sandboxing, supply chain risk, concurrency throughput, and validator physical process isolation.",
+          "rationale": "Clarifies to academic evaluators that rewriting was an architectural necessity driven by memory constraints (1.9 GiB RAM VPS) and hardware gate security rather than arbitrary tool preference."
+        }
+      ],
+      "verified": [
+        {
+          "item": "Documentation formatting check",
+          "method": "grep for em dash, en dash, or emojis across docs/0005",
+          "result": "Zero forbidden dashes and zero emojis detected."
+        },
+        {
+          "item": "Index consistency",
+          "method": "Read docs/README-docs.md",
+          "result": "Document 0005 registered as Approved."
+        }
+      ],
+      "artifacts": [
+        "docs/0005-presentation-context-and-slide-deck-blueprint-26-nov-2026.md",
+        "docs/README-docs.md",
+        "docs/journal.json"
+      ],
+      "next": []
+    },
+    {
+      "id": "2026-11-26-03",
+      "date": "2026-11-26",
+      "phase": "steganography-selector-fix",
+      "summary": "Fixed the steganography record selector not loading its options because the page route key did not match the loader condition.",
+      "decisions": [
+        {
+          "id": "DEC-UI-03",
+          "topic": "Canonical frontend route key",
+          "decision": "Use the server-rendered route key stego in the record-list loading condition.",
+          "rationale": "The route is /steganography, but the canonical Alpine route value is stego. The mismatch skipped the GET /api/v1/records request entirely."
+        }
+      ],
+      "verified": [
+        {
+          "item": "Route-specific frontend reproduction",
+          "method": "Node VM harness with app.route set to stego",
+          "result": "The selector load assertion failed before the fix and passed after the route key was corrected."
+        },
+        {
+          "item": "Full Go test suite",
+          "method": "go test ./...",
+          "result": "All packages pass, including the embedded frontend route guard."
+        },
+        {
+          "item": "Frontend syntax and diff validation",
+          "method": "node --check web/js/app.js and git diff --check",
+          "result": "Pass."
+        }
+      ],
+      "artifacts": [
+        "docs/0004-searchable-record-selector-26-nov-2026.md",
+        "docs/journal.json",
+        "web/js/app.js",
+        "web/embed_test.go"
+      ],
+      "next": []
+    },
+    {
+      "id": "2026-11-26-04",
+      "date": "2026-11-26",
+      "phase": "documentation",
+      "summary": "Authored comprehensive Team Engineering and Cryptography Handbook in docs/0006, covering end-to-end architecture, rewrite rationale, the 6 cryptographic pillars with mathematical and code mechanics, USB dongle troubleshooting, team presentation role distribution, and an extensive examination defense Q&A bank.",
+      "decisions": [
+        {
+          "id": "DEC-DOC-03",
+          "topic": "Team engineering handbook creation",
+          "decision": "Synthesized an authoritative, end-to-end study handbook in docs/0006 specifically structured for all three teammates to master system concepts, cryptographic formulas, code implementations, and demo procedures.",
+          "rationale": "Teammates need deep conceptual mastery beyond high-level slides to address detailed questions from cryptography lecturers and maintain confidence during live defense."
+        }
+      ],
+      "verified": [
+        {
+          "item": "Handbook formatting check",
+          "method": "grep for em dash, en dash, or emojis across docs/0006",
+          "result": "Zero forbidden dashes and zero emojis detected."
+        },
+        {
+          "item": "Documentation index consistency",
+          "method": "Read docs/README-docs.md",
+          "result": "Document 0006 registered as Approved."
+        }
+      ],
+      "artifacts": [
+        "docs/0006-team-handbook-end-to-end-architecture-and-crypto-26-nov-2026.md",
+        "docs/README-docs.md",
+        "docs/journal.json"
+      ],
+      "next": []
+    },
+    {
+      "id": "2026-11-26-05",
+      "date": "2026-11-26",
+      "phase": "vault-saved-files-list",
+      "summary": "Replaced the static vault empty-state copy with a list of records that have stored laboratory files.",
+      "decisions": [
+        {
+          "id": "DEC-UI-05",
+          "topic": "Vault attachment list",
+          "decision": "Expose a boolean file-presence marker and original file name in the authenticated record selector summary, and list only records with stored lab files in the vault card.",
+          "rationale": "The vault card represents attachments, not all medical records. Users can identify and open an attachment without mistaking records that have no file for saved files."
+        }
+      ],
+      "verified": [
+        {
+          "item": "Vault selector summary test",
+          "method": "go test ./internal/handler -run TestListRecordsReturnsSelectorSummaries -count=1",
+          "result": "Pass. The list marks records without files as false and includes the original name when a file is attached, without exposing the encrypted file path."
+        },
+        {
+          "item": "Full test suite",
+          "method": "go test ./...",
+          "result": "All packages pass, including the vault list and empty-state markers."
+        },
+        {
+          "item": "Frontend checks",
+          "method": "node --check web/js/app.js, git diff --check, and project diagnostics",
+          "result": "Pass. Diagnostics report no errors or warnings."
+        }
+      ],
+      "artifacts": [
+        "docs/0004-searchable-record-selector-26-nov-2026.md",
+        "docs/journal.json",
+        "internal/handler/records.go",
+        "internal/handler/handler_test.go",
+        "web/js/app.js",
+        "web/layout.html",
+        "web/pages/vault.html",
+        "web/embed_test.go"
+      ],
+      "next": []
+    },
+    {
+      "id": "2026-11-26-06",
+      "date": "2026-11-26",
+      "phase": "large-record-text",
+      "summary": "Raised the record create and update request limit for long classroom text, added a large UTF-8 round-trip regression, and bounded long UI readouts with local scrolling.",
+      "decisions": [
+        {
+          "id": "DEC-LONG-TEXT-01",
+          "topic": "Record text request capacity",
+          "decision": "Use an 8 MiB combined JSON body limit for record create and update, keeping the existing bounded decoder and cryptographic pipeline.",
+          "rationale": "The previous 1 MiB request limit handled typical articles but blocked larger classroom samples. A finite request cap supports multi-page text while retaining a clear resource boundary."
+        },
+        {
+          "id": "DEC-LONG-TEXT-02",
+          "topic": "Long text presentation",
+          "decision": "Wrap arbitrary long values and constrain long output and shared tables to scrollable regions rather than expanding entire pages.",
+          "rationale": "Inspection must preserve complete plaintext and cryptographic intermediates for the demonstration, while keeping page height and width manageable."
+        }
+      ],
+      "verified": [
+        {
+          "item": "Large record create, update, seal, and inspect",
+          "method": "go test ./internal/handler -run '^TestRecordCreateAndInspectHandleLargeText$' -count=1, then go test ./...",
+          "result": "Pass. The regression sends diagnosis and prescription content beyond the old 1 MiB threshold, updates the record, seals both proposals, and verifies exact UTF-8 plaintext recovery."
+        },
+        {
+          "item": "Frontend and source checks",
+          "method": "go test ./..., node --check web/js/app.js, git --no-pager diff --check, and project diagnostics",
+          "result": "Pass. All Go packages pass, JavaScript syntax is valid, diff check succeeds, and diagnostics report no errors or warnings."
+        }
+      ],
+      "artifacts": [
+        "docs/0007-large-text-handling-26-nov-2026.md",
+        "docs/README-docs.md",
+        "docs/journal.json",
+        "internal/handler/records.go",
+        "internal/handler/handler_test.go",
+        "web/embed_test.go",
+        "web/layout.html",
+        "web/pages/records.html",
+        "web/pages/patients.html",
+        "web/pages/telemetry.html",
+        "web/pages/steganography.html",
+        "web/pages/vault.html"
+      ],
+      "next": []
     }
   ]
 }

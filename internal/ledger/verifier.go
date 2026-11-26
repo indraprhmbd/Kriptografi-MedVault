@@ -35,11 +35,18 @@ type ChainResult struct {
 //  4. the recomputed current hash matches the stored one,
 //  5. the doctor signature is valid over the transaction payload,
 //  6. the validator countersignature is valid over the current hash,
-//  7. when a record callback is supplied, the live record fingerprint still
-//     matches what the block sealed.
+//  7. when a record callback is supplied, the live record fingerprint matches
+//     the latest block that targets that record.
 func VerifyChain(blocks []Block, live RecordHashFunc) (*ChainResult, error) {
 	if len(blocks) == 0 {
 		return nil, errors.New("chain is empty")
+	}
+
+	latestRecordPosition := make(map[int64]int)
+	for position, block := range blocks {
+		if block.TargetRecordID != nil {
+			latestRecordPosition[*block.TargetRecordID] = position
+		}
 	}
 
 	result := &ChainResult{Valid: true, Steps: make([]string, 0, len(blocks)*6)}
@@ -98,21 +105,28 @@ func VerifyChain(blocks []Block, live RecordHashFunc) (*ChainResult, error) {
 		result.Steps = append(result.Steps, fmt.Sprintf("block %d validator countersignature verified", block.BlockIndex))
 
 		if live != nil && block.TargetRecordID != nil {
-			currentHash, err := live(block.BlockIndex, *block.TargetRecordID)
+			recordID := *block.TargetRecordID
+			if latestRecordPosition[recordID] != position {
+				result.Steps = append(result.Steps,
+					fmt.Sprintf("block %d historical state for record %d verified by chain", block.BlockIndex, recordID))
+				continue
+			}
+
+			currentHash, err := live(block.BlockIndex, recordID)
 			if err != nil {
 				return fail(block.BlockIndex, "RECORD_LOOKUP", err.Error()), nil
 			}
 			if currentHash == "" {
 				return fail(block.BlockIndex, "RECORD_MISSING",
-					fmt.Sprintf("record %d no longer exists", *block.TargetRecordID)), nil
+					fmt.Sprintf("record %d no longer exists", recordID)), nil
 			}
 			if !strings.EqualFold(currentHash, block.RecordStateHash) {
 				return fail(block.BlockIndex, "RECORD_TAMPERED",
 					fmt.Sprintf("record %d live hash %s does not match sealed %s",
-						*block.TargetRecordID, short(currentHash), short(block.RecordStateHash))), nil
+						recordID, short(currentHash), short(block.RecordStateHash))), nil
 			}
 			result.Steps = append(result.Steps,
-				fmt.Sprintf("block %d sealed record %d still matches", block.BlockIndex, *block.TargetRecordID))
+				fmt.Sprintf("block %d latest state for record %d still matches", block.BlockIndex, recordID))
 		}
 	}
 

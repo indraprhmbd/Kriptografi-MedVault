@@ -1,9 +1,7 @@
 <section class="mv-stack">
   <div class="mv-page-head mv-enter mv-enter-3">
     <div>
-      <p class="mv-ui-eyebrow">Berkas laboratorium</p>
-      <h2 class="mv-ui-title">Brankas File Laboratorium</h2>
-      <p class="mv-ui-subtitle">Penyimpanan berkas lab terenkripsi ChaCha20-Poly1305 dengan verifikasi tag pada setiap potongan.</p>
+      <h2 class="mv-ui-title">Berkas laboratorium</h2>
     </div>
     <div class="mv-page-actions">
       <span class="mv-badge" :class="vaultInfo ? 'mv-badge-success' : 'mv-badge-teal'" x-text="vaultInfo ? 'Berkas tersegel' : 'Belum diverifikasi'"></span>
@@ -15,33 +13,48 @@
     <div class="mv-card">
       <div class="mv-card-head">
         <div>
-          <h3 class="mv-card-title">Unggah Berkas Laboratorium</h3>
-          <p class="mv-card-sub">Berkas dialirkan per 64 KiB ke ChaCha20-Poly1305 dengan nonce counter. SHA-256 plaintext dihitung pada pass yang sama.</p>
+          <h3 class="mv-card-title">Unggah berkas</h3>
         </div>
       </div>
 
-      <label class="mv-field" style="margin-bottom:14px;">ID rekam medis
-        <input x-model.number="vaultRecordId" type="number" min="1" class="mv-input" placeholder="contoh: 4">
-      </label>
+      <div class="mv-record-picker" style="margin-bottom:14px;">
+        <label class="mv-field" for="vault-record-search">Cari rekam medis
+          <input id="vault-record-search" x-model="recordSearch.vault" @input="clearRecordReferenceSelection('vault')" type="search" class="mv-input" placeholder="Nama, nomor RM, atau referensi" autocomplete="off">
+        </label>
+        <label class="mv-field" for="vault-record-select">Pilih rekam medis
+          <select id="vault-record-select" x-model="recordReferenceInputs.vault" @change="setRecordReference('vault', $event.target.value)" class="mv-select" :disabled="recordOptionsLoading || !filteredRecordOptions('vault').length">
+            <option value="">Pilih rekam medis</option>
+            <template x-for="record in filteredRecordOptions('vault')" :key="record.id">
+              <option :value="formatRecordRef(record.id)" x-text="recordOptionLabel(record)"></option>
+            </template>
+          </select>
+        </label>
+        <p x-show="recordOptionsLoading" class="mv-field-note">Memuat daftar rekam medis.</p>
+        <p x-show="!recordOptionsLoading && recordOptionsError" class="mv-field-note" x-text="recordOptionsError"></p>
+        <p x-show="!recordOptionsLoading && !recordOptionsError && !recordOptions.length" class="mv-field-note">Belum ada rekam medis.</p>
+        <p x-show="!recordOptionsLoading && !recordOptionsError && recordOptions.length && !filteredRecordOptions('vault').length" class="mv-field-note">Tidak ada hasil. Ubah kata kunci.</p>
+        <span x-show="vaultRecordId" class="mv-badge mv-badge-teal mv-mono" x-text="formatVaultRef(vaultRecordId)"></span>
+      </div>
 
       <input id="vault-file" x-ref="vaultFileInput" type="file" class="mv-sr-only" @change="setVaultFile($event.target.files[0])">
       <label for="vault-file" class="mv-dropzone" @dragover="onDragOver($event)" @dragleave="onDragLeave($event)" @drop="onDrop($event, 'vault')">
         <span class="mv-dropzone-title" x-text="vaultFile ? vaultFile.name : 'Tarik berkas ke sini atau pilih berkas'"></span>
-        <span class="mv-dropzone-sub">PDF, PNG, atau hasil lab · maks. 64 MB</span>
+        <span class="mv-dropzone-sub">Semua format berkas · maks. 64 MiB</span>
       </label>
 
-      <p class="mv-note" style="margin-top:16px;">Berkas dialirkan per 64 KiB. Tag Poly1305 diverifikasi pada setiap potongan sebelum dianggap valid.</p>
+      <p class="mv-note" style="margin-top:16px;">Berkas dienkripsi saat diunggah dan diverifikasi saat diunduh.</p>
 
       <div class="mv-actions" style="margin-top:16px;">
-        <button type="button" class="mv-btn mv-btn-primary" :disabled="busy || !session || !vaultFile" @click="uploadLab()">Unggah dan enkripsi</button>
-        <button type="button" class="mv-btn mv-btn-ghost" :disabled="busy || !vaultRecordId" @click="inspectVault()">Metadata brankas</button>
-        <a x-show="vaultInfo" :href="vaultDownloadUrl()" class="mv-btn mv-btn-ghost">Unduh plaintext</a>
+        <button type="button" class="mv-btn mv-btn-primary" :disabled="busy || !session || !vaultRecordId || !vaultFile" @click="uploadLab()">Unggah dan enkripsi</button>
+        <button type="button" class="mv-btn mv-btn-ghost" :disabled="busy || !vaultRecordId" @click="inspectVault()">Lihat detail berkas</button>
+        <a x-show="vaultInfo" :href="vaultDownloadUrl()" class="mv-btn mv-btn-ghost">Unduh berkas asli</a>
       </div>
 
       <div x-show="vaultInfo" style="margin-top:16px; padding:16px; border:1px solid var(--mv-ui-border); border-radius:16px;">
         <h4 class="mv-card-title" style="font-size:15px;">Hasil enkripsi</h4>
         <dl class="mv-kv" style="margin-top:12px;">
-          <dt>Berkas</dt><dd x-text="vaultInfo?.original_name || '-'"></dd>
+          <dt>Referensi</dt><dd><span class="mv-badge mv-badge-teal mv-mono" x-text="formatVaultRef(vaultRecordId)"></span></dd>
+          <dt>Berkas</dt><dd class="mv-scroll-text mv-scroll-text-compact" x-text="vaultInfo?.original_name || '-'"></dd>
           <dt>Ciphertext</dt><dd class="mv-mono" x-text="vaultInfo?.header_preview_hex || vaultInfo?.ciphertext_preview || '-'"></dd>
           <dt>SHA-256 plaintext</dt><dd class="mv-mono" x-text="vaultInfo?.plaintext_sha256 || '-'"></dd>
           <dt>Header tersimpan</dt><dd class="mv-mono">magic · versi · nonce dasar · ukuran potongan 64 KiB</dd>
@@ -58,15 +71,28 @@
 
     <div class="mv-card">
       <div class="mv-card-head">
-        <div>
-          <h3 class="mv-card-title">Catatan Brankas</h3>
-          <p class="mv-card-sub">Berkas lab yang sudah tersimpan terenkripsi.</p>
-        </div>
+        <h3 class="mv-card-title">Berkas tersimpan</h3>
+        <span class="mv-badge mv-badge-teal" x-text="recordsWithLabFiles().length + ' berkas'"></span>
       </div>
 
-      <p class="mv-note" style="margin:0;">Daftar berkas per rekam medis belum tersedia lewat API. Masukkan ID rekam medis di formulir, lalu tekan Metadata brankas untuk melihat header dan sidik jari kunci.</p>
-
-      <p class="mv-note">Setiap rekam medis memiliki kunci turunan HKDF sendiri. Satu bit yang berubah menggagalkan unduhan, dan aksi unggah menghasilkan blok UPLOAD_LAB.</p>
+      <p x-show="recordOptionsLoading" class="mv-field-note">Memuat berkas tersimpan.</p>
+      <p x-show="!recordOptionsLoading && recordOptionsError" class="mv-field-note" x-text="recordOptionsError"></p>
+      <p x-show="!recordOptionsLoading && !recordOptionsError && !recordsWithLabFiles().length" class="mv-note" style="margin:0;">Belum ada berkas laboratorium tersimpan.</p>
+      <div class="mv-vault-file-list" x-show="!recordOptionsLoading && !recordOptionsError && recordsWithLabFiles().length">
+        <template x-for="record in recordsWithLabFiles()" :key="record.id">
+          <div class="mv-vault-file-entry">
+            <button type="button" class="mv-vault-file-row" :disabled="busy" @click="openVaultRecord(record)">
+              <span class="mv-vault-file-main">
+                <span class="mv-badge mv-badge-teal mv-mono" x-text="formatVaultRef(record.id)"></span>
+                <strong class="mv-scroll-text mv-scroll-text-compact" x-text="record.lab_original_name || 'Berkas laboratorium'"></strong>
+                <span class="mv-field-note" x-text="(record.patient_mrn || '-') + ' / ' + (record.patient_name || '-')"></span>
+              </span>
+              <span class="mv-field-note">Lihat detail</span>
+            </button>
+            <a :href="vaultDownloadUrl(record.id)" download class="mv-btn mv-btn-ghost mv-btn-sm">Unduh</a>
+          </div>
+        </template>
+      </div>
     </div>
   </div>
 </section>

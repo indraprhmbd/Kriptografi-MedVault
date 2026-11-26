@@ -20,6 +20,10 @@ import (
 // position.
 const pendingProposalTTL = 10 * time.Minute
 
+// maxRecordRequestBytes allows multi-page clinical notes while bounding each
+// create or update request before its text reaches the encryption pipeline.
+const maxRecordRequestBytes int64 = 8 << 20
+
 // pendingProposal is a block built by the server but not yet signed by the
 // doctor dongle.
 type pendingProposal struct {
@@ -46,6 +50,19 @@ type updateRecordRequest struct {
 	Prescription string `json:"prescription"`
 	VisitStatus  string `json:"visit_status"`
 	SignatureHex string `json:"signature_hex"`
+}
+
+type visitStatusRequest struct {
+	VisitStatus string `json:"visit_status"`
+}
+
+func validVisitStatus(status string) bool {
+	switch status {
+	case "OPEN", "UNDER_TREATMENT", "CLOSED":
+		return true
+	default:
+		return false
+	}
 }
 
 // sealRequest carries the dongle signature for a pending block.
@@ -86,12 +103,62 @@ type recordView struct {
 	UpdatedAt              string `json:"updated_at,omitempty"`
 }
 
+type recordSelectorView struct {
+	ID              int64  `json:"id"`
+	PatientID       int64  `json:"patient_id"`
+	PatientMRN      string `json:"patient_mrn"`
+	PatientName     string `json:"patient_name"`
+	VisitStatus     string `json:"visit_status"`
+	CreatedAt       string `json:"created_at"`
+	HasLabFile      bool   `json:"has_lab_file"`
+	LabOriginalName string `json:"lab_original_name,omitempty"`
+}
+
+// handleListRecords returns only non-clinical fields needed to choose a record.
+func (s *Server) handleListRecords(w http.ResponseWriter, r *http.Request) {
+	records, err := s.store.Records.ListAll(r.Context())
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	patientsByID := make(map[int64]repository.Patient)
+	if len(records) > 0 {
+		patients, err := s.store.Patients.List(r.Context())
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, err)
+			return
+		}
+		for i := range patients {
+			patientsByID[patients[i].ID] = patients[i]
+		}
+	}
+
+	choices := make([]recordSelectorView, 0, len(records))
+	for _, record := range records {
+		patient := patientsByID[record.PatientID]
+		hasLabFile := strings.TrimSpace(record.LabFilePath) != ""
+		choices = append(choices, recordSelectorView{
+			ID:              record.ID,
+			PatientID:       record.PatientID,
+			PatientMRN:      patient.MedicalRecordNumber,
+			PatientName:     patient.FullName,
+			VisitStatus:     record.VisitStatus,
+			CreatedAt:       record.CreatedAt,
+			HasLabFile:      hasLabFile,
+			LabOriginalName: record.LabOriginalName,
+		})
+	}
+
+	respondOK(w, "Daftar rekam medis siap dipilih", map[string]any{"records": choices})
+}
+
 // handleCreateRecord runs the full super encryption pipeline, persists the
 // record, and returns a pending proposal unless the caller supplied a valid
 // dongle signature.
 func (s *Server) handleCreateRecord(w http.ResponseWriter, r *http.Request) {
 	var req createRecordRequest
-	if err := decodeJSON(w, r, &req, 1<<20); err != nil {
+	if err := decodeJSON(w, r, &req, maxRecordRequestBytes); err != nil {
 		respondError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -124,6 +191,14 @@ func (s *Server) handleCreateRecord(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := defaultString(strings.TrimSpace(req.VisitStatus), "OPEN")
+	if !validVisitStatus(status) {
+		respondError(w, http.StatusBadRequest, badRequest("visit_status must be OPEN, UNDER_TREATMENT, or CLOSED"))
+		return
+	}
+	if status == "CLOSED" {
+		respondError(w, http.StatusBadRequest, badRequest("new visits must start active and be closed after completion"))
+		return
+	}
 
 	diagEnc, diagTrace, diagClassical, err := s.super.Encrypt(req.Diagnosis, patient.MedicalRecordNumber)
 	if err != nil {
@@ -232,7 +307,7 @@ func (s *Server) handleUpdateRecord(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req updateRecordRequest
-	if err := decodeJSON(w, r, &req, 1<<20); err != nil {
+	if err := decodeJSON(w, r, &req, maxRecordRequestBytes); err != nil {
 		respondError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -244,6 +319,10 @@ func (s *Server) handleUpdateRecord(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if existing.VisitStatus == "CLOSED" {
+		respondError(w, http.StatusConflict, badRequest("closed records cannot be edited; create a separate correction record"))
 		return
 	}
 
@@ -261,6 +340,14 @@ func (s *Server) handleUpdateRecord(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := defaultString(strings.TrimSpace(req.VisitStatus), existing.VisitStatus)
+	if !validVisitStatus(status) {
+		respondError(w, http.StatusBadRequest, badRequest("visit_status must be OPEN, UNDER_TREATMENT, or CLOSED"))
+		return
+	}
+	if status != existing.VisitStatus {
+		respondError(w, http.StatusConflict, badRequest("visit status must be changed through the status transition endpoint"))
+		return
+	}
 
 	diagEnc, diagTrace, diagClassical, err := s.super.Encrypt(req.Diagnosis, patient.MedicalRecordNumber)
 	if err != nil {
@@ -345,6 +432,96 @@ func (s *Server) handleUpdateRecord(w http.ResponseWriter, r *http.Request) {
 
 	respondOK(w, "Rekam medis diperbarui, tanda tangan dongle diperlukan untuk menyegel blok",
 		data, tr, diagTrace, prescTrace)
+}
+
+// handleCloseRecord completes an active visit without re-encrypting clinical data.
+func (s *Server) handleCloseRecord(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r, "id")
+	if err != nil {
+		respondError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	user, err := s.requireUser(r)
+	if err != nil {
+		respondError(w, statusFor(err), err)
+		return
+	}
+
+	var req visitStatusRequest
+	if err := decodeJSON(w, r, &req, 1<<20); err != nil {
+		respondError(w, http.StatusBadRequest, err)
+		return
+	}
+	requestedStatus := strings.TrimSpace(req.VisitStatus)
+	if requestedStatus != "CLOSED" {
+		if validVisitStatus(requestedStatus) {
+			respondError(w, http.StatusConflict, badRequest("visit status can only transition to CLOSED through this endpoint"))
+			return
+		}
+		respondError(w, http.StatusBadRequest, badRequest("visit_status must be CLOSED"))
+		return
+	}
+
+	record, err := s.store.Records.Get(r.Context(), id)
+	if errors.Is(err, repository.ErrNotFound) {
+		respondError(w, http.StatusNotFound, fmt.Errorf("%w: record %d", errNotFound, id))
+		return
+	}
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if record.VisitStatus == "CLOSED" {
+		respondError(w, http.StatusConflict, badRequest("visit is already closed"))
+		return
+	}
+	if record.VisitStatus != "OPEN" && record.VisitStatus != "UNDER_TREATMENT" {
+		respondError(w, http.StatusConflict, badRequest("visit status cannot transition to CLOSED"))
+		return
+	}
+
+	stateHash, err := crypto.RecordStateHash(record.PatientID, record.DiagnosisSuperEnc,
+		record.PrescriptionSuperEnc, "CLOSED")
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := s.store.Records.SetVisitStatus(r.Context(), id, "CLOSED", stateHash); err != nil {
+		respondError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	block, err := s.prepareBlock(r.Context(), user, ledger.ActionCloseRecord, &id, stateHash)
+	if err != nil {
+		respondError(w, statusFor(err), err)
+		return
+	}
+	proposal, err := s.stashProposal(user.Username, id, block)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err)
+		return
+	}
+	updated, err := s.store.Records.Get(r.Context(), id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	trace := telemetry.NewTrace("RECORD_VISIT_CLOSED")
+	trace.Add(telemetry.Step{
+		Name:      "Visit marked complete",
+		Algorithm: "audited record state transition",
+		Detail:    fmt.Sprintf("%s -> CLOSED", record.VisitStatus),
+	})
+	trace.Add(telemetry.Step{
+		Name:        "Updated record state hash",
+		Algorithm:   "SHA-256 over patient id, encrypted clinical fields, and visit status",
+		Fingerprint: "sha256:" + stateHash[:16],
+	})
+
+	respondOK(w, "Kunjungan ditandai selesai, tanda tangan USB Dongle diperlukan untuk menyegel blok",
+		map[string]any{"record": recordViewFrom(updated, "", ""), "proposal": proposal}, trace)
 }
 
 // handleInspectRecord decrypts both layers and returns every intermediate value

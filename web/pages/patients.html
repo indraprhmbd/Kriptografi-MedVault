@@ -1,9 +1,7 @@
 <section class="mv-stack">
   <div class="mv-page-head mv-enter mv-enter-3">
     <div>
-      <p class="mv-ui-eyebrow">Data pasien</p>
-      <h2 class="mv-ui-title">Manajemen Pasien</h2>
-      <p class="mv-ui-subtitle">Registrasi dan daftar pasien terenkripsi.</p>
+      <h2 class="mv-ui-title">Pasien</h2>
     </div>
     <div class="mv-page-actions">
       <span class="mv-badge mv-badge-teal">AES-256-GCM</span>
@@ -15,15 +13,18 @@
     <div class="mv-card">
       <div class="mv-card-head">
         <div>
-          <h3 class="mv-card-title">Registrasi Pasien</h3>
-          <p class="mv-card-sub">Isi data identitas, lalu sistem mengenkripsinya sebelum disimpan.</p>
+          <h3 class="mv-card-title">Tambah pasien</h3>
         </div>
       </div>
 
       <form @submit.prevent="createPatient()" novalidate style="display:flex; flex-direction:column; gap:12px;">
-        <label class="mv-field">Nomor rekam medis
-          <input id="patient-mrn" x-model="patientForm.medical_record_number" @blur="patientTouched.medical_record_number = true" class="mv-input" placeholder="contoh: RM-0006" required>
-        </label>
+        <div class="mv-field">
+          <label for="patient-mrn">Nomor rekam medis</label>
+          <div class="mt-1 flex gap-2">
+            <input id="patient-mrn" x-model="patientForm.medical_record_number" @blur="patientTouched.medical_record_number = true" class="mv-input min-w-0 flex-1" placeholder="RM-YYYYMMDD-XXXX" required>
+            <button type="button" class="mv-btn mv-btn-ghost mv-btn-sm shrink-0" @click="generateMRN()">Buat otomatis</button>
+          </div>
+        </div>
         <p class="mv-field-error" x-show="patientTouched.medical_record_number && !patientForm.medical_record_number.trim()" x-text="'Nomor rekam medis wajib diisi'" style="display:none;"></p>
 
         <label class="mv-field">NIK 16 digit
@@ -31,7 +32,7 @@
         </label>
         <p class="mv-field-error" x-show="patientTouched.nik && !patientForm.nik.trim()" x-text="'NIK wajib diisi'" style="display:none;"></p>
         <p class="mv-field-error" x-show="patientTouched.nik && patientForm.nik.trim() && !patientNikValid" x-text="'NIK harus tepat 16 digit angka tanpa spasi atau tanda baca'" style="display:none;"></p>
-        <p class="mv-note">Ketik 16 angka tanpa spasi atau tanda baca.</p>
+
 
         <label class="mv-field">Nama lengkap
           <input x-model="patientForm.full_name" @blur="patientTouched.full_name = true" class="mv-input" placeholder="Nama sesuai KTP" required>
@@ -48,7 +49,7 @@
         <p class="mv-field-error" x-show="patientTouched.birth_date && !patientForm.birth_date.trim()" x-text="'Tanggal lahir wajib diisi'" style="display:none;"></p>
         <p class="mv-field-error" x-show="patientTouched.birth_date && patientForm.birth_date.trim() && !patientBirthDateValid" x-text="'Tanggal lahir harus berformat YYYY-MM-DD'" style="display:none;"></p>
 
-        <p class="mv-note">NIK, nama, dan alamat disegel AES-256-GCM dengan nama kolom sebagai AAD.</p>
+        <p class="mv-note">Data identitas disimpan dengan enkripsi AES-256-GCM.</p>
         <button type="submit" class="mv-btn mv-btn-primary" style="width:100%; margin-top:14px;" :disabled="busy">Daftarkan pasien</button>
       </form>
     </div>
@@ -56,12 +57,12 @@
     <div class="mv-card">
       <div class="mv-card-head">
         <div>
-          <h3 class="mv-card-title">Daftar Pasien</h3>
-          <p class="mv-card-sub" x-text="patients.length + ' pasien tampil · data dari API'"></p>
+          <h3 class="mv-card-title">Daftar pasien</h3>
+          <p class="mv-card-sub" x-text="patients.length + ' pasien'"></p>
         </div>
         <div class="mv-segmented" role="group" aria-label="Tampilan data">
-          <button type="button" class="mv-segment" :class="patientView === 'decrypted' ? 'is-active' : ''" :disabled="busy" @click="setPatientView('decrypted')">Plaintext</button>
-          <button type="button" class="mv-segment" :class="patientView === 'raw' ? 'is-active' : ''" :disabled="busy" @click="setPatientView('raw')">Raw SQLite</button>
+          <button type="button" class="mv-segment" :class="patientView === 'decrypted' ? 'is-active' : ''" :disabled="busy" @click="setPatientView('decrypted')">Data asli</button>
+          <button type="button" class="mv-segment" :class="patientView === 'raw' ? 'is-active' : ''" :disabled="busy" @click="setPatientView('raw')">Data terenkripsi</button>
         </div>
       </div>
 
@@ -69,7 +70,6 @@
         <table class="mv-table">
           <thead>
             <tr>
-              <th>ID</th>
               <th>No. RM</th>
               <th x-text="patientView === 'raw' ? 'NIK terenkripsi' : 'NIK'"></th>
               <th x-text="patientView === 'raw' ? 'Nama terenkripsi' : 'Nama'"></th>
@@ -79,43 +79,42 @@
           <tbody>
             <template x-for="p in patients" :key="p.id">
               <tr>
-                <td class="mv-mono" x-text="p.id"></td>
-                <td class="mv-mono" x-text="p.medical_record_number"></td>
+                <td><span class="mv-badge mv-badge-teal mv-mono" x-text="p.medical_record_number"></span></td>
                 <template x-if="patientView === 'raw'">
-                  <td class="mv-mono" x-text="p.columns && p.columns.nik_enc"></td>
-                </template>
-                <template x-if="patientView === 'raw'">
-                  <td class="mv-mono" x-text="p.columns && p.columns.full_name_enc"></td>
+                  <td><div class="mv-mono mv-scroll-text mv-scroll-text-compact mv-table-text" x-text="p.columns && p.columns.nik_enc"></div></td>
                 </template>
                 <template x-if="patientView === 'raw'">
-                  <td class="mv-mono" x-text="p.columns && p.columns.address_enc"></td>
+                  <td><div class="mv-mono mv-scroll-text mv-scroll-text-compact mv-table-text" x-text="p.columns && p.columns.full_name_enc"></div></td>
+                </template>
+                <template x-if="patientView === 'raw'">
+                  <td><div class="mv-mono mv-scroll-text mv-scroll-text-compact mv-table-text" x-text="p.columns && p.columns.address_enc"></div></td>
                 </template>
                 <template x-if="patientView !== 'raw'">
-                  <td class="mv-mono" x-text="p.nik"></td>
+                  <td><div class="mv-mono mv-scroll-text mv-scroll-text-compact mv-table-text" x-text="p.nik"></div></td>
                 </template>
                 <template x-if="patientView !== 'raw'">
-                  <td x-text="p.full_name"></td>
+                  <td><div class="mv-scroll-text mv-scroll-text-compact mv-table-text" x-text="p.full_name"></div></td>
                 </template>
                 <template x-if="patientView !== 'raw'">
-                  <td class="mv-row-sub" x-text="p.address"></td>
+                  <td><div class="mv-row-sub mv-scroll-text mv-scroll-text-compact mv-table-text" x-text="p.address"></div></td>
                 </template>
               </tr>
             </template>
-            <tr x-show="patients.length === 0"><td colspan="5" style="text-align:center; color:var(--mv-ui-ink-muted);">Belum ada data pasien</td></tr>
+            <tr x-show="patients.length === 0"><td colspan="4" style="text-align:center; color:var(--mv-ui-ink-muted);">Belum ada data pasien</td></tr>
           </tbody>
         </table>
       </div>
 
       <div x-show="patientView === 'raw'" style="margin-top:16px; padding:16px; border-radius:16px; background:var(--mv-ui-dark-card); color:var(--mv-ui-accent-mint);">
-        <p style="margin:0 0 10px; font-size:11px; font-weight:700; letter-spacing:.06em; color:var(--mv-ui-accent-bright);">Tampilan raw SQLite · terenkripsi</p>
+        <p style="margin:0 0 10px; font-size:11px; font-weight:700; letter-spacing:.06em; color:var(--mv-ui-accent-bright);">Data yang tersimpan</p>
         <dl class="mv-kv" style="color:var(--mv-ui-accent-mint);">
           <dt style="color:var(--mv-ui-ink-soft);">NIK terenkripsi</dt>
-          <dd class="mv-mono" x-text="(patients[0] && patients[0].columns && patients[0].columns.nik_enc) || '-'"></dd>
+          <dd class="mv-mono mv-scroll-text mv-scroll-text-compact" x-text="(patients[0] && patients[0].columns && patients[0].columns.nik_enc) || '-'"></dd>
           <dt style="color:var(--mv-ui-ink-soft);">Nama terenkripsi</dt>
-          <dd class="mv-mono" x-text="(patients[0] && patients[0].columns && patients[0].columns.full_name_enc) || '-'"></dd>
+          <dd class="mv-mono mv-scroll-text mv-scroll-text-compact" x-text="(patients[0] && patients[0].columns && patients[0].columns.full_name_enc) || '-'"></dd>
           <dt style="color:var(--mv-ui-ink-soft);">Alamat terenkripsi</dt>
-          <dd class="mv-mono" x-text="(patients[0] && patients[0].columns && patients[0].columns.address_enc) || '-'"></dd>
-          <dt style="color:var(--mv-ui-ink-soft);">AAD</dt>
+          <dd class="mv-mono mv-scroll-text mv-scroll-text-compact" x-text="(patients[0] && patients[0].columns && patients[0].columns.address_enc) || '-'"></dd>
+          <dt style="color:var(--mv-ui-ink-soft);">Konteks enkripsi</dt>
           <dd class="mv-mono">"patients.nik" · "patients.full_name" · "patients.address"</dd>
         </dl>
       </div>

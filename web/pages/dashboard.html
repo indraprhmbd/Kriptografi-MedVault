@@ -1,36 +1,30 @@
 <section class="mv-stack" x-data="{ moduleFilter: 'semua' }">
   <div class="mv-page-head mv-enter mv-enter-3">
     <div>
-      <p class="mv-ui-eyebrow">Clinical workspace</p>
-      <h2 class="mv-ui-title" x-text="!sessionReady ? 'Selamat datang' : (session && session.full_name ? 'Selamat datang, ' + session.full_name : 'Selamat datang')"></h2>
-      <p class="mv-ui-subtitle">Ringkasan ruang kerja MedVault dan akses cepat seluruh modul.</p>
+      <h2 class="mv-ui-title">Ringkasan</h2>
     </div>
     <div class="mv-page-actions">
       <span class="mv-badge" :class="healthBadgeClass" x-text="healthLabel"></span>
-      <button type="button" class="mv-btn mv-btn-primary" @click="navigate('/patients')">Pasien baru</button>
+      <button type="button" class="mv-btn mv-btn-primary" @click="navigate('/patients')">Tambah pasien</button>
     </div>
   </div>
 
   <div class="mv-grid-4 mv-enter mv-enter-4">
     <div class="mv-stat">
-      <p class="mv-stat-label">Pasien terdaftar</p>
+      <p class="mv-stat-label">Pasien</p>
       <p class="mv-stat-value" x-text="patients.length"></p>
-      <p class="mv-stat-note">Data dari API pasien</p>
     </div>
     <div class="mv-stat">
       <p class="mv-stat-label">Blok audit</p>
       <p class="mv-stat-value" x-text="blocks.length"></p>
-      <p class="mv-stat-note">Ledger yang dimuat</p>
     </div>
     <div class="mv-stat">
-      <p class="mv-stat-label">Validasi ledger</p>
-      <p class="mv-stat-value" :style="validation ? (validation.valid ? 'color:var(--mv-ui-success-ink);' : 'color:var(--mv-ui-danger-ink);') : 'color:var(--mv-ui-ink-muted);'" x-text="validation ? (validation.valid ? 'Valid' : 'Tidak valid') : 'Belum diperiksa'"></p>
-      <p class="mv-stat-note">Pemeriksaan terakhir</p>
+      <p class="mv-stat-label">Integritas audit</p>
+      <p class="mv-stat-value" :style="validation ? (validation.valid ? 'color:var(--mv-ui-success-ink);' : 'color:var(--mv-ui-danger-ink);') : 'color:var(--mv-ui-ink-muted);'" x-text="validation ? (validation.valid ? 'Terverifikasi' : 'Tidak valid') : 'Belum diperiksa'"></p>
     </div>
     <div class="mv-stat">
-      <p class="mv-stat-label">Sesi aktif</p>
+      <p class="mv-stat-label">Akun dokter</p>
       <p class="mv-stat-value" style="font-size:var(--mv-ui-text-24);" x-text="!sessionReady || !session || !session.username ? '-' : session.username"></p>
-      <p class="mv-stat-note">Identitas pengguna</p>
     </div>
   </div>
 
@@ -38,27 +32,25 @@
     <div class="mv-card">
       <div class="mv-card-head">
         <div>
-          <h3 class="mv-card-title">Akses cepat modul</h3>
-          <p class="mv-card-sub">Pilih modul untuk membuka ruang kerja terkait.</p>
+          <h3 class="mv-card-title">Modul</h3>
         </div>
         <div class="mv-segmented" role="group" aria-label="Filter modul">
           <button type="button" class="mv-segment" :class="moduleFilter === 'semua' ? 'is-active' : ''" @click="moduleFilter = 'semua'">Semua</button>
-          <button type="button" class="mv-segment" :class="moduleFilter === 'kripto' ? 'is-active' : ''" @click="moduleFilter = 'kripto'">Kriptografi</button>
+          <button type="button" class="mv-segment" :class="moduleFilter === 'kripto' ? 'is-active' : ''" @click="moduleFilter = 'kripto'">Keamanan data</button>
           <button type="button" class="mv-segment" :class="moduleFilter === 'audit' ? 'is-active' : ''" @click="moduleFilter = 'audit'">Audit</button>
         </div>
       </div>
 
       <template x-for="m in [
-        { label: 'Pasien', desc: 'Direktori pasien dan formulir registrasi', path: '/patients', cat: 'data' },
-        { label: 'Rekam Medis', desc: 'Dua lapis dekripsi dan penandatanganan blok', path: '/records', cat: 'kripto' },
-        { label: 'Brankas File', desc: 'Unggah berkas lab terenkripsi ChaCha20-Poly1305', path: '/vault', cat: 'kripto' },
-        { label: 'Steganografi', desc: 'Sisipkan dan ekstrak payload PNG (LSB)', path: '/steganography', cat: 'kripto' },
-        { label: 'Audit Ledger', desc: 'Block explorer PoA dan verifikasi rantai', path: '/audit', cat: 'audit' }
+        { label: 'Pasien', path: '/patients', cat: 'data' },
+        { label: 'Rekam medis', path: '/records', cat: 'kripto' },
+        { label: 'Berkas laboratorium', path: '/vault', cat: 'kripto' },
+        { label: 'Watermark PNG', path: '/steganography', cat: 'kripto' },
+        { label: 'Riwayat audit', path: '/audit', cat: 'audit' }
       ]" :key="m.path">
         <div class="mv-list-row" x-show="moduleFilter === 'semua' || moduleFilter === m.cat">
           <div class="mv-row-main">
             <p class="mv-row-title" x-text="m.label"></p>
-            <p class="mv-row-sub" x-text="m.desc"></p>
           </div>
           <button type="button" class="mv-btn mv-btn-ghost mv-btn-sm" @click="navigate(m.path)">Buka</button>
         </div>
@@ -68,24 +60,22 @@
     <div class="mv-ledger mv-ui-gradient-panel mv-enter mv-enter-6">
       <div class="mv-card-head">
         <div>
-          <h3 class="mv-ledger-title">Status Ledger</h3>
-          <p class="mv-ledger-sub">Proof-of-Authority · <span x-text="blocks.length"></span> blok</p>
+          <h3 class="mv-ledger-title">Rantai audit</h3>
         </div>
-        <button type="button" class="mv-btn mv-btn-mint mv-btn-sm" @click="loadAudit()">Verifikasi rantai</button>
+        <button type="button" class="mv-btn mv-btn-mint mv-btn-sm" @click="loadAudit()">Periksa rantai</button>
       </div>
 
       <div>
         <template x-for="b in blocks.slice(-3).reverse()" :key="b.current_hash">
           <div class="mv-block-row">
             <div>
-              <p style="margin:0; font-weight:700;" x-text="'#' + b.block_index"></p>
-              <p class="mv-block-hash" style="margin:3px 0 0;" x-text="b.current_hash ? b.current_hash.slice(0, 4) + '...' + b.current_hash.slice(-4) : '-'"></p>
+              <span class="mv-badge mv-badge-teal mv-mono" x-text="formatBlockRef(b)"></span>
             </div>
-            <span class="mv-badge" :class="!validation ? 'mv-badge-teal' : (b.block_index === validation.first_failure?.block_index ? 'mv-badge-danger' : 'mv-badge-success')" x-text="!validation ? 'Belum diperiksa' : (b.block_index === validation.first_failure?.block_index ? 'Tidak valid' : 'Valid')"></span>
+            <span class="mv-badge" :class="!validation ? 'mv-badge-teal' : (b.block_index === validation.first_failure?.block_index ? 'mv-badge-danger' : 'mv-badge-success')" x-text="!validation ? 'Belum diperiksa' : (b.block_index === validation.first_failure?.block_index ? 'Tidak valid' : 'Terverifikasi')"></span>
           </div>
         </template>
         <template x-if="blocks.length === 0">
-          <p class="mv-note" style="margin:0;">Belum ada blok audit. Tekan Verifikasi rantai untuk memuat ledger.</p>
+          <p class="mv-note" style="margin:0;">Belum ada blok audit.</p>
         </template>
       </div>
     </div>

@@ -273,6 +273,39 @@ func TestVerifyChainDetectsRecordTamperThroughCallback(t *testing.T) {
 	}
 }
 
+func TestVerifyChainChecksLiveStateOnlyAgainstLatestRecordBlock(t *testing.T) {
+	doctor, err := NewSigner()
+	if err != nil {
+		t.Fatalf("doctor signer: %v", err)
+	}
+	validator, err := NewSigner()
+	if err != nil {
+		t.Fatalf("validator signer: %v", err)
+	}
+
+	chain := BuildTestChain(t, doctor, validator, 3)
+	latestHash := chain[2].RecordStateHash
+	liveCalls := 0
+	live := func(blockIndex, recordID int64) (string, error) {
+		liveCalls++
+		if blockIndex != chain[2].BlockIndex || recordID != *chain[2].TargetRecordID {
+			t.Fatalf("live lookup called for block %d record %d, want latest block %d", blockIndex, recordID, chain[2].BlockIndex)
+		}
+		return latestHash, nil
+	}
+
+	result, err := VerifyChain(chain, live)
+	if err != nil {
+		t.Fatalf("VerifyChain: %v", err)
+	}
+	if !result.Valid {
+		t.Fatalf("historical record state must not be compared to the current row: %+v", result.FirstFailure)
+	}
+	if liveCalls != 1 {
+		t.Fatalf("live record lookup calls = %d, want 1", liveCalls)
+	}
+}
+
 func TestVerifyChainRejectsEmptyChain(t *testing.T) {
 	if _, err := VerifyChain(nil, nil); err == nil {
 		t.Fatal("expected error for an empty chain")

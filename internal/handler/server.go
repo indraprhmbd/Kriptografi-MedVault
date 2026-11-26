@@ -163,9 +163,11 @@ func (s *Server) Handler() http.Handler {
 	// Patients and super encrypted records.
 	mux.HandleFunc("GET /api/v1/patients", s.requireSession(s.handleListPatients))
 	mux.HandleFunc("POST /api/v1/patients", s.requireSession(s.handleCreatePatient))
+	mux.HandleFunc("GET /api/v1/records", s.requireSession(s.handleListRecords))
 	mux.HandleFunc("POST /api/v1/records", s.requireSession(s.handleCreateRecord))
 	mux.HandleFunc("POST /api/v1/records/seal", s.requireSession(s.handleSealBlock))
 	mux.HandleFunc("PUT /api/v1/records/{id}", s.requireSession(s.handleUpdateRecord))
+	mux.HandleFunc("PATCH /api/v1/records/{id}/status", s.requireSession(s.handleCloseRecord))
 	mux.HandleFunc("GET /api/v1/records/{id}/inspect", s.requireSession(s.handleInspectRecord))
 
 	// Lab file vault.

@@ -1,9 +1,7 @@
 <section class="mv-stack">
   <div class="mv-page-head mv-enter mv-enter-3">
     <div>
-      <p class="mv-ui-eyebrow">Rekam medis terenkripsi</p>
-      <h2 class="mv-ui-title">Rekam Medis</h2>
-      <p class="mv-ui-subtitle">Pencatatan, enkripsi berlapis, dan inspeksi rekam medis.</p>
+      <h2 class="mv-ui-title">Rekam medis</h2>
     </div>
     <div class="mv-page-actions">
       <span class="mv-badge mv-badge-teal">XChaCha20-Poly1305</span>
@@ -15,8 +13,7 @@
     <div class="mv-card">
       <div class="mv-card-head">
         <div>
-          <h3 class="mv-card-title">Rekam Medis Baru</h3>
-          <p class="mv-card-sub">Diagnosis dan resep dienkripsi berlapis sebelum disimpan.</p>
+          <h3 class="mv-card-title">Buat rekam medis</h3>
         </div>
       </div>
 
@@ -30,35 +27,45 @@
           </select>
         </label>
         <label class="mv-field">Diagnosis
-          <textarea id="record-diagnosis" x-model="recordForm.diagnosis" rows="3" class="mv-textarea" placeholder="Tuliskan diagnosis pasien…"></textarea>
+          <textarea id="record-diagnosis" x-model="recordForm.diagnosis" rows="6" class="mv-textarea" placeholder="Tuliskan diagnosis pasien…"></textarea>
         </label>
         <label class="mv-field">Resep
-          <textarea x-model="recordForm.prescription" rows="2" class="mv-textarea" placeholder="Tuliskan resep obat…"></textarea>
+          <textarea x-model="recordForm.prescription" rows="4" class="mv-textarea" placeholder="Tuliskan resep obat…"></textarea>
         </label>
         <div class="mv-field">
           <span>Status kunjungan</span>
-          <div class="mv-segmented" role="group" aria-label="Status kunjungan">
-            <button type="button" class="mv-segment" :class="recordForm.visit_status === 'OPEN' ? 'is-active' : ''" @click="recordForm.visit_status = 'OPEN'">OPEN</button>
-            <button type="button" class="mv-segment" :class="recordForm.visit_status === 'CLOSED' ? 'is-active' : ''" @click="recordForm.visit_status = 'CLOSED'">CLOSED</button>
-          </div>
+          <span class="mv-badge mv-badge-teal" style="width:max-content;">Berlangsung</span>
+          <span class="mv-field-note">Selesaikan kunjungan setelah rekam medis dibuat dan diperiksa.</span>
         </div>
       </div>
 
-      <p class="mv-note">Server mengembalikan tx_payload. Tanda tangan dongle dikirim pada langkah kedua.</p>
-      <button type="button" class="mv-btn mv-btn-primary" style="width:100%; margin-top:14px;" :disabled="busy || !session" @click="createRecord()">Enkripsi dan buat proposal</button>
+      <p class="mv-note">Teks panjang dapat dimasukkan. Batas permintaan API gabungan adalah 8 MiB, termasuk struktur JSON.</p>
+      <p class="mv-note">Setelah dienkripsi, rekam medis menunggu tanda tangan USB Dongle.</p>
+      <button type="button" class="mv-btn mv-btn-primary" style="width:100%; margin-top:14px;" :disabled="busy || !session" @click="createRecord()">Enkripsi rekam medis</button>
     </div>
 
     <div class="mv-stack">
       <div class="mv-card">
         <div class="mv-card-head">
           <div>
-            <h3 class="mv-card-title">Inspeksi Rekam Medis</h3>
-            <p class="mv-card-sub">Dua lapis: klasik lalu modern. Lihat setiap tahap lewat Glass-Box.</p>
+            <h3 class="mv-card-title">Periksa rekam medis</h3>
           </div>
-          <div class="mv-actions">
-            <input x-model.number="inspectId" type="number" min="1" class="mv-input" style="width:96px;" placeholder="ID">
-            <button type="button" class="mv-btn mv-btn-ghost mv-btn-sm" :disabled="busy || !session" @click="inspectRecord()">Dekripsi dua lapis</button>
-          </div>
+        </div>
+        <div class="mv-record-picker mv-record-picker-compact">
+          <label class="mv-sr-only" for="inspect-record-search">Cari rekam medis</label>
+          <input id="inspect-record-search" x-model="recordSearch.inspect" @input="clearRecordReferenceSelection('inspect')" type="search" class="mv-input" placeholder="Cari nama, nomor RM, atau referensi" autocomplete="off">
+          <label class="mv-sr-only" for="inspect-record-select">Pilih rekam medis</label>
+          <select id="inspect-record-select" x-model="recordReferenceInputs.inspect" @change="setRecordReference('inspect', $event.target.value)" class="mv-select" aria-label="Pilih rekam medis" :disabled="recordOptionsLoading || !filteredRecordOptions('inspect').length">
+            <option value="">Pilih rekam medis</option>
+            <template x-for="record in filteredRecordOptions('inspect')" :key="record.id">
+              <option :value="formatRecordRef(record.id)" x-text="recordOptionLabel(record)"></option>
+            </template>
+          </select>
+          <button type="button" class="mv-btn mv-btn-ghost mv-btn-sm" :disabled="busy || !session || !inspectId" @click="inspectRecord()">Buka rekam medis</button>
+          <p x-show="recordOptionsLoading" class="mv-field-note">Memuat daftar rekam medis.</p>
+          <p x-show="!recordOptionsLoading && recordOptionsError" class="mv-field-note" x-text="recordOptionsError"></p>
+          <p x-show="!recordOptionsLoading && !recordOptionsError && !recordOptions.length" class="mv-field-note">Belum ada rekam medis.</p>
+          <p x-show="!recordOptionsLoading && !recordOptionsError && recordOptions.length && !filteredRecordOptions('inspect').length" class="mv-field-note">Tidak ada hasil. Ubah kata kunci.</p>
         </div>
 
         <div class="mv-pipeline">
@@ -68,30 +75,38 @@
           <div class="mv-pipe-step is-final"><span class="mv-pipe-num">4</span><br>XChaCha20-Poly1305</div>
         </div>
 
-        <dl class="mv-kv" x-show="inspection" style="margin-top:16px; padding-top:16px; border-top:1px solid var(--mv-ui-border);">
+        <div x-show="inspection" class="mv-actions" style="margin-top:16px; padding-top:16px; border-top:1px solid var(--mv-ui-border);">
+          <span class="mv-badge mv-badge-teal mv-mono" x-text="formatRecordRef(inspection?.record?.id)"></span>
+          <span class="mv-badge mv-mono" x-text="(inspection?.patients?.medical_record_number || inspection?.record?.patient_mrn || '-') + ' - ' + (inspection?.patients?.full_name || '-')"></span>
+          <span class="mv-badge" :class="inspection?.record?.visit_status === 'CLOSED' ? 'mv-badge-success' : 'mv-badge-teal'" x-text="visitStatusLabel(inspection?.record?.visit_status)"></span>
+          <button type="button" class="mv-btn mv-btn-ghost mv-btn-sm" x-show="inspection?.record?.visit_status !== 'CLOSED'" :disabled="busy || !session" @click="closeRecordVisit()">Tandai selesai</button>
+          <span class="mv-field-note" x-show="inspection?.record?.visit_status === 'CLOSED'">Kunjungan selesai. Buat rekam medis baru untuk kunjungan berikutnya.</span>
+        </div>
+        <dl class="mv-kv" x-show="inspection" style="margin-top:12px;">
           <dt>Ciphertext</dt>
-          <dd class="mv-mono" x-text="inspection?.record?.diagnosis_ciphertext || '-'"></dd>
+          <dd class="mv-mono mv-scroll-text" x-text="inspection?.record?.diagnosis_ciphertext || '-'"></dd>
           <dt>Diagnosis</dt>
-          <dd x-text="inspection?.record?.diagnosis_plaintext || '-'"></dd>
+          <dd class="mv-scroll-text" x-text="inspection?.record?.diagnosis_plaintext || '-'"></dd>
           <dt>Resep</dt>
-          <dd x-text="inspection?.record?.prescription_plaintext || '-'"></dd>
+          <dd class="mv-scroll-text" x-text="inspection?.record?.prescription_plaintext || '-'"></dd>
           <dt>Intermediate klasik</dt>
-          <dd class="mv-mono" x-text="inspection?.classical_intermediates?.diagnosis || '-'"></dd>
+          <dd class="mv-mono mv-scroll-text" x-text="inspection?.classical_intermediates?.diagnosis || '-'"></dd>
         </dl>
       </div>
 
       <div x-show="pending" class="mv-alert mv-alert-success">
-        <p class="mv-alert-title">Proposal blok menunggu tanda tangan dongle</p>
-        <p class="mv-mono" style="margin:8px 0;" x-text="pending?.payload"></p>
+        <p class="mv-alert-title">Proposal blok menunggu tanda tangan USB Dongle</p>
+        <p class="mv-note">Referensi rekam medis: <span class="mv-badge mv-badge-teal mv-mono" x-text="formatRecordRef(inspectId)"></span></p>
+        <p class="mv-mono mv-scroll-text" style="margin:8px 0;" x-text="pending?.payload"></p>
         <p class="mv-note">Muat berkas .medkey lewat panel Dongle di navigasi samping.</p>
         <button type="button" class="mv-btn mv-btn-primary mv-btn-sm" style="margin-top:10px;" :disabled="busy || !dongle" @click="sealPending()">Tanda tangani</button>
       </div>
 
       <div class="mv-card">
         <div class="mv-card-head">
-          <h3 class="mv-card-title">Rekam terbaru</h3>
+          <h3 class="mv-card-title">Buka rekam medis</h3>
         </div>
-        <p class="mv-note" style="margin:0;">API belum menyediakan daftar rekam medis. Gunakan ID rekam pada formulir inspeksi untuk membuka ciphertext dan hasil dekripsi.</p>
+        <p class="mv-note" style="margin:0;">Pilih rekam medis untuk membuka data terenkripsi.</p>
       </div>
     </div>
   </div>

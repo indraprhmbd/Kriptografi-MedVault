@@ -1,90 +1,121 @@
-<section class="mv-stack">
+<section class="mv-stack mv-telemetry">
   <div class="mv-page-head mv-enter mv-enter-3">
     <div>
-      <p class="mv-ui-eyebrow">Glass-Box</p>
-      <h2 class="mv-ui-title">Glass-Box Telemetry</h2>
-      <p class="mv-ui-subtitle">Nilai antara dan metadata kriptografi dari respons API terakhir pada sesi browser ini.</p>
+      <h2 class="mv-ui-title">Detail proses</h2>
     </div>
     <div class="mv-page-actions">
       <button type="button" class="mv-btn mv-btn-primary" :disabled="!telemetry" @click="copyTelemetry()">Salin JSON</button>
     </div>
   </div>
 
-  <div class="mv-grid-2 mv-enter mv-enter-4">
-    <div class="mv-card">
-      <div class="mv-card-head">
-        <div>
-          <h3 class="mv-card-title">Respons API terakhir</h3>
-          <p class="mv-card-sub">Objek _telemetry dikirim bersama setiap respons kriptografi.</p>
-        </div>
-      </div>
-
-      <div class="mv-actions" style="margin-bottom:14px;">
-        <span class="mv-badge mv-badge-teal" x-text="telemetrySource ? telemetrySource.method + ' ' + telemetrySource.path : 'Belum ada respons'"></span>
-        <span class="mv-badge" x-text="telemetry && telemetry.module ? telemetry.module : 'Belum ada modul'"></span>
-        <span class="mv-badge" x-text="telemetryDurationLabel"></span>
-        <span class="mv-badge" x-text="telemetryAt ? new Date(telemetryAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : 'Belum ada waktu'"></span>
-      </div>
-
-      <pre x-text="telemetryPretty" style="margin:0; padding:16px; border-radius:16px; background:var(--mv-ui-dark-card); color:var(--mv-ui-accent-mint); font-family:var(--mv-ui-font-mono); font-size:12px; line-height:1.6; white-space:pre-wrap; word-break:break-all;"></pre>
+  <template x-if="!telemetry">
+    <div class="mv-card mv-enter mv-enter-4">
+      <h3 class="mv-card-title">Belum ada data proses</h3>
+      <p class="mv-note" style="margin-bottom:0;">Selesaikan aksi di Rekam Medis, Brankas File, atau Steganografi untuk mulai memeriksa.</p>
     </div>
+  </template>
 
-    <div class="mv-card">
-      <div class="mv-card-head">
-        <div>
-          <h3 class="mv-card-title">Ringkasan trace</h3>
-          <p class="mv-card-sub">Angka di bawah diambil langsung dari objek _telemetry, tanpa nilai contoh.</p>
+  <template x-if="telemetry">
+    <div class="mv-stack mv-telemetry-content mv-enter mv-enter-4">
+      <section class="mv-card">
+        <div class="mv-card-head">
+          <h3 class="mv-card-title">Ringkasan proses</h3>
+          <span class="mv-badge mv-badge-teal" x-text="(telemetry.steps ? telemetry.steps.length : 0) + ' langkah'"></span>
         </div>
-      </div>
-      <div style="display:flex; flex-direction:column;">
-        <div class="mv-list-row"><span class="mv-row-title">Modul</span><span class="mv-mono" style="color:var(--mv-ui-accent-strong);" x-text="telemetry && telemetry.module ? telemetry.module : '-'"></span></div>
-        <div class="mv-list-row"><span class="mv-row-title">Durasi total</span><span class="mv-mono" style="color:var(--mv-ui-accent-strong);" x-text="telemetryDurationLabel"></span></div>
-        <div class="mv-list-row"><span class="mv-row-title">Jumlah langkah</span><span class="mv-mono" style="color:var(--mv-ui-accent-strong);" x-text="telemetry && telemetry.steps ? telemetry.steps.length : 0"></span></div>
-        <div class="mv-list-row"><span class="mv-row-title">Metrik</span><span class="mv-mono" style="color:var(--mv-ui-accent-strong);" x-text="telemetry && telemetry.metrics ? telemetry.metrics.length : 0"></span></div>
-        <div class="mv-list-row"><span class="mv-row-title">Peringatan</span><span class="mv-mono" style="color:var(--mv-ui-accent-strong);" x-text="telemetry && telemetry.warnings ? telemetry.warnings.length : 0"></span></div>
-      </div>
 
-      <template x-if="telemetry && telemetry.warnings && telemetry.warnings.length">
-        <div class="mv-alert mv-alert-danger" style="margin-top:16px;">
-          <p class="mv-alert-title">Peringatan trace</p>
-          <template x-for="(warning, i) in telemetry.warnings" :key="i">
-            <p class="mv-note" x-text="warning"></p>
+        <div class="mv-telemetry-meta">
+          <div class="mv-telemetry-meta-item">
+            <span class="mv-telemetry-meta-label">Permintaan</span>
+            <strong class="mv-telemetry-meta-value mv-mono" x-text="telemetrySource ? telemetrySource.method + ' ' + telemetrySource.path : '-' "></strong>
+          </div>
+          <div class="mv-telemetry-meta-item">
+            <span class="mv-telemetry-meta-label">Modul</span>
+            <strong class="mv-telemetry-meta-value mv-mono" x-text="telemetry.module || '-' "></strong>
+          </div>
+          <div class="mv-telemetry-meta-item">
+            <span class="mv-telemetry-meta-label">Durasi</span>
+            <strong class="mv-telemetry-meta-value mv-mono" x-text="telemetryDurationLabel"></strong>
+          </div>
+          <div class="mv-telemetry-meta-item">
+            <span class="mv-telemetry-meta-label">Waktu</span>
+            <strong class="mv-telemetry-meta-value" x-text="telemetryAt ? new Date(telemetryAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-' "></strong>
+          </div>
+        </div>
+
+        <div x-show="telemetry.metrics && telemetry.metrics.length">
+          <h4 class="mv-card-title" style="margin:14px 0 0; font-size:14px;">Metrik</h4>
+          <div class="mv-telemetry-metrics">
+            <template x-for="(metric, i) in (telemetry.metrics || [])" :key="metric.name + '-' + i">
+              <div class="mv-telemetry-metric">
+                <span class="mv-row-title" x-text="metric.name"></span>
+                <span class="mv-badge" :class="metric.unit === 'bool' ? (Number(metric.value) ? 'mv-badge-success' : 'mv-badge-danger') : 'mv-badge-teal'"
+                      x-text="metric.unit === 'bool' ? (Number(metric.value) ? 'Terverifikasi' : 'Tidak valid') : new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(metric.value) + (metric.unit ? ' ' + metric.unit : '')"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <template x-if="telemetry.warnings && telemetry.warnings.length">
+          <div class="mv-alert mv-alert-danger" style="margin-top:14px;">
+            <p class="mv-alert-title">Peringatan</p>
+            <template x-for="(warning, i) in telemetry.warnings" :key="i">
+              <p class="mv-note" x-text="warning"></p>
+            </template>
+          </div>
+        </template>
+      </section>
+
+      <section class="mv-card" x-show="telemetry.steps && telemetry.steps.length">
+        <div class="mv-card-head">
+          <h3 class="mv-card-title">Langkah proses</h3>
+          <span class="mv-field-note">Pilih langkah untuk melihat rincian.</span>
+        </div>
+
+        <div class="mv-telemetry-step-list">
+          <template x-for="step in (Array.isArray(telemetry.steps) ? telemetry.steps.slice().reverse() : [])" :key="step.step">
+            <details class="mv-telemetry-step">
+              <summary>
+                <span class="mv-telemetry-step-number" x-text="String(step.step).padStart(2, '0')"></span>
+                <span class="mv-telemetry-step-info">
+                  <strong class="mv-telemetry-step-name" x-text="step.name || 'Langkah proses'"></strong>
+                  <span class="mv-telemetry-step-algorithm" x-text="step.algorithm || 'Rincian transformasi' "></span>
+                </span>
+                <span class="mv-badge" :class="step.verified === false ? 'mv-badge-danger' : (step.verified === true ? 'mv-badge-success' : 'mv-badge-teal')"
+                      x-text="step.verified === true ? 'Terverifikasi' : (step.verified === false ? 'Gagal' : 'Tercatat')"></span>
+                <svg class="mv-telemetry-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+              </summary>
+              <div class="mv-telemetry-step-body">
+                <p x-show="step.detail" class="mv-telemetry-step-detail" x-text="step.detail"></p>
+                <dl class="mv-telemetry-fields">
+                  <dt x-show="step.input_preview">Data masuk</dt>
+                  <dd x-show="step.input_preview" class="mv-mono mv-scroll-text" x-text="step.input_preview"></dd>
+                  <dt x-show="step.output_preview">Hasil antara</dt>
+                  <dd x-show="step.output_preview" class="mv-mono mv-scroll-text" x-text="step.output_preview"></dd>
+                  <dt x-show="step.final_storage_b64">Data tersimpan (Base64)</dt>
+                  <dd x-show="step.final_storage_b64" class="mv-mono mv-scroll-text" x-text="step.final_storage_b64"></dd>
+                  <dt x-show="step.info_tag">Konteks kunci</dt>
+                  <dd x-show="step.info_tag" class="mv-mono mv-scroll-text" x-text="step.info_tag"></dd>
+                  <dt x-show="step.derived_key_fingerprint">Fingerprint kunci</dt>
+                  <dd x-show="step.derived_key_fingerprint" class="mv-mono mv-scroll-text" x-text="step.derived_key_fingerprint"></dd>
+                  <dt x-show="step.nonce_hex">Nonce</dt>
+                  <dd x-show="step.nonce_hex" class="mv-mono mv-scroll-text" x-text="step.nonce_hex"></dd>
+                  <dt x-show="step.poly1305_tag_hex">Tag autentikasi</dt>
+                  <dd x-show="step.poly1305_tag_hex" class="mv-mono mv-scroll-text" x-text="step.poly1305_tag_hex"></dd>
+                </dl>
+              </div>
+            </details>
           </template>
         </div>
-      </template>
+      </section>
 
-      <p class="mv-note" style="margin-top:16px;">Jalankan aksi di halaman Rekam Medis, Brankas File, atau Steganografi untuk memperbarui trace ini.</p>
+      <details class="mv-card mv-telemetry-json">
+        <summary>
+          <span>Data JSON lengkap</span>
+          <span class="mv-field-note">Buka untuk pemeriksaan teknis</span>
+          <svg class="mv-telemetry-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+        </summary>
+        <pre x-text="telemetryPretty"></pre>
+      </details>
     </div>
-  </div>
-
-  <div class="mv-card mv-enter mv-enter-5" x-show="telemetry && telemetry.steps && telemetry.steps.length">
-    <div class="mv-card-head">
-      <div>
-        <h3 class="mv-card-title">Langkah trace</h3>
-        <p class="mv-card-sub">Urutan transformasi yang dicatat backend untuk permintaan terakhir.</p>
-      </div>
-    </div>
-
-    <div class="mv-table-wrap">
-      <table class="mv-table">
-        <thead><tr><th>Step</th><th>Nama</th><th>Algoritma</th><th>Output</th><th>Nonce</th><th>Tag</th><th>Fingerprint</th><th>Status</th></tr></thead>
-        <tbody>
-          <template x-for="step in (telemetry && telemetry.steps ? telemetry.steps : [])" :key="step.step">
-            <tr>
-              <td class="mv-row-title" x-text="step.step"></td>
-              <td x-text="step.name"></td>
-              <td x-text="step.algorithm || '-'"></td>
-              <td class="mv-mono" x-text="step.output_preview || '-'"></td>
-              <td class="mv-mono" x-text="step.nonce_hex || '-'"></td>
-              <td class="mv-mono" x-text="step.poly1305_tag_hex || '-'"></td>
-              <td class="mv-mono" x-text="step.derived_key_fingerprint || '-'"></td>
-              <td>
-                <span class="mv-badge" :class="step.verified === false ? 'mv-badge-danger' : (step.verified === true ? 'mv-badge-success' : '')" x-text="step.verified === true ? 'Terverifikasi' : (step.verified === false ? 'Gagal' : 'Tercatat')"></span>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
-    </div>
-  </div>
+  </template>
 </section>

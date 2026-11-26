@@ -1,9 +1,7 @@
 <section class="mv-stack">
   <div class="mv-page-head mv-enter mv-enter-3">
     <div>
-      <p class="mv-ui-eyebrow">Sesi dan perangkat</p>
-      <h2 class="mv-ui-title">Keamanan dan Sesi</h2>
-      <p class="mv-ui-subtitle">Status autentikasi, kondisi layanan, serta seluruh gerbang keamanan perangkat.</p>
+      <h2 class="mv-ui-title">Keamanan akun</h2>
     </div>
     <div class="mv-page-actions">
       <button type="button" class="mv-btn mv-btn-primary" x-show="!session" @click="navigate('/login')">Buka autentikasi</button>
@@ -15,8 +13,7 @@
     <div class="mv-card">
       <div class="mv-card-head">
         <div>
-          <h3 class="mv-card-title">Status autentikasi</h3>
-          <p class="mv-card-sub">Autentikasi akun, dongle Ed25519, biometrik dHash, dan opsi WebAuthn.</p>
+          <h3 class="mv-card-title">Verifikasi masuk</h3>
         </div>
       </div>
 
@@ -58,22 +55,21 @@
         <div class="mv-card-head">
           <div>
             <h3 class="mv-card-title">Kondisi layanan</h3>
-            <p class="mv-card-sub" x-text="health ? 'Pemeriksaan kesehatan terakhir tersedia' : 'Menunggu data health'"></p>
+
           </div>
         </div>
 
         <div class="mv-list-row"><span class="mv-row-title">API server</span><span class="mv-badge" :class="health ? 'mv-badge-success' : 'mv-badge-danger'" x-text="health ? 'Sehat' : 'Tidak diketahui'"></span></div>
         <div class="mv-list-row"><span class="mv-row-title">Validator gateway</span><span class="mv-badge" :class="health && health.validator_gateway_configured ? 'mv-badge-success' : 'mv-badge-danger'" x-text="health ? (health.validator_gateway_configured ? 'Terhubung' : 'Belum dikonfigurasi') : 'Tidak diketahui'"></span></div>
         <div class="mv-list-row"><span class="mv-row-title">Kunci publik validator</span><span class="mv-badge" :class="health && health.validator_pubkey_pinned ? 'mv-badge-success' : 'mv-badge-danger'" x-text="health ? (health.validator_pubkey_pinned ? 'Dipin' : 'Belum dipin') : 'Tidak diketahui'"></span></div>
-        <div class="mv-list-row"><span class="mv-row-title">WebAuthn RP ID</span><span class="mv-mono" x-text="health && health.webauthn_rpid ? health.webauthn_rpid : '-'"></span></div>
-        <div class="mv-list-row"><span class="mv-row-title">Session TTL</span><span class="mv-mono" x-text="health && health.session_ttl_min ? health.session_ttl_min + ' menit' : '-'"></span></div>
+        <div class="mv-list-row"><span class="mv-row-title">ID layanan WebAuthn</span><span class="mv-mono" x-text="health && health.webauthn_rpid ? health.webauthn_rpid : '-'"></span></div>
+        <div class="mv-list-row"><span class="mv-row-title">Masa sesi</span><span class="mv-mono" x-text="health && health.session_ttl_min ? health.session_ttl_min + ' menit' : '-'"></span></div>
       </div>
 
       <div class="mv-card">
         <div class="mv-card-head">
           <div>
             <h3 class="mv-card-title">Sesi aktif</h3>
-            <p class="mv-card-sub">Identitas dan rentang waktu sesi kerja.</p>
           </div>
         </div>
 

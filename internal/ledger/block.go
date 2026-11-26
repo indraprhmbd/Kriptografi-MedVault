@@ -22,6 +22,7 @@ const (
 	ActionGenesis      = "GENESIS"
 	ActionCreateRecord = "CREATE_RECORD"
 	ActionUpdateRecord = "UPDATE_RECORD"
+	ActionCloseRecord  = "CLOSE_RECORD"
 	ActionUploadLab    = "UPLOAD_LAB"
 	ActionEmbedStego   = "EMBED_STEGO"
 )
