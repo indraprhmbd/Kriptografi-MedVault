@@ -8,7 +8,8 @@
 //  5. Sealing PoA blockchain audit blocks with dual signatures.
 //
 // Usage:
-//   go run deploy/traffic.go -base https://medvault.indraprhmbd.my.id -workers 3 -records 2
+//
+//	go run deploy/traffic.go -base https://medvault.indraprhmbd.my.id -workers 3 -records 2
 package main
 
 import (
