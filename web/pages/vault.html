@@ -42,7 +42,7 @@
         <span class="mv-dropzone-sub">Semua format berkas · maks. 64 MiB</span>
       </label>
 
-      <p class="mv-note" style="margin-top:16px;">Berkas dienkripsi saat diunggah dan diverifikasi saat diunduh.</p>
+      <p class="mv-note mv-algorithm-help-wrap" style="margin-top:16px;">Berkas dienkripsi dengan ChaCha20-Poly1305 saat diunggah dan diverifikasi saat diunduh.<button type="button" class="mv-help-trigger" aria-label="Penjelasan ChaCha20-Poly1305" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'chacha20-poly1305'" @click="openAlgorithmHelp('chacha20-poly1305', $event)">?</button></p>
 
       <div class="mv-actions" style="margin-top:16px;">
         <button type="button" class="mv-btn mv-btn-primary" :disabled="busy || !session || !vaultRecordId || !vaultFile" @click="uploadLab()">Unggah dan enkripsi</button>
@@ -56,7 +56,7 @@
           <dt>Referensi</dt><dd><span class="mv-badge mv-badge-teal mv-mono" x-text="formatVaultRef(vaultRecordId)"></span></dd>
           <dt>Berkas</dt><dd class="mv-scroll-text mv-scroll-text-compact" x-text="vaultInfo?.original_name || '-'"></dd>
           <dt>Ciphertext</dt><dd class="mv-mono" x-text="vaultInfo?.header_preview_hex || vaultInfo?.ciphertext_preview || '-'"></dd>
-          <dt>SHA-256 plaintext</dt><dd class="mv-mono" x-text="vaultInfo?.plaintext_sha256 || '-'"></dd>
+          <dt><span class="mv-algorithm-help-wrap">SHA-256 plaintext<button type="button" class="mv-help-trigger" aria-label="Penjelasan SHA-256" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'sha-256'" @click="openAlgorithmHelp('sha-256', $event)">?</button></span></dt><dd class="mv-mono" x-text="vaultInfo?.plaintext_sha256 || '-' "></dd>
           <dt>Header tersimpan</dt><dd class="mv-mono">magic · versi · nonce dasar · ukuran potongan 64 KiB</dd>
           <dt>Fingerprint kunci</dt><dd class="mv-mono" x-text="vaultInfo?.key_fingerprint || '-'"></dd>
         </dl>

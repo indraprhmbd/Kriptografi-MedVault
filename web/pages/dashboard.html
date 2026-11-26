@@ -60,7 +60,7 @@
     <div class="mv-ledger mv-ui-gradient-panel mv-enter mv-enter-6">
       <div class="mv-card-head">
         <div>
-          <h3 class="mv-ledger-title">Rantai audit</h3>
+          <div class="mv-algorithm-help-wrap"><h3 class="mv-ledger-title">Rantai audit</h3><button type="button" class="mv-help-trigger" aria-label="Penjelasan PoA" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'poa'" @click="openAlgorithmHelp('poa', $event)">?</button></div>
         </div>
         <button type="button" class="mv-btn mv-btn-mint mv-btn-sm" @click="loadAudit()">Periksa rantai</button>
       </div>

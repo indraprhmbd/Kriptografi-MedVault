@@ -4,6 +4,9 @@
       <h2 class="mv-ui-title">Audit dan integritas data</h2>
     </div>
     <div class="mv-page-actions">
+      <span class="mv-algorithm-help-wrap"><span class="mv-badge mv-badge-teal">SHA-256</span><button type="button" class="mv-help-trigger" aria-label="Penjelasan SHA-256" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'sha-256'" @click="openAlgorithmHelp('sha-256', $event)">?</button></span>
+      <span class="mv-algorithm-help-wrap"><span class="mv-badge mv-badge-teal">Ed25519</span><button type="button" class="mv-help-trigger" aria-label="Penjelasan Ed25519" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'ed25519'" @click="openAlgorithmHelp('ed25519', $event)">?</button></span>
+      <span class="mv-algorithm-help-wrap"><span class="mv-badge mv-badge-teal">PoA</span><button type="button" class="mv-help-trigger" aria-label="Penjelasan Proof-of-Authority" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'poa'" @click="openAlgorithmHelp('poa', $event)">?</button></span>
       <button type="button" class="mv-btn mv-btn-primary" :disabled="busy" @click="loadAudit()">Verifikasi rantai</button>
     </div>
   </div>

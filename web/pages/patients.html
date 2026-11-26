@@ -4,7 +4,7 @@
       <h2 class="mv-ui-title">Pasien</h2>
     </div>
     <div class="mv-page-actions">
-      <span class="mv-badge mv-badge-teal">AES-256-GCM</span>
+      <span class="mv-algorithm-help-wrap"><span class="mv-badge mv-badge-teal">AES-256-GCM</span><button type="button" class="mv-help-trigger" aria-label="Penjelasan AES-256-GCM" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'aes-256-gcm'" @click="openAlgorithmHelp('aes-256-gcm', $event)">?</button></span>
       <button type="button" class="mv-btn mv-btn-primary" @click="focusPatientMrn()">Pasien baru</button>
     </div>
   </div>
@@ -49,7 +49,7 @@
         <p class="mv-field-error" x-show="patientTouched.birth_date && !patientForm.birth_date.trim()" x-text="'Tanggal lahir wajib diisi'" style="display:none;"></p>
         <p class="mv-field-error" x-show="patientTouched.birth_date && patientForm.birth_date.trim() && !patientBirthDateValid" x-text="'Tanggal lahir harus berformat YYYY-MM-DD'" style="display:none;"></p>
 
-        <p class="mv-note">Data identitas disimpan dengan enkripsi AES-256-GCM.</p>
+        <p class="mv-note">Data identitas terpilih disimpan dalam bentuk terenkripsi.</p>
         <button type="submit" class="mv-btn mv-btn-primary" style="width:100%; margin-top:14px;" :disabled="busy">Daftarkan pasien</button>
       </form>
     </div>

@@ -4,7 +4,7 @@
       <h2 class="mv-ui-title">Watermark medis</h2>
     </div>
     <div class="mv-page-actions">
-      <span class="mv-badge mv-badge-teal">HMAC-SHA256</span>
+      <span class="mv-algorithm-help-wrap"><span class="mv-badge mv-badge-teal">HMAC-SHA256</span><button type="button" class="mv-help-trigger" aria-label="Penjelasan HMAC-SHA256" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'hmac-sha256'" @click="openAlgorithmHelp('hmac-sha256', $event)">?</button></span>
       <button type="button" class="mv-btn mv-btn-primary" @click="document.getElementById('stego-file').click()">Sisipkan watermark</button>
     </div>
   </div>
@@ -40,6 +40,7 @@
         <span class="mv-dropzone-title" x-text="stegoFile ? stegoFile.name : 'Tarik berkas PNG ke sini atau pilih berkas'"></span>
         <span class="mv-dropzone-sub">Pilih berkas PNG. Data disisipkan pada kanal warna.</span>
       </label>
+      <p class="mv-note mv-algorithm-help-wrap"><span>Steganografi PNG LSB</span><button type="button" class="mv-help-trigger" aria-label="Penjelasan Steganografi PNG LSB" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'png-lsb'" @click="openAlgorithmHelp('png-lsb', $event)">?</button><span>· kompresi zlib</span><button type="button" class="mv-help-trigger" aria-label="Penjelasan kompresi zlib" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'zlib'" @click="openAlgorithmHelp('zlib', $event)">?</button></p>
 
       <button type="button" class="mv-btn mv-btn-primary" style="margin-top:14px;" :disabled="busy || !session || !stegoRecordId || !stegoFile" @click="embedStego()">Sisipkan watermark</button>
 
@@ -82,12 +83,28 @@
         <p class="mv-alert-title" style="color:var(--mv-ui-success-ink);">HMAC valid</p>
         <p class="mv-note">Watermark terverifikasi. Data di dalamnya utuh.</p>
         <dl class="mv-kv" style="margin-top:12px;">
-          <dt>No. RM</dt><dd x-text="extracted?.payload?.mrn"></dd>
+          <dt>No. RM</dt>
+          <dd class="mv-algorithm-help-wrap">
+            <span class="mv-mono" x-text="extracted?.payload?.mrn || '-' "></span>
+            <button type="button" class="mv-help-trigger" title="Salin nomor rekam medis" aria-label="Salin nomor rekam medis" @click="copyExtractedMRN()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg>
+            </button>
+          </dd>
           <dt>Pasien</dt><dd x-text="extracted?.payload?.patient_name"></dd>
           <dt>Dokter</dt><dd x-text="extracted?.payload?.doctor"></dd>
           <dt>Ringkasan</dt><dd class="mv-scroll-text" x-text="extracted?.payload?.diagnosis_summary"></dd>
           <dt>Waktu</dt><dd x-text="extracted?.payload?.timestamp"></dd>
         </dl>
+        <div class="mv-actions" style="margin-top:14px;">
+          <button type="button" class="mv-btn mv-btn-ghost mv-btn-sm" :disabled="busy || recordOptionsLoading || !!recordOptionsError || !extracted?.payload?.mrn || !recordsForMRN(extracted?.payload?.mrn).length" @click="openExtractedRecord()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 5 5"></path></svg>
+            Buka rekam medis
+          </button>
+          <span x-show="recordOptionsLoading" class="mv-field-note">Memuat daftar rekam medis.</span>
+          <span x-show="recordOptionsError" class="mv-field-note" x-text="recordOptionsError"></span>
+          <span x-show="!recordOptionsLoading && !recordOptionsError && extracted?.payload?.mrn && recordsForMRN(extracted.payload.mrn).length > 1" class="mv-field-note" x-text="recordsForMRN(extracted.payload.mrn).length + ' kunjungan cocok. Pilih kunjungan setelah halaman Rekam Medis terbuka.'"></span>
+          <span x-show="!recordOptionsLoading && !recordOptionsError && extracted?.payload?.mrn && !recordsForMRN(extracted.payload.mrn).length" class="mv-field-note">Tidak ditemukan rekam medis dengan nomor RM ini.</span>
+        </div>
       </div>
 
       <div x-show="toast.type === 'error' && /watermark|HMAC|Ekstrak/i.test(toast.message)" class="mv-alert mv-alert-danger" style="margin-top:16px;">

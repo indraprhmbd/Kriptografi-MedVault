@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {{if eq .Route "gate"}}<meta name="view-transition" content="same-origin">{{end}}
   <title>{{.Title}}</title>
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
   <script src="/vendor/tailwind-browser.min.js?v={{.AssetVersion}}"></script>
@@ -69,10 +70,30 @@
     * { box-sizing:border-box; }
     html, body { min-height:100%; }
     body.mv-app { margin:0; background:var(--mv-ui-canvas); color:var(--mv-ui-ink); font-family:var(--mv-ui-font-sans); font-size:14px; line-height:1.45; }
+    body.mv-app:not([data-route="gate"]),
+    body.mv-app:not([data-route="gate"]) * {
+      scrollbar-width:thin;
+      scrollbar-color:var(--mv-ui-border-strong) transparent;
+    }
+    body.mv-app:not([data-route="gate"])::-webkit-scrollbar,
+    body.mv-app:not([data-route="gate"]) *::-webkit-scrollbar { width:8px; height:8px; }
+    body.mv-app:not([data-route="gate"])::-webkit-scrollbar-track,
+    body.mv-app:not([data-route="gate"]) *::-webkit-scrollbar-track,
+    body.mv-app:not([data-route="gate"])::-webkit-scrollbar-corner,
+    body.mv-app:not([data-route="gate"]) *::-webkit-scrollbar-corner { background:transparent; }
+    body.mv-app:not([data-route="gate"])::-webkit-scrollbar-thumb,
+    body.mv-app:not([data-route="gate"]) *::-webkit-scrollbar-thumb {
+      border:2px solid transparent;
+      border-radius:999px;
+      background:var(--mv-ui-border-strong);
+      background-clip:padding-box;
+    }
+    body.mv-app:not([data-route="gate"])::-webkit-scrollbar-thumb:hover,
+    body.mv-app:not([data-route="gate"]) *::-webkit-scrollbar-thumb:hover { background:var(--mv-ui-ink-faint); background-clip:padding-box; }
     .mv-shell { display:flex; gap:24px; min-height:100vh; padding:16px; }
     .mv-workspace { display:flex; flex:1; flex-direction:column; gap:16px; min-width:0; }
     .mv-main { flex:1; min-width:0; }
-    .mv-footer { padding-top:4px; text-align:center; font-size:11px; color:var(--mv-ui-ink-faint); }
+
 
     .mv-sidebar { position:sticky; top:16px; display:flex; flex-direction:column; width:264px; flex:0 0 264px; height:calc(100vh - 32px); max-height:calc(100vh - 32px); overflow-y:auto; overflow-x:hidden; padding:12px 10px; border-radius:28px; color:#fff; box-shadow:0 24px 50px -30px rgba(4,48,44,.72); }
     .mv-ui-brand { display:flex; align-items:center; gap:12px; }
@@ -81,7 +102,7 @@
     .mv-ui-brand-fallback { display:none; }
     .is-asset-missing .mv-ui-brand-fallback { display:block; }
     .mv-ui-brand-name { font-size:18px; font-weight:700; color:#fff; }
-    .mv-ui-brand-sub { font-size:11px; font-weight:500; color:var(--mv-ui-accent-mint); }
+
 
     .mv-nav { display:flex; flex-direction:column; gap:2px; margin-top:10px; }
     .mv-nav-item { display:flex; align-items:center; gap:10px; width:100%; height:38px; min-height:38px; padding:0 10px; border:0; border-radius:10px; background:transparent; color:var(--mv-ui-teal-text); font-family:inherit; font-size:13px; font-weight:500; text-align:left; cursor:pointer; transition:background-color var(--mv-ui-duration-active) var(--mv-ui-ease-standard), color var(--mv-ui-duration-hover) ease, transform var(--mv-ui-duration-hover) ease; }
@@ -175,6 +196,24 @@
     .mv-badge-teal { border:1px solid rgba(15,159,145,.25); background:rgba(45,212,191,.12); color:var(--mv-ui-accent-strong); }
     .mv-badge-dark { border:1px solid rgba(213,240,235,.22); background:rgba(255,255,255,.08); color:var(--mv-ui-teal-text); }
     .mv-note { margin-top:10px; font-size:11px; line-height:1.5; color:var(--mv-ui-ink-muted); }
+    .mv-algorithm-help-wrap { display:inline-flex; align-items:center; gap:7px; min-width:0; }
+    .mv-help-trigger { display:inline-grid; place-items:center; width:22px; height:22px; flex:0 0 22px; padding:0; border:1px solid var(--mv-ui-border-strong); border-radius:50%; background:var(--mv-ui-surface); color:var(--mv-ui-accent-strong); font:700 12px/1 var(--mv-ui-font-sans); cursor:pointer; transition:background-color .16s ease, color .16s ease, border-color .16s ease, transform .16s ease; }
+    .mv-help-trigger:hover { border-color:var(--mv-ui-accent); background:var(--mv-ui-surface-soft); color:var(--mv-ui-ink); transform:translateY(-1px); }
+    .mv-help-trigger svg { display:block; width:14px; height:14px; }
+    .mv-help-trigger:focus-visible, .mv-algorithm-help-close:focus-visible { outline:2px solid var(--mv-ui-accent-strong); outline-offset:3px; }
+    .mv-algorithm-help-popover { position:fixed; z-index:1000; width:min(380px,calc(100vw - 24px)); max-height:min(70vh,560px); overflow-y:auto; padding:18px; border:1px solid var(--mv-ui-border); border-radius:18px; background:var(--mv-ui-surface); color:var(--mv-ui-ink); box-shadow:0 24px 70px -30px rgba(6,40,36,.42),0 8px 24px -16px rgba(6,40,36,.28); }
+    .mv-algorithm-help-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .mv-algorithm-help-title { margin:0; font-size:15px; line-height:1.35; font-weight:750; color:var(--mv-ui-ink); overflow-wrap:anywhere; }
+    .mv-algorithm-help-close { display:grid; place-items:center; width:28px; height:28px; flex:0 0 28px; padding:0; border:1px solid var(--mv-ui-border); border-radius:9px; background:var(--mv-ui-surface); color:var(--mv-ui-ink-muted); font:600 17px/1 var(--mv-ui-font-sans); cursor:pointer; }
+    .mv-algorithm-help-close:hover { border-color:var(--mv-ui-accent); color:var(--mv-ui-ink); }
+    .mv-algorithm-help-label { margin:14px 0 5px; color:var(--mv-ui-accent-strong); font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+    .mv-algorithm-help-copy { margin:0; color:var(--mv-ui-ink-muted); font-size:12px; line-height:1.55; overflow-wrap:anywhere; }
+    .mv-algorithm-help-flow { display:grid; gap:6px; margin:0; padding:0; list-style:none; counter-reset:help-flow; }
+    .mv-algorithm-help-flow li { position:relative; min-height:26px; padding-left:30px; color:var(--mv-ui-ink-muted); font-size:12px; line-height:1.5; counter-increment:help-flow; }
+    .mv-algorithm-help-flow li::before { content:counter(help-flow); position:absolute; left:0; top:0; display:grid; place-items:center; width:20px; height:20px; border-radius:7px; background:var(--mv-ui-surface-muted); color:var(--mv-ui-accent-strong); font-size:10px; font-weight:800; }
+    .mv-algorithm-help-technical { margin-top:12px; border-top:1px solid var(--mv-ui-border); padding-top:10px; }
+    .mv-algorithm-help-technical summary { color:var(--mv-ui-ink-muted); font-size:11px; font-weight:700; cursor:pointer; }
+    .mv-algorithm-help-technical p { margin:8px 0 0; color:var(--mv-ui-ink-muted); font-size:11px; line-height:1.55; overflow-wrap:anywhere; }
     .mv-telemetry-content { gap:12px; }
     .mv-telemetry-meta { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
     .mv-telemetry-meta-item { min-width:0; padding:10px 12px; border:1px solid var(--mv-ui-border); border-radius:12px; background:var(--mv-ui-surface-soft); }
@@ -365,14 +404,47 @@
     /* Authentication shell: the gate route owns the full viewport. */
     body[data-route="gate"] .mv-shell { display:block; min-height:100vh; padding:0; }
     body[data-route="gate"] .mv-sidebar,
-    body[data-route="gate"] .mv-topbar,
-    body[data-route="gate"] .mv-footer { display:none !important; }
+    body[data-route="gate"] .mv-topbar { display:none !important; }
     body[data-route="gate"] .mv-workspace { display:block; }
     body[data-route="gate"] .mv-main { width:100% !important; max-width:none !important; }
     body[data-route="gate"] .mv-main section > div { border-radius:0 !important; box-shadow:none !important; }
 
-    .mv-auth-grid { background:var(--mv-canvas); }
-    .mv-auth-main { min-height:100vh; background:var(--mv-canvas) !important; }
+    .mv-auth-grid { overflow-x:clip; background:var(--mv-canvas); }
+    .mv-auth-main {
+      min-height:100vh;
+      background:var(--mv-canvas) !important;
+      scrollbar-width:thin;
+      scrollbar-color:var(--mv-border) transparent;
+    }
+    .mv-auth-main::-webkit-scrollbar { width:8px; }
+    .mv-auth-main::-webkit-scrollbar-track { background:transparent; }
+    .mv-auth-main::-webkit-scrollbar-thumb { border:2px solid transparent; border-radius:999px; background:var(--mv-border); background-clip:padding-box; }
+    .mv-auth-main::-webkit-scrollbar-thumb:hover { background:var(--mv-muted); background-clip:padding-box; }
+    .mv-auth-hero-login, .mv-auth-hero-register {
+      animation:mv-auth-hero-enter .52s cubic-bezier(.22,.68,0,1) both;
+    }
+    .mv-auth-hero-login { --mv-auth-enter-offset:100%; }
+    .mv-auth-hero-register { --mv-auth-enter-offset:-100%; }
+    @keyframes mv-auth-hero-enter {
+      from { transform:translateX(var(--mv-auth-enter-offset)); }
+      to { transform:translateX(0); }
+    }
+    @supports (view-transition-name: mv-auth-hero) {
+      body[data-route="gate"] .mv-auth-hero { view-transition-name: mv-auth-hero; }
+      .mv-auth-hero-login, .mv-auth-hero-register { animation:none; }
+      ::view-transition-group(mv-auth-hero) {
+        animation-duration:.58s;
+        animation-timing-function:cubic-bezier(.22,.68,0,1);
+      }
+      ::view-transition-old(root) { animation:mv-auth-old-page .14s ease-out both; }
+      ::view-transition-new(root) { animation:none; }
+      ::view-transition-old(mv-auth-hero),
+      ::view-transition-new(mv-auth-hero) {
+        animation-duration:.58s;
+        animation-timing-function:cubic-bezier(.22,.68,0,1);
+      }
+      @keyframes mv-auth-old-page { to { opacity:0; } }
+    }
     @supports (min-height:100svh) {
       .mv-auth-main { min-height:100svh; }
     }
@@ -443,6 +515,8 @@
           0 1px 2px rgba(0,0,0,.35),
           0 22px 50px -20px rgba(0,0,0,.55);
       }
+      body[data-route="gate"] .mv-auth-card h2,
+      body[data-route="gate"] .mv-auth-card h3 { color:var(--mv-ink) !important; }
     }
     .mv-eyebrow { color:var(--mv-accent-strong) !important; }
     .mv-auth-card h2, .mv-auth-card h3 { color:var(--mv-ink) !important; }
@@ -488,7 +562,33 @@
       text-shadow:0 2px 18px rgba(2,44,38,.22);
     }
     @media (min-width:1024px) {
-      .mv-auth-hero { min-height:100vh; }
+      body[data-route="gate"] .mv-shell,
+      body[data-route="gate"] .mv-workspace,
+      body[data-route="gate"] .mv-main {
+        height:100vh;
+        height:100dvh;
+        min-height:0;
+        overflow:hidden;
+      }
+      body[data-route="gate"] .mv-auth-grid {
+        height:100vh;
+        height:100dvh;
+        min-height:0;
+        overflow:hidden;
+      }
+      body[data-route="gate"] .mv-auth-main {
+        height:100%;
+        min-height:0;
+        overflow-y:auto;
+        overscroll-behavior:contain;
+      }
+      body[data-route="gate"] .mv-auth-hero {
+        height:100%;
+        min-height:0;
+        padding-top:clamp(1rem,4vh,3.5rem);
+        padding-bottom:clamp(1rem,4vh,3.5rem);
+      }
+      body[data-route="gate"] .mv-auth-hero .mv-mascot { width:clamp(112px,20vh,152px); }
     }
     /* Below the two-column breakpoint the registration hero becomes a compact
        banner above the card, carrying only the mascot and the headline. */
@@ -744,6 +844,14 @@
 
     @media (prefers-reduced-motion: reduce) {
       .mv-mascot, .mv-mascot-success img, .mv-mascot-error img { animation:none !important; }
+      .mv-auth-hero-login, .mv-auth-hero-register { animation:none !important; }
+      @supports (view-transition-name: mv-auth-hero) {
+        ::view-transition-group(mv-auth-hero),
+        ::view-transition-old(mv-auth-hero),
+        ::view-transition-new(mv-auth-hero),
+        ::view-transition-old(root),
+        ::view-transition-new(root) { animation:none !important; }
+      }
       .mv-pane-enter, .mv-pane-leave { transition:none !important; }
       .mv-strength-bar { transition:none !important; }
       .mv-auth .animate-spin { animation:none !important; }
@@ -765,7 +873,6 @@
       </div>
       <div>
         <div class="mv-ui-brand-name">MedVault</div>
-        <div class="mv-ui-brand-sub">Rekam medis aman</div>
       </div>
     </div>
 
@@ -849,10 +956,40 @@
       {{.Content}}
     </main>
 
-    <footer class="mv-footer">
-      MedVault Go
-    </footer>
+
   </div>
+</div>
+
+<!-- Shared algorithm and process explainer -->
+<div id="mv-algorithm-help-popover"
+     class="mv-algorithm-help-popover"
+     x-show="algorithmHelp.open && algorithmHelpGuide"
+     x-cloak
+     x-transition.opacity.duration.120ms
+     :style="`top:${algorithmHelp.top}px;left:${algorithmHelp.left}px;`"
+     role="dialog"
+     aria-modal="false"
+     aria-labelledby="mv-algorithm-help-title"
+     @click.window="dismissAlgorithmHelpFromClick($event)"
+     @keydown.escape.window="closeAlgorithmHelp(true)">
+  <div class="mv-algorithm-help-head">
+    <h2 id="mv-algorithm-help-title" class="mv-algorithm-help-title" x-text="algorithmHelpGuide ? algorithmHelpGuide.title : ''"></h2>
+    <button type="button" class="mv-algorithm-help-close" data-algorithm-help-close aria-label="Tutup penjelasan" @click="closeAlgorithmHelp()">×</button>
+  </div>
+  <p class="mv-algorithm-help-label">Tujuan</p>
+  <p class="mv-algorithm-help-copy" x-text="algorithmHelpGuide ? algorithmHelpGuide.purpose : ''"></p>
+  <p class="mv-algorithm-help-label">Alur singkat</p>
+  <ol class="mv-algorithm-help-flow">
+    <template x-for="(step, index) in (algorithmHelpGuide ? algorithmHelpGuide.flow : [])" :key="algorithmHelp.key + '-' + index">
+      <li x-text="step"></li>
+    </template>
+  </ol>
+  <p class="mv-algorithm-help-label">Digunakan di MedVault</p>
+  <p class="mv-algorithm-help-copy" x-text="algorithmHelpGuide ? algorithmHelpGuide.usage : ''"></p>
+  <details class="mv-algorithm-help-technical" x-show="algorithmHelpGuide && algorithmHelpGuide.technical">
+    <summary>Detail teknis (opsional)</summary>
+    <p x-text="algorithmHelpGuide ? algorithmHelpGuide.technical : ''"></p>
+  </details>
 </div>
 
 <!-- Glass-Box telemetry drawer -->

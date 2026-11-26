@@ -62,6 +62,27 @@ func TestHandlerServesEveryModulePage(t *testing.T) {
 	}
 }
 
+func TestAuthPagesOptIntoSameOriginViewTransitions(t *testing.T) {
+	handler, err := Handler("")
+	if err != nil {
+		t.Fatalf("Handler: %v", err)
+	}
+
+	for _, route := range []string{"/login", "/register"} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, route, nil))
+		if !strings.Contains(rec.Body.String(), `<meta name="view-transition" content="same-origin">`) {
+			t.Errorf("%s: same-origin view transitions are not enabled", route)
+		}
+	}
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/dashboard", nil))
+	if strings.Contains(rec.Body.String(), `<meta name="view-transition" content="same-origin">`) {
+		t.Error("dashboard should not opt into auth page transitions")
+	}
+}
+
 func TestHandlerKeepsFragmentsPrivateAndServesAssets(t *testing.T) {
 	handler, err := Handler("")
 	if err != nil {

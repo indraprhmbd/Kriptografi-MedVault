@@ -67,7 +67,7 @@
   <div class="mv-auth-grid grid min-h-screen w-full lg:grid-cols-2">
 
     <!-- Authentication column -->
-    <div class="mv-auth-main order-2 flex min-w-0 flex-col px-5 py-6 sm:px-8 lg:order-1 lg:px-12">
+    <div class="mv-auth-main mv-auth-main-login order-2 flex min-w-0 flex-col px-5 py-6 sm:px-8 lg:order-1 lg:px-12">
       <div class="mx-auto flex w-full max-w-[440px] items-center justify-between gap-3">
         <a href="/login" class="flex min-w-0 items-center gap-3" aria-label="MedVault, kembali ke halaman masuk">
           <span class="mv-logo-mark grid h-11 w-11 shrink-0 place-items-center rounded-2xl" aria-hidden="true">
@@ -322,7 +322,7 @@
     </div>
 
     <!-- Mascot and headline column -->
-    <aside class="mv-auth-hero order-1 flex min-w-0 flex-col items-center justify-center overflow-hidden px-6 py-9 lg:order-2 lg:p-14" aria-label="Tentang MedVault">
+    <aside class="mv-auth-hero mv-auth-hero-login order-1 flex min-w-0 flex-col items-center justify-center overflow-hidden px-6 py-9 lg:order-2 lg:p-14" aria-label="Tentang MedVault">
       <div class="relative z-10 flex flex-col items-center text-center">
         <div class="mv-mascot"
              :class="authMood === 'success' ? 'mv-mascot-success' : authMood === 'error' ? 'mv-mascot-error' : ''">

@@ -78,7 +78,10 @@
                 <span class="mv-telemetry-step-number" x-text="String(step.step).padStart(2, '0')"></span>
                 <span class="mv-telemetry-step-info">
                   <strong class="mv-telemetry-step-name" x-text="step.name || 'Langkah proses'"></strong>
-                  <span class="mv-telemetry-step-algorithm" x-text="step.algorithm || 'Rincian transformasi' "></span>
+                  <span class="mv-algorithm-help-wrap">
+                    <span class="mv-telemetry-step-algorithm" x-text="step.algorithm || 'Rincian transformasi'"></span>
+                    <button x-show="algorithmHelpKey(step.algorithm)" type="button" class="mv-help-trigger" :aria-label="'Penjelasan ' + (step.algorithm || 'algoritma')" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === algorithmHelpKey(step.algorithm)" @click.stop="openAlgorithmHelp(algorithmHelpKey(step.algorithm), $event)">?</button>
+                  </span>
                 </span>
                 <span class="mv-badge" :class="step.verified === false ? 'mv-badge-danger' : (step.verified === true ? 'mv-badge-success' : 'mv-badge-teal')"
                       x-text="step.verified === true ? 'Terverifikasi' : (step.verified === false ? 'Gagal' : 'Tercatat')"></span>

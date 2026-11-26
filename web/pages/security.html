@@ -19,7 +19,7 @@
 
       <div class="mv-list-row">
         <div class="mv-row-main">
-          <p class="mv-row-title">Akun dan kata sandi</p>
+          <p class="mv-row-title mv-algorithm-help-wrap">Argon2id - kata sandi<button type="button" class="mv-help-trigger" aria-label="Penjelasan Argon2id" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'argon2id'" @click="openAlgorithmHelp('argon2id', $event)">?</button></p>
           <p class="mv-row-sub" x-text="'Langkah 1 - ' + (session && session.username ? session.username : 'belum ada sesi')"></p>
         </div>
         <span class="mv-badge" :class="session ? 'mv-badge-success' : 'mv-badge-danger'" x-text="session ? 'Terverifikasi' : 'Belum terverifikasi'"></span>
@@ -27,7 +27,7 @@
 
       <div class="mv-list-row">
         <div class="mv-row-main">
-          <p class="mv-row-title">USB Dongle Ed25519</p>
+          <p class="mv-row-title mv-algorithm-help-wrap">USB Dongle Ed25519<button type="button" class="mv-help-trigger" aria-label="Penjelasan Ed25519" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'ed25519'" @click="openAlgorithmHelp('ed25519', $event)">?</button></p>
           <p class="mv-row-sub" x-text="session && session.dongle_key_id ? 'Langkah 2 - Key ID ' + session.dongle_key_id : 'Langkah 2 - belum ada dongle terdaftar'"></p>
         </div>
         <span class="mv-badge" :class="session && session.dongle_key_id ? 'mv-badge-success' : 'mv-badge-danger'" x-text="session && session.dongle_key_id ? 'Terdaftar' : 'Belum terdaftar'"></span>
@@ -35,7 +35,7 @@
 
       <div class="mv-list-row">
         <div class="mv-row-main">
-          <p class="mv-row-title">Biometrik dHash</p>
+          <p class="mv-row-title mv-algorithm-help-wrap">Biometrik dHash<button type="button" class="mv-help-trigger" aria-label="Penjelasan dHash" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'dhash'" @click="openAlgorithmHelp('dhash', $event)">?</button></p>
           <p class="mv-row-sub">Langkah 3 - cocok dengan data pendaftaran minimal 50%</p>
         </div>
         <span class="mv-badge" :class="session && session.has_webcam_dhash ? 'mv-badge-success' : 'mv-badge-danger'" x-text="session && session.has_webcam_dhash ? 'Terdaftar' : 'Belum terdaftar'"></span>
@@ -43,7 +43,7 @@
 
       <div class="mv-list-row">
         <div class="mv-row-main">
-          <p class="mv-row-title">WebAuthn Passkey</p>
+          <p class="mv-row-title mv-algorithm-help-wrap">WebAuthn Passkey<button type="button" class="mv-help-trigger" aria-label="Penjelasan WebAuthn Passkey" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'webauthn'" @click="openAlgorithmHelp('webauthn', $event)">?</button></p>
           <p class="mv-row-sub">Opsional - Windows Hello atau Touch ID</p>
         </div>
         <span class="mv-badge" :class="session && session.has_webauthn_credential ? 'mv-badge-success' : ''" x-text="session && session.has_webauthn_credential ? 'Aktif' : 'Belum diaktifkan'"></span>

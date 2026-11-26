@@ -8,6 +8,197 @@ const PKCS8_ED25519_PREFIX = "302e020100300506032b657004220420";
 const MAX_VAULT_FILE_BYTES = 64 * 1024 * 1024;
 const PENDING_STORAGE_KEY = "medvault.pending";
 const PATIENT_DRAFT_KEY = "medvault.patientDraft";
+const STEGO_LOOKUP_STORAGE_KEY = "medvault.stegoLookup";
+
+const ALGORITHM_GUIDES = {
+  "aes-256-gcm": {
+    title: "AES-256-GCM",
+    purpose: "Melindungi beberapa data identitas pasien saat disimpan di basis data.",
+    flow: [
+      "Aplikasi membuat nonce acak untuk setiap data.",
+      "Data dienkripsi dengan kunci AES 256-bit.",
+      "Tag autentikasi dan nama kolom membantu mendeteksi perubahan atau pertukaran ciphertext."
+    ],
+    usage: "Kolom NIK, nama lengkap, dan alamat pasien.",
+    technical: "Format tersimpan memakai nonce 12 byte, ciphertext, dan tag GCM. Nomor rekam medis serta tanggal lahir tidak termasuk kolom yang dienkripsi oleh mekanisme ini."
+  },
+  "argon2id": {
+    title: "Argon2id",
+    purpose: "Mengubah kata sandi menjadi hash yang mahal untuk ditebak jika basis data bocor.",
+    flow: [
+      "Aplikasi membuat salt acak yang unik.",
+      "Argon2id memproses kata sandi dengan biaya komputasi dan memori tertentu.",
+      "Saat masuk, hash baru dibandingkan dengan hash tersimpan."
+    ],
+    usage: "Pendaftaran dan verifikasi kata sandi dokter.",
+    technical: "Konfigurasi saat ini: memori 16.384 KiB, 2 iterasi, paralelisme 2, salt 16 byte, dan hasil 32 byte. Ini hashing satu arah, bukan enkripsi yang dapat dibuka kembali."
+  },
+  "ed25519": {
+    title: "Ed25519",
+    purpose: "Membuktikan bahwa tantangan masuk atau transaksi audit ditandatangani oleh pemegang kunci yang benar.",
+    flow: [
+      "Peramban menandatangani tantangan atau isi transaksi dengan kunci privat dongle.",
+      "Server atau validator memeriksa tanda tangan memakai kunci publik.",
+      "Isi yang berubah setelah ditandatangani akan gagal diverifikasi."
+    ],
+    usage: "Tantangan USB Dongle, tanda tangan dokter, dan tanda tangan validator pada audit.",
+    technical: "Tanda tangan digital memberi bukti asal dan keutuhan pesan. Ed25519 tidak mengenkripsi pesan. Kunci privat dongle tidak dikirim ke server."
+  },
+  "dhash": {
+    title: "dHash 64-bit",
+    purpose: "Membandingkan pola terang-gelap gambar wajah secara ringan, bukan mengenali identitas seperti sistem pengenalan wajah penuh.",
+    flow: [
+      "Gambar diperkecil menjadi kisi 9 x 8 piksel abu-abu.",
+      "Aplikasi membandingkan terang dua piksel yang bersebelahan.",
+      "Jumlah bit berbeda dari contoh terdaftar dipakai sebagai ukuran kemiripan."
+    ],
+    usage: "Pemeriksaan webcam saat autentikasi dokter.",
+    technical: "Hash berisi 64 bit. MedVault membandingkan jarak Hamming; hasil ini peka pada komposisi gambar dan bukan bukti biometrik kuat dengan sendirinya."
+  },
+  "webauthn": {
+    title: "WebAuthn Passkey",
+    purpose: "Meminta autentikator perangkat, seperti Windows Hello atau Touch ID, membuktikan kepemilikan kredensial untuk situs ini.",
+    flow: [
+      "Server membuat tantangan autentikasi sekali pakai.",
+      "Perangkat meminta verifikasi lokal, misalnya PIN atau biometrik.",
+      "Peramban mengirim respons bertanda tangan untuk diverifikasi server."
+    ],
+    usage: "Faktor masuk opsional melalui Windows Hello atau Touch ID.",
+    technical: "Kredensial terikat pada origin dan relying party ID. WebAuthn adalah protokol autentikasi, bukan algoritma enkripsi data rekam medis."
+  },
+  "classical-pipeline": {
+    title: "Lapisan klasik: Vigenere dan transposisi kolom",
+    purpose: "Menunjukkan dua transformasi sandi klasik sebagai bahan pembelajaran sebelum enkripsi modern.",
+    flow: [
+      "Extended Vigenere menggeser karakter ASCII yang dapat dicetak dengan kunci.",
+      "Transposisi kolom menyusun ulang byte menurut urutan kunci.",
+      "Hasilnya diteruskan ke enkripsi modern."
+    ],
+    usage: "Lapisan demonstrasi awal untuk diagnosis dan resep rekam medis.",
+    technical: "Vigenere memakai rentang ASCII 32 sampai 126. Kedua lapisan klasik ini tidak aman jika dipakai sendiri dan bukan pengganti enkripsi modern."
+  },
+  "extended-vigenere": {
+    title: "Extended Vigenere",
+    purpose: "Menggeser karakter ASCII yang dapat dicetak menurut kunci sebagai contoh sandi klasik.",
+    flow: [
+      "Aplikasi membaca karakter satu per satu.",
+      "Karakter ASCII 32 sampai 126 digeser memakai karakter kunci.",
+      "Karakter di luar rentang tersebut dibiarkan agar teks UTF-8 tetap dapat dipulihkan."
+    ],
+    usage: "Langkah pertama lapisan klasik diagnosis dan resep.",
+    technical: "Operasi dilakukan pada 95 karakter ASCII yang dapat dicetak. Vigenere bukan perlindungan modern dan hanya digunakan untuk demonstrasi."
+  },
+  "columnar-transposition": {
+    title: "Columnar Transposition",
+    purpose: "Mengubah urutan byte agar terlihat bagaimana transposisi bekerja; nilai datanya tidak dienkripsi dengan aman oleh langkah ini.",
+    flow: [
+      "Byte disusun ke dalam baris dengan lebar sesuai kunci.",
+      "Kolom diurutkan berdasarkan kunci.",
+      "Byte dibaca kembali dalam urutan kolom tersebut."
+    ],
+    usage: "Langkah kedua lapisan klasik diagnosis dan resep.",
+    technical: "MedVault memakai kunci transposisi KLINIK. Langkah ini dapat dibalik dan tidak aman jika berdiri sendiri."
+  },
+  "hkdf-sha256": {
+    title: "HKDF-SHA256",
+    purpose: "Membuat kunci enkripsi turunan yang terpisah untuk konteks pasien atau berkas.",
+    flow: [
+      "Aplikasi mengambil rahasia akar yang sudah dikonfigurasi.",
+      "Salt dan konteks seperti nomor rekam medis dimasukkan ke proses derivasi.",
+      "HKDF menghasilkan kunci baru dengan panjang yang dibutuhkan."
+    ],
+    usage: "Menurunkan kunci per pasien untuk rekam medis dan kunci per berkas di Brankas.",
+    technical: "HKDF-SHA256 adalah fungsi derivasi kunci, bukan enkripsi. Konteks yang berbeda menghasilkan kunci turunan berbeda dari rahasia akar."
+  },
+  "xchacha20-poly1305": {
+    title: "XChaCha20-Poly1305",
+    purpose: "Mengenkripsi diagnosis dan resep sekaligus mendeteksi jika ciphertext diubah.",
+    flow: [
+      "Aplikasi memakai kunci turunan khusus pasien.",
+      "Hasil lapisan klasik dienkripsi dengan nonce acak.",
+      "Tag autentikasi diperiksa saat data dibuka; data yang berubah ditolak."
+    ],
+    usage: "Lapisan enkripsi modern untuk diagnosis dan resep rekam medis.",
+    technical: "AEAD dengan nonce 24 byte. Nomor rekam medis juga diikat sebagai data tambahan yang diautentikasi."
+  },
+  "chacha20-poly1305": {
+    title: "ChaCha20-Poly1305",
+    purpose: "Mengenkripsi berkas apa pun di Brankas dan memeriksa keutuhannya saat diunduh.",
+    flow: [
+      "Aplikasi menghitung sidik SHA-256 berkas asli.",
+      "Kunci khusus berkas dipakai untuk mengenkripsi data dalam potongan.",
+      "Saat unduh, setiap tag autentikasi dan sidik berkas diperiksa sebelum berkas dikirim."
+    ],
+    usage: "Enkripsi berkas yang diunggah ke Brankas File.",
+    technical: "Berkas diproses dalam potongan 64 KiB. ChaCha20 mengenkripsi, sedangkan Poly1305 menyediakan tag autentikasi."
+  },
+  "sha-256": {
+    title: "SHA-256",
+    purpose: "Membuat sidik berukuran tetap untuk mendeteksi apakah data berubah.",
+    flow: [
+      "Aplikasi membaca data yang akan diperiksa.",
+      "SHA-256 menghasilkan digest 256-bit.",
+      "Digest dihitung ulang kemudian dibandingkan dengan nilai yang disimpan atau ditautkan."
+    ],
+    usage: "Hash berkas asli dan pengaitan blok pada rantai audit.",
+    technical: "Hash bukan enkripsi dan tidak dapat dipakai untuk memulihkan isi asli. Kecocokan hash membantu mendeteksi perubahan, tetapi bukan bukti kerahasiaan."
+  },
+  "png-lsb": {
+    title: "Steganografi PNG LSB",
+    purpose: "Menyisipkan paket metadata watermark ke perubahan bit paling rendah pada kanal warna PNG.",
+    flow: [
+      "Aplikasi menyiapkan paket watermark yang sudah dikompresi dan diberi tag autentikasi.",
+      "Bit paket ditulis berurutan pada bit paling rendah kanal merah, hijau, dan biru.",
+      "Citra disimpan kembali sebagai PNG lossless agar bit watermark tetap ada."
+    ],
+    usage: "Penyisipan dan pemeriksaan watermark pada halaman Steganografi.",
+    technical: "Satu bit disisipkan per kanal RGB dan kanal alpha tidak diubah. Mengubah citra atau menyimpannya ke format lossy seperti JPEG dapat merusak watermark."
+  },
+  "zlib": {
+    title: "Kompresi zlib",
+    purpose: "Memperkecil JSON metadata agar paket watermark membutuhkan lebih sedikit ruang pada citra.",
+    flow: [
+      "JSON metadata diserialisasi.",
+      "Data dikompresi dengan zlib.",
+      "Data hasil kompresi diberi HMAC lalu dimasukkan ke paket watermark."
+    ],
+    usage: "Persiapan payload sebelum penyisipan PNG LSB.",
+    technical: "Kompresi tidak mengenkripsi data. Payload watermark yang berhasil diekstrak tetap dapat dibaca."
+  },
+  "hmac-sha256": {
+    title: "HMAC-SHA256",
+    purpose: "Memeriksa apakah payload watermark dibuat dengan kunci rahasia MedVault dan tidak berubah.",
+    flow: [
+      "Aplikasi menghitung HMAC atas data payload terkompresi dengan kunci rahasia.",
+      "Tag HMAC disimpan bersama payload di dalam citra.",
+      "Saat ekstraksi, tag dihitung ulang dan dibandingkan."
+    ],
+    usage: "Autentikasi dan pemeriksaan keutuhan payload watermark.",
+    technical: "HMAC memberi autentikasi dan integritas, bukan kerahasiaan. Payload tidak dienkripsi, sehingga siapa pun yang dapat mengekstraknya dapat membaca metadata."
+  },
+  "poa": {
+    title: "Proof-of-Authority (PoA)",
+    purpose: "Mengatur proses pengesahan blok audit oleh dokter dan layanan validator yang memiliki kunci terdaftar.",
+    flow: [
+      "Dokter menandatangani transaksi dengan kunci USB.",
+      "Validator memeriksa tanda tangan dokter, tautan blok, dan hash blok.",
+      "Validator menandatangani blok yang lolos, lalu aplikasi menyimpannya ke ledger."
+    ],
+    usage: "Pengesahan perubahan rekam medis, unggahan berkas, dan watermark.",
+    technical: "PoA adalah alur otorisasi dan validasi, bukan algoritma enkripsi atau jaringan blockchain publik. Tanda tangan memakai Ed25519 dan hash memakai SHA-256."
+  },
+  "telemetry": {
+    title: "Telemetri Glass-Box",
+    purpose: "Memperlihatkan urutan proses dan nilai teknis yang dicatat oleh API agar langkah aplikasi dapat dipelajari.",
+    flow: [
+      "API mengembalikan hasil dan rincian langkah yang memang dicatat.",
+      "Antarmuka menampilkan langkah terbaru lebih dahulu beserta nilai antaranya.",
+      "Penjelasan algoritma membantu membaca istilah, sedangkan JSON lengkap tetap tersedia untuk pemeriksaan teknis."
+    ],
+    usage: "Panel Detail proses dan halaman Telemetri.",
+    technical: "Telemetri adalah data observasi, bukan bukti mandiri bahwa hasil operasi benar. Verifikasi tetap dilakukan oleh kode dan status hasil API."
+  }
+};
 
 function hexToBytes(hex) {
   const clean = (hex || "").trim();
@@ -219,6 +410,9 @@ window.medvault = function medvault() {
     toast: { type: "ok", message: "" },
     telemetry: null,
     telemetryOpen: false,
+    algorithmHelp: { open: false, key: "", top: 12, left: 12 },
+    _algorithmHelpAnchor: null,
+    _algorithmHelpListenersBound: false,
     // The Glass-Box page is a separate document, so the last trace is mirrored
     // into sessionStorage and restored on load instead of being invented.
     telemetrySource: null,
@@ -282,6 +476,7 @@ window.medvault = function medvault() {
     recordOptions: [],
     recordOptionsLoading: true,
     recordOptionsError: "",
+    recordRouteNotice: "",
     recordSearch: {
       inspect: "",
       vault: "",
@@ -357,6 +552,7 @@ window.medvault = function medvault() {
       if (!idField) return;
 
       this.recordReferenceInputs[field] = reference;
+      if (field === "inspect") this.recordRouteNotice = "";
       const id = this.parseRecordRef(reference);
       this[idField] = id;
       if (id > 0) this.rememberRecord(id);
@@ -372,6 +568,7 @@ window.medvault = function medvault() {
       const idField = idFields[field];
       if (!idField) return;
       this.recordReferenceInputs[field] = "";
+      if (field === "inspect") this.recordRouteNotice = "";
       this[idField] = 0;
     },
 
@@ -490,6 +687,84 @@ window.medvault = function medvault() {
     tamperRecordId: 0,
 
     pending: null,
+
+    get algorithmHelpGuide() {
+      return ALGORITHM_GUIDES[this.algorithmHelp.key] || null;
+    },
+
+    algorithmHelpKey(value) {
+      const label = String(value || "").toLowerCase();
+      if (!label) return "";
+      if (label.includes("vigenere") && (label.includes("transposition") || label.includes("keyed-transposition"))) return "classical-pipeline";
+      if (label.includes("xchacha20-poly1305")) return "xchacha20-poly1305";
+      if (label.includes("chacha20-poly1305")) return "chacha20-poly1305";
+      if (label.includes("aes-256-gcm") || label.includes("aes256gcm")) return "aes-256-gcm";
+      if (label.includes("argon2id")) return "argon2id";
+      if (label.includes("ed25519")) return "ed25519";
+      if (label.includes("dhash")) return "dhash";
+      if (label.includes("webauthn") || label.includes("passkey")) return "webauthn";
+      if (label.includes("hkdf") && label.includes("sha256")) return "hkdf-sha256";
+      if (label.includes("vigenere")) return "extended-vigenere";
+      if (label.includes("transposition")) return "columnar-transposition";
+      if (label.includes("hmac")) return "hmac-sha256";
+      if (label.includes("zlib")) return "zlib";
+      if (label.includes("png") && (label.includes("lsb") || label.includes("steganografi"))) return "png-lsb";
+      if (label.includes("sha-256") || label.includes("sha256") || label.includes("hash")) return "sha-256";
+      if (label.includes("proof-of-authority") || label === "poa") return "poa";
+      if (label.includes("telemetry") || label.includes("telemetri")) return "telemetry";
+      return "";
+    },
+
+    openAlgorithmHelp(key, event) {
+      if (!ALGORITHM_GUIDES[key] || !event || !event.currentTarget) return;
+      if (this.algorithmHelp.open && this.algorithmHelp.key === key && this._algorithmHelpAnchor === event.currentTarget) {
+        this.closeAlgorithmHelp();
+        return;
+      }
+      this._algorithmHelpAnchor = event.currentTarget;
+      this.algorithmHelp.key = key;
+      this.algorithmHelp.open = true;
+      this.$nextTick(() => {
+        this.positionAlgorithmHelp();
+        const closeButton = document.querySelector("#mv-algorithm-help-popover [data-algorithm-help-close]");
+        if (closeButton) closeButton.focus({ preventScroll: true });
+      });
+    },
+
+    positionAlgorithmHelp() {
+      if (!this.algorithmHelp.open || !this._algorithmHelpAnchor || !this._algorithmHelpAnchor.isConnected) return;
+      const popover = document.getElementById("mv-algorithm-help-popover");
+      if (!popover) return;
+      const margin = 12;
+      const gap = 8;
+      const rect = this._algorithmHelpAnchor.getBoundingClientRect();
+      const width = popover.offsetWidth;
+      const height = popover.offsetHeight;
+      const maxLeft = Math.max(margin, window.innerWidth - width - margin);
+      const left = Math.min(maxLeft, Math.max(margin, rect.left + rect.width / 2 - width / 2));
+      let top = rect.bottom + gap;
+      if (top + height > window.innerHeight - margin) top = rect.top - height - gap;
+      top = Math.min(Math.max(margin, top), Math.max(margin, window.innerHeight - height - margin));
+      this.algorithmHelp.left = Math.round(left);
+      this.algorithmHelp.top = Math.round(top);
+    },
+
+    dismissAlgorithmHelpFromClick(event) {
+      if (!this.algorithmHelp.open) return;
+      const target = event.target;
+      const popover = document.getElementById("mv-algorithm-help-popover");
+      if (popover && popover.contains(target)) return;
+      if (this._algorithmHelpAnchor && this._algorithmHelpAnchor.contains(target)) return;
+      this.closeAlgorithmHelp();
+    },
+
+    closeAlgorithmHelp(restoreFocus = false) {
+      const anchor = this._algorithmHelpAnchor;
+      this.algorithmHelp.open = false;
+      this.algorithmHelp.key = "";
+      this._algorithmHelpAnchor = null;
+      if (restoreFocus && anchor && anchor.isConnected) anchor.focus({ preventScroll: true });
+    },
 
     get telemetryPretty() {
       if (!this.telemetry) {
@@ -828,6 +1103,11 @@ window.medvault = function medvault() {
       this.route = document.body.dataset.route || "gate";
       this.tab = this.route;
       this.setupAssetFallbacks();
+      if (!this._algorithmHelpListenersBound) {
+        this._algorithmHelpListenersBound = true;
+        window.addEventListener("resize", () => this.positionAlgorithmHelp(), { passive: true });
+        document.addEventListener("scroll", () => this.positionAlgorithmHelp(), { passive: true, capture: true });
+      }
       this.restoreTelemetry();
       if (!this._faceUnloadBound) {
         this._faceUnloadBound = true;
@@ -907,6 +1187,7 @@ window.medvault = function medvault() {
           tasks.push(this.loadAudit());
         }
         await Promise.all(tasks);
+        if (this.route === "records") await this.resolveRecordRoute();
       } catch (error) {
         this.notify(`Muat data: ${error.message || error}`, "error");
       }
@@ -2024,6 +2305,58 @@ window.medvault = function medvault() {
       }
     },
 
+    recordsForMRN(mrn) {
+      const target = String(mrn || "").trim().toLocaleUpperCase("id-ID");
+      if (!target) return [];
+      return this.recordOptions.filter((record) => {
+        const identity = this.recordPatient(record);
+        return String(identity.medical_record_number || "").trim().toLocaleUpperCase("id-ID") === target;
+      });
+    },
+
+    async resolveRecordRoute() {
+      let lookup = null;
+      try {
+        lookup = JSON.parse(sessionStorage.getItem(STEGO_LOOKUP_STORAGE_KEY) || "null");
+        sessionStorage.removeItem(STEGO_LOOKUP_STORAGE_KEY);
+      } catch (_) {
+        this.recordRouteNotice = "Pencarian dari watermark tidak dapat dipulihkan. Coba ekstrak kembali.";
+        return;
+      }
+      if (!lookup || typeof lookup !== "object") return;
+
+      const requestedID = Number(lookup.record_id);
+      if (Number.isSafeInteger(requestedID) && requestedID > 0) {
+        if (!this.recordOptions.some((record) => Number(record.id) === requestedID)) {
+          this.recordRouteNotice = "Rekam medis dari watermark tidak ditemukan.";
+          return;
+        }
+        this.setRecordReference("inspect", this.formatRecordRef(requestedID));
+        await this.inspectRecord();
+        this.recordRouteNotice = this.inspection
+          ? "Rekam medis dari watermark ditemukan dan dibuka."
+          : "Rekam medis ditemukan, tetapi detailnya gagal dibuka.";
+        return;
+      }
+
+      const requestedMRN = String(lookup.mrn || "").trim();
+      if (!requestedMRN) return;
+      this.clearRecordReferenceSelection("inspect");
+      this.recordSearch.inspect = requestedMRN;
+      const matches = this.recordsForMRN(requestedMRN);
+      if (matches.length === 1) {
+        this.setRecordReference("inspect", this.formatRecordRef(matches[0].id));
+        await this.inspectRecord();
+        this.recordRouteNotice = this.inspection
+          ? "Satu rekam medis cocok dengan nomor RM dari watermark dan telah dibuka."
+          : "Rekam medis ditemukan, tetapi detailnya gagal dibuka.";
+      } else if (matches.length > 1) {
+        this.recordRouteNotice = `Nomor RM cocok dengan ${matches.length} kunjungan. Pilih kunjungan yang sesuai, lalu buka rekam medis.`;
+      } else {
+        this.recordRouteNotice = "Tidak ditemukan rekam medis dengan nomor RM dari watermark.";
+      }
+    },
+
     // The last record id is kept locally so the vault, steganography, and audit
     // pages can prefill their forms after a full page navigation.
     rememberRecord(id) {
@@ -2435,6 +2768,54 @@ window.medvault = function medvault() {
         this.extracted = env.data;
         this.notify(env.message || "Watermark terverifikasi");
       });
+    },
+
+    async copyExtractedMRN() {
+      const mrn = String(this.extracted && this.extracted.payload && this.extracted.payload.mrn || "").trim();
+      if (!mrn) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(mrn);
+        } else {
+          const field = document.createElement("textarea");
+          field.value = mrn;
+          field.setAttribute("readonly", "");
+          field.style.position = "fixed";
+          field.style.opacity = "0";
+          document.body.appendChild(field);
+          field.select();
+          const copied = document.execCommand("copy");
+          field.remove();
+          if (!copied) throw new Error("clipboard unavailable");
+        }
+        this.notify("Nomor rekam medis disalin");
+      } catch (_) {
+        this.notify("Nomor rekam medis tidak dapat disalin.", "error");
+      }
+    },
+
+    openExtractedRecord() {
+      const mrn = String(this.extracted && this.extracted.payload && this.extracted.payload.mrn || "").trim();
+      if (!mrn) return;
+      if (this.recordOptionsError) {
+        this.notify(this.recordOptionsError, "error");
+        return;
+      }
+      const matches = this.recordsForMRN(mrn);
+      if (!matches.length) {
+        this.notify("Tidak ditemukan rekam medis dengan nomor RM dari watermark.", "error");
+        return;
+      }
+      const lookup = matches.length === 1
+        ? { record_id: Number(matches[0].id) }
+        : { mrn };
+      try {
+        sessionStorage.setItem(STEGO_LOOKUP_STORAGE_KEY, JSON.stringify(lookup));
+      } catch (_) {
+        this.notify("Pencarian tidak dapat disiapkan di peramban ini.", "error");
+        return;
+      }
+      window.location.assign("/records");
     },
 
     stegoImageUrl() {

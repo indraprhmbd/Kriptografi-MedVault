@@ -4,7 +4,7 @@
       <h2 class="mv-ui-title">Rekam medis</h2>
     </div>
     <div class="mv-page-actions">
-      <span class="mv-badge mv-badge-teal">XChaCha20-Poly1305</span>
+      <span class="mv-algorithm-help-wrap"><span class="mv-badge mv-badge-teal">XChaCha20-Poly1305</span><button type="button" class="mv-help-trigger" aria-label="Penjelasan XChaCha20-Poly1305" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'xchacha20-poly1305'" @click="openAlgorithmHelp('xchacha20-poly1305', $event)">?</button></span>
       <button type="button" class="mv-btn mv-btn-primary" @click="document.getElementById('record-diagnosis').focus()">Rekam baru</button>
     </div>
   </div>
@@ -62,6 +62,7 @@
             </template>
           </select>
           <button type="button" class="mv-btn mv-btn-ghost mv-btn-sm" :disabled="busy || !session || !inspectId" @click="inspectRecord()">Buka rekam medis</button>
+          <p x-show="recordRouteNotice" class="mv-note" role="status" x-text="recordRouteNotice"></p>
           <p x-show="recordOptionsLoading" class="mv-field-note">Memuat daftar rekam medis.</p>
           <p x-show="!recordOptionsLoading && recordOptionsError" class="mv-field-note" x-text="recordOptionsError"></p>
           <p x-show="!recordOptionsLoading && !recordOptionsError && !recordOptions.length" class="mv-field-note">Belum ada rekam medis.</p>
@@ -69,10 +70,10 @@
         </div>
 
         <div class="mv-pipeline">
-          <div class="mv-pipe-step"><span class="mv-pipe-num">1</span><br>Extended Vigenere</div>
-          <div class="mv-pipe-step"><span class="mv-pipe-num">2</span><br>Columnar Transposition</div>
-          <div class="mv-pipe-step"><span class="mv-pipe-num">3</span><br>HKDF-SHA256</div>
-          <div class="mv-pipe-step is-final"><span class="mv-pipe-num">4</span><br>XChaCha20-Poly1305</div>
+          <div class="mv-pipe-step"><span class="mv-pipe-num">1</span><br>Extended Vigenere <button type="button" class="mv-help-trigger" aria-label="Penjelasan Extended Vigenere" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'extended-vigenere'" @click="openAlgorithmHelp('extended-vigenere', $event)">?</button></div>
+          <div class="mv-pipe-step"><span class="mv-pipe-num">2</span><br>Columnar Transposition <button type="button" class="mv-help-trigger" aria-label="Penjelasan Columnar Transposition" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'columnar-transposition'" @click="openAlgorithmHelp('columnar-transposition', $event)">?</button></div>
+          <div class="mv-pipe-step"><span class="mv-pipe-num">3</span><br>HKDF-SHA256 <button type="button" class="mv-help-trigger" aria-label="Penjelasan HKDF-SHA256" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'hkdf-sha256'" @click="openAlgorithmHelp('hkdf-sha256', $event)">?</button></div>
+          <div class="mv-pipe-step is-final"><span class="mv-pipe-num">4</span><br>XChaCha20-Poly1305 <button type="button" class="mv-help-trigger" aria-label="Penjelasan XChaCha20-Poly1305" aria-controls="mv-algorithm-help-popover" :aria-expanded="algorithmHelp.open && algorithmHelp.key === 'xchacha20-poly1305'" @click="openAlgorithmHelp('xchacha20-poly1305', $event)">?</button></div>
         </div>
 
         <div x-show="inspection" class="mv-actions" style="margin-top:16px; padding-top:16px; border-top:1px solid var(--mv-ui-border);">
